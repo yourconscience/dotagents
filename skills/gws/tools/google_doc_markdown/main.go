@@ -308,21 +308,29 @@ func cleanExportedHTML(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer tempFile.Close()
+	tempPath := tempFile.Name()
+	keepFile := false
+	defer func() {
+		tempFile.Close()
+		if !keepFile {
+			os.Remove(tempPath)
+		}
+	}()
 
 	if err := html.Render(tempFile, doc); err != nil {
 		return "", err
 	}
+	keepFile = true
 
-	return tempFile.Name(), nil
+	return tempPath, nil
 }
 
 func convertHTMLToMarkdown(path string) (string, error) {
-	output, err := runCommand("pandoc", "-f", "html", "-t", "gfm", "--wrap=none", path)
+	stdout, _, err := runCommandOutput("pandoc", "-f", "html", "-t", "gfm", "--wrap=none", path)
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(string(stdout)), nil
 }
 
 func listComments(docID string) ([]driveComment, error) {
@@ -518,12 +526,11 @@ func runGWSJSON(service, resource, method string, params map[string]any) ([]byte
 }
 
 func runCommand(name string, args ...string) ([]byte, error) {
-	cmd := exec.Command(name, args...)
-	output, err := cmd.CombinedOutput()
+	stdout, _, err := runCommandOutput(name, args...)
 	if err != nil {
-		return nil, fmt.Errorf("%s %s: %w\n%s", name, strings.Join(args, " "), err, strings.TrimSpace(string(output)))
+		return nil, err
 	}
-	return output, nil
+	return stdout, nil
 }
 
 func runCommandOutput(name string, args ...string) ([]byte, []byte, error) {
