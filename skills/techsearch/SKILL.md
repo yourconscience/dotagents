@@ -75,12 +75,12 @@ Reddit blocks most search engines (Google exclusivity deal). Use a two-pronged a
 Use WebFetch to query the Arctic Shift API. Pick 2-3 subreddits most relevant to the topic.
 
 ```
-https://arctic-shift.photon-reddit.com/api/posts?subreddit=ClaudeAI,codex,claudecode&query=<topic>&limit=10&sort=score&after=2025-09-01
-https://arctic-shift.photon-reddit.com/api/posts?subreddit=ExperiencedDevs,devops,commandline&query=<topic>&limit=10&sort=score&after=2025-09-01
-https://arctic-shift.photon-reddit.com/api/comments?subreddit=ClaudeAI,codex&query=<topic>&limit=10&sort=score&after=2025-09-01
+https://arctic-shift.photon-reddit.com/api/posts?subreddit=ClaudeAI,codex,claudecode&query=<topic>&limit=10&sort=score&after=<YYYY-MM-DD from ~6 months ago>
+https://arctic-shift.photon-reddit.com/api/posts?subreddit=ExperiencedDevs,devops,commandline&query=<topic>&limit=10&sort=score&after=<YYYY-MM-DD from ~6 months ago>
+https://arctic-shift.photon-reddit.com/api/comments?subreddit=ClaudeAI,codex&query=<topic>&limit=10&sort=score&after=<YYYY-MM-DD from ~6 months ago>
 ```
 
-Adjust `after=` date to ~6 months ago. The API returns JSON with `title`, `score`, `num_comments`, `permalink`, `selftext`.
+Calculate the `after=` date dynamically to about 6 months ago relative to today. The API returns JSON with `title`, `score`, `num_comments`, `permalink`, `selftext`.
 
 For top-scoring results, fetch comments via:
 ```
