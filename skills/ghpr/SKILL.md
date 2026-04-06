@@ -1,11 +1,30 @@
 ---
 name: ghpr
-description: Inspect PR failed checks and unresolved review comments, fix issues, and push. Use when user says /ghpr, asks about PR status, CI failures, or review comments.
+description: Inspect PR failed checks and unresolved review comments, fix issues, push, and safely handle publish-via-PR workflows. Use when user says /ghpr, asks about PR status, CI failures, review comments, or wants changes published through a PR.
 ---
 
 # ghpr
 
 Inspect, fix, commit, push. One cycle per invocation.
+
+If no PR exists yet, create it first, then inspect it before any merge decision.
+
+## Creation and merge gate
+
+Use this flow when the user wants to publish changes through a PR, not just fix an existing one.
+
+1) If the current branch does not have a PR yet, create one first, for example with `gh pr create --fill`.
+2) After PR creation, immediately run the full inspect step.
+3) Never merge immediately after opening a PR.
+4) If there are unresolved bot threads, triage them first:
+   - valid: fix, push, reply, resolve
+   - wrong or low-value: resolve silently
+   - ambiguous: ask the user before merging
+5) If there are unresolved human threads, do not merge autonomously.
+6) Never merge into `main` or `master` without the user's explicit approval.
+7) Merge only when the inspect step is clean or the user explicitly accepts the remaining issues.
+
+Special case: if the remote base branch already has commits but the local work was created as an unrelated root commit, do not open a PR from that history directly. Create a fresh branch from the remote base branch, cherry-pick the local commit(s) onto it, then open a PR so the review has a normal merge base.
 
 ## Detect context
 
