@@ -21,7 +21,8 @@ Use this flow when the user wants to publish changes through a PR, not just fix 
    - wrong or low-value: resolve silently
    - ambiguous: ask the user before merging
 5) If there are unresolved human threads, do not merge autonomously.
-6) Merge only when the inspect step is clean or the user explicitly accepts the remaining issues.
+6) Never merge into `main` or `master` without the user's explicit approval.
+7) Merge only when the inspect step is clean or the user explicitly accepts the remaining issues.
 
 Special case: if the remote base branch already has commits but the local work was created as an unrelated root commit, do not open a PR from that history directly. Create a fresh branch from the remote base branch, replay the local commit(s) onto it, then open the PR so the review has a normal merge base.
 
@@ -93,16 +94,6 @@ git commit -m "fix: address PR review feedback"
 git push
 ```
 5) After push, re-run the inspect step to verify checks pass and threads are resolved.
-
-## Merged PR follow-up
-
-If the PR is already merged but unresolved bot threads remain:
-
-1) inspect the old bot threads
-2) classify them as valid, wrong, or ambiguous
-3) for valid findings, open a focused follow-up PR
-4) for wrong findings, resolve silently
-5) for ambiguous findings, ask the user before deciding whether to fix or ignore them
 
 ## Summary output
 
