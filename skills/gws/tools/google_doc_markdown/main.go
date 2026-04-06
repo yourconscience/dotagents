@@ -78,53 +78,60 @@ type driveCommentReply struct {
 }
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	docInput := flag.String("doc", "", "Google Doc URL or raw document ID")
 	outputPath := flag.String("output", "", "Output markdown path. Defaults to ./<doc-name>.comments.md")
 	flag.Parse()
 
 	if strings.TrimSpace(*docInput) == "" {
-		exitf("missing required --doc value")
+		return errors.New("missing required --doc value")
 	}
 
 	docID, err := parseDocID(*docInput)
 	if err != nil {
-		exitf("%v", err)
+		return err
 	}
 
 	if err := ensureGWSAuth(); err != nil {
-		exitf("%v", err)
+		return err
 	}
 
 	meta, err := getFileMetadata(docID)
 	if err != nil {
-		exitf("fetch file metadata: %v", err)
+		return fmt.Errorf("fetch file metadata: %w", err)
 	}
 
 	if meta.MimeType != "application/vnd.google-apps.document" {
-		exitf("file %s is not a Google Doc (mimeType=%s)", docID, meta.MimeType)
+		return fmt.Errorf("file %s is not a Google Doc (mimeType=%s)", docID, meta.MimeType)
 	}
 
 	htmlPath, err := exportDocHTML(docID)
 	if err != nil {
-		exitf("export doc HTML: %v", err)
+		return fmt.Errorf("export doc HTML: %w", err)
 	}
 	defer os.Remove(htmlPath)
 
 	cleanHTMLPath, err := cleanExportedHTML(htmlPath)
 	if err != nil {
-		exitf("clean exported HTML: %v", err)
+		return fmt.Errorf("clean exported HTML: %w", err)
 	}
 	defer os.Remove(cleanHTMLPath)
 
 	bodyMarkdown, err := convertHTMLToMarkdown(cleanHTMLPath)
 	if err != nil {
-		exitf("convert HTML to Markdown: %v", err)
+		return fmt.Errorf("convert HTML to Markdown: %w", err)
 	}
 	bodyMarkdown = normalizeMarkdown(bodyMarkdown)
 
 	comments, err := listComments(docID)
 	if err != nil {
-		exitf("fetch comments: %v", err)
+		return fmt.Errorf("fetch comments: %w", err)
 	}
 
 	finalMarkdown := buildMarkdown(meta, *docInput, bodyMarkdown, comments)
@@ -136,23 +143,24 @@ func main() {
 
 	if targetPath == "-" {
 		if _, err := os.Stdout.Write([]byte(finalMarkdown)); err != nil {
-			exitf("write stdout: %v", err)
+			return fmt.Errorf("write stdout: %w", err)
 		}
-		return
+		return nil
 	}
 
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
-		exitf("resolve output path: %v", err)
+		return fmt.Errorf("resolve output path: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
-		exitf("create output directory: %v", err)
+		return fmt.Errorf("create output directory: %w", err)
 	}
 	if err := os.WriteFile(absPath, []byte(finalMarkdown), 0o644); err != nil {
-		exitf("write output: %v", err)
+		return fmt.Errorf("write output: %w", err)
 	}
 
 	fmt.Printf("Saved Markdown with comments to %s\n", absPath)
+	return nil
 }
 
 func parseDocID(input string) (string, error) {
@@ -170,7 +178,7 @@ func parseDocID(input string) (string, error) {
 }
 
 func ensureGWSAuth() error {
-	statusOutput, err := runCommand("gws", "auth", "status")
+	statusOutput, _, err := runCommandOutput("gws", "auth", "status")
 	if err != nil {
 		return fmt.Errorf("gws auth status failed: %w", err)
 	}
@@ -502,11 +510,11 @@ func runGWSJSON(service, resource, method string, params map[string]any) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	output, err := runCommand("gws", service, resource, method, "--params", string(rawParams))
+	stdout, _, err := runCommandOutput("gws", service, resource, method, "--params", string(rawParams))
 	if err != nil {
 		return nil, err
 	}
-	return extractFirstJSONObject(output)
+	return extractFirstJSONObject(stdout)
 }
 
 func runCommand(name string, args ...string) ([]byte, error) {
@@ -516,6 +524,24 @@ func runCommand(name string, args ...string) ([]byte, error) {
 		return nil, fmt.Errorf("%s %s: %w\n%s", name, strings.Join(args, " "), err, strings.TrimSpace(string(output)))
 	}
 	return output, nil
+}
+
+func runCommandOutput(name string, args ...string) ([]byte, []byte, error) {
+	cmd := exec.Command(name, args...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return nil, nil, fmt.Errorf("%s %s: %w\n%s", name, strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
+		}
+		return nil, nil, fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+	}
+	if stderr.Len() > 0 {
+		fmt.Fprintln(os.Stderr, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.Bytes(), stderr.Bytes(), nil
 }
 
 func unmarshalFirstJSONObject(input []byte, dest any) error {
@@ -672,9 +698,4 @@ func attr(n *html.Node, key string) string {
 		}
 	}
 	return ""
-}
-
-func exitf(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
-	os.Exit(1)
 }
