@@ -13,7 +13,7 @@ If no PR exists yet, create it first, then inspect it before any merge decision.
 
 Use this flow when the user wants to publish changes through a PR, not just fix an existing one.
 
-1) If the current branch does not have a PR yet, create one before merging anything.
+1) If the current branch does not have a PR yet, create one first, for example with `gh pr create --fill`.
 2) After PR creation, immediately run the full inspect step.
 3) Never merge immediately after opening a PR.
 4) If there are unresolved bot threads, triage them first:
@@ -24,7 +24,7 @@ Use this flow when the user wants to publish changes through a PR, not just fix 
 6) Never merge into `main` or `master` without the user's explicit approval.
 7) Merge only when the inspect step is clean or the user explicitly accepts the remaining issues.
 
-Special case: if the remote base branch already has commits but the local work was created as an unrelated root commit, do not open a PR from that history directly. Create a fresh branch from the remote base branch, replay the local commit(s) onto it, then open the PR so the review has a normal merge base.
+Special case: if the remote base branch already has commits but the local work was created as an unrelated root commit, do not open a PR from that history directly. Create a fresh branch from the remote base branch, cherry-pick the local commit(s) onto it, then open a PR so the review has a normal merge base.
 
 ## Detect context
 
