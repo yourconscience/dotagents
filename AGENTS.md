@@ -54,6 +54,7 @@ Never include "Co-Authored-By" lines in commit messages or PR descriptions.
 Commit messages must be short single lines - no multi-line bodies unless explicitly requested.
 Use the user's configured git identity for all commits and pushes - never override git config.
 For PR work, check the user's existing comments and review state before taking autonomous action on review feedback.
+Never merge a PR into `main` or `master` without the user's explicit approval, even when you have permission to push directly.
 
 # Configuration
 When modifying config files, use targeted edits or patches.
