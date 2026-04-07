@@ -1,3 +1,8 @@
+# Contexts
+@~/.agents/contexts/profile.md
+@~/.agents/contexts/work_profile.md
+@~/.agents/contexts/claude-memory.md
+
 # Python
 Use uv for everything: uv run, uv pip, uv venv.
 
