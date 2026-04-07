@@ -22,7 +22,17 @@ Use the harness's available task or subagent delegation mechanism to fan out sea
 
 ### 1. X.com - power users
 
-Search for posts from these accounts about the topic. Group into batches of 3-4 per WebSearch query to stay efficient.
+Primary: use the local `twscrape` helper if it is available and authenticated. This is the best default for read-only X search.
+
+Quick check:
+
+```bash
+uv run --with twscrape python ~/.agents/skills/techsearch/tools/x_search.py doctor
+```
+
+Note: `doctor` only confirms the expected local DB path and whether the DB is readable. It does not prove that X auth is still valid.
+
+Search for posts from these accounts about the topic. Group into batches of 3-4 accounts per query to stay efficient.
 
 **Core list:**
 
@@ -39,66 +49,156 @@ Search for posts from these accounts about the topic. Group into batches of 3-4 
 | @karpathy | AI/ML, founder of Eureka Labs |
 | @fchollet | Keras creator, AI/ML |
 
-**Search pattern** - run these queries:
+**Search pattern** - run these queries through the helper first:
 
 ```
-site:x.com (from:banteg OR from:thorstenball OR from:thdxr) <topic>
-site:x.com (from:thsottiaux OR from:steipete OR from:trq212) <topic>
-site:x.com (from:ericzakariasson OR from:hardmaru OR from:karpathy OR from:fchollet) <topic>
+(from:banteg OR from:thorstenball OR from:thdxr) <topic>
+(from:thsottiaux OR from:steipete OR from:trq212) <topic>
+(from:ericzakariasson OR from:hardmaru OR from:karpathy OR from:fchollet) <topic>
 ```
 
 If results are thin, broaden with:
 ```
+<topic> (recommended OR "game changer" OR "switched to" OR "moved to" OR "best" OR "opinion")
+```
+
+Preferred helper usage:
+
+```bash
+uv run --with twscrape python ~/.agents/skills/techsearch/tools/x_search.py search --query '<query>' --limit 10 --product Latest
+```
+
+Guidance:
+- Start with `product=Latest` for fresh opinions. Retry with `product=Top` if the result set is noisy.
+- Prefer cookie-backed accounts over scripted password login.
+- `twscrape` stores account session state in the local DB, so you should not need to log in on every run.
+- Do not attempt repeated automated login loops if auth is broken. Stop and report that X auth needs refresh.
+- The helper stores account state beside the skill, usually at `~/Workspace/dotagents/skills/techsearch/x/accounts.db`.
+
+Fallback 1: Playwright with a saved authenticated browser state.
+
+- Use this when `twscrape` breaks due to X GraphQL or login changes.
+- Save auth in the gitignored skill-local path, for example `~/Workspace/dotagents/skills/techsearch/x/playwright/.auth/user.json`.
+- Reuse the saved state and open normal X search URLs such as:
+
+```text
+https://x.com/search?q=<encoded query>&src=typed_query&f=live
+https://x.com/search?q=<encoded query>&src=typed_query
+```
+
+Fallback 2: harness web search with `site:x.com`.
+
+```text
 site:x.com <topic> (recommended OR "game changer" OR "switched to" OR "moved to" OR "best" OR "opinion")
 ```
 
+Do not use `agent-twitter-client` as the default path for new work. It is a weak default compared with `twscrape` plus a Playwright fallback.
+
 ### 2. Hacker News
 
-Run these WebSearch queries:
+Primary: use the Algolia HN Search API for topic search. It is the best low-friction search interface for HN.
 
-```
-site:news.ycombinator.com <topic>
+Search:
+
+```text
+https://hn.algolia.com/api/v1/search?query=<topic>&tags=story&hitsPerPage=10
+https://hn.algolia.com/api/v1/search_by_date?query=<topic>&tags=story&hitsPerPage=10
 ```
 
-For top results, fetch the HN thread via WebFetch to extract top comments and sentiment. Use the Algolia API when useful:
+Guidance:
+- Use `search` first for higher-signal results.
+- Use `search_by_date` if recency matters or the first search looks stale.
+- Prefer stories with meaningful discussion volume.
+- Extract `title`, `points`, `num_comments`, `created_at`, `url`, and `objectID`.
 
+Read threads:
+
+```text
+https://news.ycombinator.com/item?id=<objectID>
 ```
-https://hn.algolia.com/api/v1/search?query=<topic>&tags=story&hitsPerPage=5
+
+- For the best candidate stories, fetch the actual HN thread page to extract top comments and overall sentiment.
+
+Fallback: official HN Firebase API.
+
+- Use this when Algolia looks stale, misses a very recent post, or you already know an exact item ID.
+- Firebase is not a practical primary search API for topical queries.
+
+```text
+https://hacker-news.firebaseio.com/v0/topstories.json
+https://hacker-news.firebaseio.com/v0/newstories.json
+https://hacker-news.firebaseio.com/v0/askstories.json
+https://hacker-news.firebaseio.com/v0/showstories.json
+https://hacker-news.firebaseio.com/v0/item/<id>.json
+```
+
+Browser fallback:
+
+```text
+https://news.ycombinator.com/news
+https://news.ycombinator.com/newest
+https://news.ycombinator.com/ask
+https://news.ycombinator.com/show
 ```
 
 ### 3. Reddit - targeted subreddits
 
-Reddit blocks most search engines (Google exclusivity deal). Use a two-pronged approach:
+Primary: use Reddit JSON endpoints directly. This is the lowest-friction default and avoids dependence on third-party archives.
 
-**Primary: Arctic Shift API** (searches all Reddit posts/comments historically)
+Search:
 
-Use WebFetch to query the Arctic Shift API. Pick 2-3 subreddits most relevant to the topic.
-
-```
-https://arctic-shift.photon-reddit.com/api/posts?subreddit=ClaudeAI,codex,claudecode&query=<topic>&limit=10&sort=score&after=<YYYY-MM-DD from ~6 months ago>
-https://arctic-shift.photon-reddit.com/api/posts?subreddit=ExperiencedDevs,devops,commandline&query=<topic>&limit=10&sort=score&after=<YYYY-MM-DD from ~6 months ago>
-https://arctic-shift.photon-reddit.com/api/comments?subreddit=ClaudeAI,codex&query=<topic>&limit=10&sort=score&after=<YYYY-MM-DD from ~6 months ago>
+```text
+https://www.reddit.com/r/<subreddit>/search.json?q=<topic>&restrict_sr=1&sort=relevance&t=year&limit=10
+https://www.reddit.com/search.json?q=<topic>%20subreddit:<subreddit>&sort=relevance&t=year&limit=10
 ```
 
-Calculate the `after=` date dynamically to about 6 months ago relative to today. The API returns JSON with `title`, `score`, `num_comments`, `permalink`, `selftext`.
+Read threads:
 
-For top-scoring results, fetch comments via:
-```
-https://arctic-shift.photon-reddit.com/api/comments?link_id=t3_<post_id>&limit=20&sort=score
-```
-
-**Fallback: Google site:reddit.com** (still indexed by Google)
-
-```
-site:reddit.com (r/ExperiencedDevs OR r/codex OR r/claudecode OR r/devops) <topic>
-site:reddit.com (r/MachineLearning OR r/LocalLLaMA OR r/neovim) <topic>
-site:reddit.com (r/commandline OR r/selfhosted OR r/ClaudeAI OR r/ChatGPTPro) <topic>
+```text
+https://www.reddit.com<permalink>.json
 ```
 
-**Fallback 2: PullPush API** (if Arctic Shift is down)
+Important:
+- Prefer `.json` endpoints over HTML Reddit pages.
+- Reddit HTML search pages may trigger verification or JS interstitials.
+- Restrict to 2-3 relevant subreddits instead of searching everything.
+
+Fallback 1: Arctic Shift.
+
+- Use Arctic Shift when Reddit search results are thin, when you want broader historical coverage, or when you need comment-level search.
+- Use the documented `/search` endpoints.
+
+```text
+https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=ClaudeAI,codex,claudecode&query=<topic>&limit=10&sort=desc&after=6months
+https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=ExperiencedDevs,devops,commandline&query=<topic>&limit=10&sort=desc&after=6months
+https://arctic-shift.photon-reddit.com/api/comments/search?subreddit=ClaudeAI,codex&body=<topic>&limit=10&sort=desc&after=6months
+https://arctic-shift.photon-reddit.com/api/comments/tree?link_id=t3_<post_id>&limit=200
 ```
-https://api.pullpush.io/reddit/search/submission/?q=<topic>&subreddit=ClaudeAI,codex&size=10&sort=score&after=1727740800
+
+Arctic Shift caveats:
+- No uptime or performance guarantees.
+- Some queries may time out.
+- Very recent post scores and comment counts can lag.
+
+Fallback 2: harness web search with `site:reddit.com`.
+
+```text
+site:reddit.com/r/ExperiencedDevs <topic>
+site:reddit.com/r/codex <topic>
+site:reddit.com/r/claudecode <topic>
+site:reddit.com/r/devops <topic>
+site:reddit.com/r/MachineLearning <topic>
+site:reddit.com/r/LocalLLaMA <topic>
+site:reddit.com/r/neovim <topic>
+site:reddit.com/r/commandline <topic>
+site:reddit.com/r/selfhosted <topic>
+site:reddit.com/r/ClaudeAI <topic>
+site:reddit.com/r/ChatGPTPro <topic>
 ```
+
+- Use the harness search tool if available.
+- Do not fetch Google HTML pages directly.
+- Do not rely on PullPush as a standard fallback unless you verify a live endpoint first in the current environment.
 
 **Target subreddits:**
 
@@ -176,7 +276,7 @@ Key recommendations that emerged, if any.
 - Prefer recent results (last 6 months) over old ones.
 - If a source has no relevant results, say so briefly rather than omitting it.
 - Do NOT fabricate quotes or links. If WebSearch returns nothing for a query, report that.
-- Run searches in parallel (multiple WebSearch calls at once) for speed.
-- For X.com results that look interesting but lack context, use WebFetch to get the full post.
-- Cap total WebSearch calls at ~12 to avoid being slow. Prioritize breadth over depth.
+- Run searches in parallel for speed: API queries, helper calls, or WebSearch depending on source.
+- For X.com results that need more context, prefer the helper payload first. Use WebFetch only as a best-effort fallback because generic fetchers may fail on X pages.
+- Cap total search calls at about 12-15 to avoid being slow. Prioritize breadth over depth.
 - End with a Confidence indicator so the user knows how much signal was found.
