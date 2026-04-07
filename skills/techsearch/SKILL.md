@@ -71,13 +71,14 @@ uv run --with twscrape python ~/.agents/skills/techsearch/tools/x_search.py sear
 Guidance:
 - Start with `product=Latest` for fresh opinions. Retry with `product=Top` if the result set is noisy.
 - Prefer cookie-backed accounts over scripted password login.
+- `twscrape` stores account session state in the local DB, so you should not need to log in on every run.
 - Do not attempt repeated automated login loops if auth is broken. Stop and report that X auth needs refresh.
-- The helper stores account state in `~/Workspace/techsearch/x/accounts.db` by default.
+- The helper stores account state beside the skill, usually at `~/Workspace/dotagents/skills/techsearch/x/accounts.db`.
 
 Fallback 1: Playwright with a saved authenticated browser state.
 
 - Use this when `twscrape` breaks due to X GraphQL or login changes.
-- Save auth outside git, for example under `~/Workspace/techsearch/x/playwright/.auth/user.json`.
+- Save auth in the gitignored skill-local path, for example `~/Workspace/dotagents/skills/techsearch/x/playwright/.auth/user.json`.
 - Reuse the saved state and open normal X search URLs such as:
 
 ```text
