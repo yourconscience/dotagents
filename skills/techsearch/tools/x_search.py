@@ -14,8 +14,10 @@ from typing import Any
 from twscrape import API, gather
 
 
+SKILL_DIR = Path(__file__).resolve().parent.parent
+
 DEFAULT_DB = Path(
-    os.environ.get("TECHSEARCH_X_DB", "~/Workspace/techsearch/x/accounts.db")
+    os.environ.get("TECHSEARCH_X_DB", str(SKILL_DIR / "x" / "accounts.db"))
 ).expanduser()
 
 
@@ -111,14 +113,15 @@ def doctor_payload(db_path: Path) -> dict[str, Any]:
         ),
         "setup_notes": [
             "This helper expects a twscrape accounts database.",
-            "Default location: ~/Workspace/techsearch/x/accounts.db",
+            f"Default location: {DEFAULT_DB}",
             "Prefer cookie-backed accounts over repeated scripted logins.",
             "The doctor command only validates local DB presence and readability. It does not verify live X auth.",
+            "twscrape stores session state in the DB so you should not need to log in on every run.",
             "Refresh auth manually when X starts returning login or rate-limit failures.",
         ],
         "twscrape_add_accounts_example": (
-            "twscrape --db ~/Workspace/techsearch/x/accounts.db add_accounts "
-            "~/Workspace/techsearch/x/accounts.txt username:password:email:email_password:_:cookies"
+            f"twscrape --db {DEFAULT_DB} add_accounts "
+            f"{SKILL_DIR / 'x' / 'accounts.txt'} username:password:email:email_password:_:cookies"
         ),
     }
 
@@ -127,9 +130,7 @@ async def run_search(
     db_path: Path, query: str, limit: int, product: str
 ) -> list[dict[str, Any]]:
     api = API(str(db_path), raise_when_no_account=True)
-    kwargs: dict[str, Any] = {"limit": limit}
-    if product != "Latest":
-        kwargs["kv"] = {"product": product}
+    kwargs: dict[str, Any] = {"limit": limit, "kv": {"product": product}}
     tweets = await gather(api.search(query, **kwargs))
     return [add_tweet_url(load_payload(tweet)) for tweet in tweets]
 
