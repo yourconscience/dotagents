@@ -280,3 +280,97 @@ Key recommendations that emerged, if any.
 - For X.com results that need more context, prefer the helper payload first. Use WebFetch only as a best-effort fallback because generic fetchers may fail on X pages.
 - Cap total search calls at about 12-15 to avoid being slow. Prioritize breadth over depth.
 - End with a Confidence indicator so the user knows how much signal was found.
+
+## GitHub Repo Triage
+
+Use this when the user is comparing or vetting candidate GitHub repos to try or read next. Do not use it for general opinion pulse work. This mode is a best-effort heuristic filter, not an audit, not a score, and not a dependency or security analyzer.
+
+### When to invoke
+
+- The user has a topic and wants a shortlist of repos worth checking next.
+- The user already has a candidate repo list and wants issue-surface triage.
+- The user wants a handoff from discovery into repo-by-repo vetting.
+
+### Modes
+
+1. Topic -> shortlist
+
+- Use this for discovery only. It keeps the GitHub search relevance order and fetches metadata only.
+- Run from the tool directory:
+
+```bash
+cd ~/Workspace/dotagents/skills/techsearch/tools/repo_triage
+go run . --topic "rust terminal multiplexer"
+```
+
+2. Repos list -> triage
+
+- Use this when the user already has concrete candidates.
+- Full mode fetches metadata, release/default-branch/security signals, and top open issues by reaction count.
+
+```bash
+cd ~/Workspace/dotagents/skills/techsearch/tools/repo_triage
+go run . --repos tmux/tmux,zellij-org/zellij,ghostty-org/ghostty
+```
+
+- Use `--light` when you only want a fast metadata pass and will inspect issues later.
+
+```bash
+cd ~/Workspace/dotagents/skills/techsearch/tools/repo_triage
+go run . --repos tmux/tmux,zellij-org/zellij --light
+```
+
+3. Handoff hint
+
+- After topic mode, give the user or next agent a concrete follow-up command with the strongest candidates:
+
+```bash
+cd ~/Workspace/dotagents/skills/techsearch/tools/repo_triage
+go run . --repos owner/a,owner/b,owner/c
+```
+
+- If the user wants a reusable binary:
+
+```bash
+cd ~/Workspace/dotagents/skills/techsearch/tools/repo_triage
+go build -o repo_triage .
+./repo_triage --repos owner/a,owner/b
+```
+
+### Output JSON
+
+The tool prints one JSON object to stdout:
+
+- `mode`: `shortlist` or `triage`
+- `query`: the topic string or normalized repo slug list
+- `repos[]`: per-repo signals
+- `errors[]`: per-repo fetch failures without failing the whole run
+
+Key repo fields:
+
+- `last_push`, `last_commit_date`, `last_release`: maintenance freshness
+- `commit_last_30d`, `commit_last_60d`, `commit_last_180d`: soft activity flags
+- `top_issues[]`: highest-reaction open issues with title, reactions, age, URL, and short snippet
+- `friction_keywords[]`: matched issue-title smells such as `install`, `setup`, `crash`, `data loss`, `m1`
+- `security_policy`: whether a `SECURITY.md` policy was found in common GitHub locations
+- `vibe` and `vibe_reason`: soft label only, meant to help sorting, not to replace judgment
+
+Interpretation guidance:
+
+- `worth-trying`: active and comparatively clean top-issue surface
+- `maybe`: some healthy signals, but notable friction or weaker maintenance evidence
+- `avoid-for-now`: archived, stale, or too many strong unresolved complaints
+- `mixed-signals`: thin or partial data, or metadata-only runs
+
+### Render Instructions
+
+When presenting results to the user:
+
+- Bucket repos into `Worth trying`, `Maybe`, and `Avoid for now`.
+- If all outputs are thin or partial, keep a `Mixed signals` bucket instead of forcing confidence.
+- Include a compact comparison table with: repo, stars, last push, last release, open issues, friction keywords, vibe.
+- Follow with short per-repo notes:
+  - 1 sentence on maintenance posture
+  - 1 sentence on the top issue smells or absence of them
+  - 1 direct link to the most useful repo or issue entry
+- Surface raw signals first. Do not turn the vibe into a numeric score.
