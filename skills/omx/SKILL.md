@@ -5,7 +5,7 @@ description: Delegate substantial coding, review, or research work to a Codex (G
 
 # omx
 
-Spawn a Codex agent in a dedicated cmux workspace, let it work in parallel with Claude Code, poll status via `omx hud --json`, and inspect changes via `git diff`.
+Spawn a Codex agent as a surface tab next to Claude in the same cmux pane, let it work in parallel with Claude Code, poll status via `omx hud --json`, and inspect changes via `git diff`.
 
 ## When to use
 
@@ -27,43 +27,74 @@ omx doctor 2>&1 | tail -20   # sanity-check install health
 
 If `omx doctor` reports missing pieces, run `omx setup` (it installs skills, prompts, MCP servers, and scope-specific AGENTS.md into `~/.codex/`).
 
-## Isolation: dedicated codex workspace
+## Isolation: surface tab next to Claude (NOT a new workspace)
 
-The user's Claude Code TUI must stay full-size. Do NOT split Claude's pane. Instead, spawn codex into a dedicated cmux workspace so it lives on its own sidebar tab.
+The user's Claude Code TUI must stay full-size. Do NOT split Claude's pane, and do NOT create a new workspace. Instead, spawn a new SURFACE TAB inside Claude's current pane. Surfaces are tab-bar entries within a pane; switching tabs swaps the visible terminal without resizing anything, so neither Claude nor codex shrinks.
 
 Layout model:
 - `window > workspace > pane > surface`
-- Each workspace is a sidebar tab. Switching workspaces hides the other entirely, so panes in workspace "codex" never shrink the Claude TUI in workspace "hb" (or wherever Claude is).
-- Multiple codex sessions become splits or surface tabs inside the single "codex" workspace.
+- A surface is a tab inside a pane. Claude Code is running in a surface right now; adding a sibling surface to the same pane just creates a tab next to it.
+- Spawning a new workspace is the WRONG move here: `cmux omx` (the wrapper) forces a tmux-like env that makes OMX auto-attach `omx hud --watch` as a split, and under the wrapper the split can leak into the caller's workspace and shrink Claude. Use plain `omx`, not `cmux omx`, and keep the layout flat.
 
-### Reuse or create the codex workspace
+### Identify Claude's current pane and add a codex tab
 
-```bash
-CODEX_WS=$(cmux list-workspaces 2>&1 | awk '/codex/ {print $2; exit}')
-if [ -z "$CODEX_WS" ]; then
-  cmux new-workspace --name codex --cwd "$(pwd)"
-  CODEX_WS=$(cmux list-workspaces 2>&1 | awk '/codex/ {print $2; exit}')
-fi
-echo "codex workspace: $CODEX_WS"
-```
-
-First launch creates the workspace; subsequent launches reuse it.
-
-### Add a second (or third) codex session inside that workspace
-
-Use surfaces (tabs within a pane) for multiple codex sessions in one workspace. Surfaces are free: they do not shrink each other.
+Claude knows its own surface from `CMUX_SURFACE_ID` env var. Derive the pane from `cmux tree`:
 
 ```bash
-# Find the first pane in the codex workspace:
-CODEX_PANE=$(cmux tree 2>&1 | awk -v ws="$CODEX_WS" '
-  $0 ~ ws {in_ws=1; next}
-  in_ws && /pane pane:/ {match($0, /pane:[0-9]+/); print substr($0, RSTART, RLENGTH); exit}
+CLAUDE_SURFACE="${CMUX_SURFACE_ID:-surface:20}"
+CLAUDE_PANE=$(cmux tree 2>&1 | awk -v s="$CLAUDE_SURFACE" '
+  /pane pane:/ {
+    match($0, /pane:[0-9]+/); p = substr($0, RSTART, RLENGTH)
+  }
+  $0 ~ s {print p; exit}
 ')
-# Spawn a new terminal surface (tab) in that pane:
-cmux new-surface --pane "$CODEX_PANE" --type terminal
+CODEX_SURFACE=$(cmux new-surface --pane "$CLAUDE_PANE" --type terminal 2>&1 | awk '{print $2}')
+CODEX_WS=$(cmux tree 2>&1 | awk -v s="$CODEX_SURFACE" '
+  /workspace workspace:/ {match($0, /workspace:[0-9]+/); w = substr($0, RSTART, RLENGTH)}
+  $0 ~ s {print w; exit}
+')
+echo "codex tab: $CODEX_SURFACE in $CODEX_WS (next to claude in $CLAUDE_PANE)"
 ```
 
-If the user explicitly wants side-by-side visibility (not tabs), use `cmux new-pane --workspace "$CODEX_WS" --direction right` instead.
+Every `cmux send` / `cmux capture-pane` against the codex surface MUST pass both `--workspace "$CODEX_WS"` and `--surface "$CODEX_SURFACE"` — cmux requires the workspace context for non-focused surfaces.
+
+### Register the session in the local registry
+
+Write one JSON line per spawned surface to `/tmp/omx-sessions.jsonl` so Claude can list, report, close, or resume sessions later without re-deriving anything. Do this immediately after `cmux new-surface`:
+
+```bash
+OMX_TASK_LABEL="${OMX_TASK_LABEL:-codex task}"
+OMX_START_TS=$(date +%s)
+OMX_CWD=$(pwd)
+OMX_SHA_BEFORE=$(git -C "$OMX_CWD" rev-parse HEAD 2>/dev/null || echo "")
+jq -cn \
+  --arg ts "$OMX_START_TS" \
+  --arg ws "$CODEX_WS" \
+  --arg sf "$CODEX_SURFACE" \
+  --arg pn "$CLAUDE_PANE" \
+  --arg label "$OMX_TASK_LABEL" \
+  --arg cwd "$OMX_CWD" \
+  --arg prompt "${PROMPT_FILE:-}" \
+  --arg sha "$OMX_SHA_BEFORE" \
+  '{start: $ts|tonumber, workspace: $ws, surface: $sf, pane: $pn, label: $label, cwd: $cwd, prompt_file: $prompt, sha_before: $sha}' \
+  >> /tmp/omx-sessions.jsonl
+```
+
+The registry is the single source of truth for the "Session lifecycle" section below. Treat it as append-only during a session, prune stale entries on explicit close.
+
+### Git identity for commits made by codex
+
+Commits codex produces inherit `GIT_AUTHOR_*` / `GIT_COMMITTER_*` from the shell via `~/.zshrc`, where those vars are `export`ed globally (same identity used by `cc`, `cx`, `oc`). No per-launch env wiring is needed: as long as the codex surface is a zsh shell spawned from a normal login shell, `git commit` inside codex signs with the user's identity automatically. If you need to verify: `cmux send --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" 'echo "$GIT_AUTHOR_EMAIL"'`.
+
+### Multiple concurrent codex sessions
+
+Each additional codex session is another `cmux new-surface --pane "$CLAUDE_PANE" --type terminal` call — just another tab in the same tab bar. Tabs are free, they do not resize each other.
+
+### Do NOT use `cmux omx` — use plain `omx`
+
+`cmux omx` wraps OMX in a tmux shim so OMX thinks it is inside tmux. Per OMX help: *"HUD auto-attaches only when already inside tmux"*. Under the shim, HUD auto-attach spawns a second surface (`omx hud --watch`), and that spawn can leak into the wrong workspace and shrink Claude's pane. It is also the root cause of `omx team` workers dying (shim does not implement `show-options`).
+
+Plain `omx` detects it is not in tmux, skips HUD auto-attach, and stays in a single surface. Poll the HUD manually from Claude's side via `omx hud --json` when needed.
 
 ## Launch a codex task
 
@@ -79,19 +110,20 @@ EOF
 Then send it into the target codex surface. The identifying surface is captured from `cmux new-surface` output (or the initial surface of the workspace). Replace `surface:NN` below.
 
 ```bash
-cmux send --surface surface:NN "cd $(pwd) && cmux omx --high \"\$(cat $PROMPT_FILE)\""
+cmux send --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" "cd $(pwd) && omx --yolo --high \"\$(cat $PROMPT_FILE)\""
+cmux send-key --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" Enter
 ```
 
 ### Mode cheat sheet
 
 | Need | Command | Behavior |
 |---|---|---|
-| Safe review/research | `cmux omx --high "..."` | interactive codex, default sandbox (read+approve) |
-| Let it write files, no approval prompts | `cmux omx --yolo --high "..."` | yolo: write without asking, sandboxed cwd |
+| Safe review/research | `omx --high "..."` | interactive codex, default sandbox (read+approve) |
+| Let it write files, no approval prompts | `omx --yolo --high "..."` | yolo: write without asking, sandboxed cwd |
 | Heavy reasoning | add `--xhigh` | max reasoning effort |
-| Full bypass, trusted task | `cmux omx --madmax --high "..."` | bypass approvals AND sandbox - use only on trusted prompts in throwaway dirs |
-| Resume previous session | `cmux omx resume` | picks from prior interactive sessions |
-| Non-interactive one-shot | `cmux omx exec --yolo --high "..."` | headless, returns when done |
+| Full bypass, trusted task | `omx --madmax --high "..."` | bypass approvals AND sandbox - use only on trusted prompts in throwaway dirs |
+| Resume previous session | `omx resume` | picks from prior interactive sessions |
+| Non-interactive one-shot | `omx exec --yolo --high "..."` | headless, returns when done |
 
 Use `--high` as a near-default: GPT-5 is strong enough that the extra cost is usually worth it. Escalate to `--xhigh` for ambiguous design/debug work.
 
@@ -173,33 +205,107 @@ Three complementary views:
 
 Cross-check all three before claiming "done". The HUD can show `last_activity` old even when the agent is mid-turn (buffered output).
 
-## Wrap up a session
+### Tell "stuck" apart from "idle post-task"
+
+Do NOT assume codex is stuck just because it stopped producing output. These three states look similar from the outside but mean different things:
+
+| State | HUD signal | Pane signal | Action |
+|---|---|---|---|
+| Actively working | `last_activity` within last 60s, `turn_count` increasing between polls | streamed text, spinner, `• Working (Nm Ns ...)` | wait |
+| Idle post-task (done) | `last_activity` many minutes old, `turn_count` stable, or hud `null` if session was closed | prompt shows `› Summarize recent commits` placeholder, `gpt-5.4 high · N% left` footer, NO spinner, Stop hook already ran in the transcript above | task is COMPLETE, codex is waiting for next user input. Read the transcript, report results, close the surface or leave it for resume |
+| Genuinely stuck | `last_activity` minutes old, `turn_count` stable, pane has a spinner or a half-printed command, no Stop hook in transcript | spinner that never advances, or unfinished `• Ran ...` line | capture 80+ lines of scrollback, look for the last tool call. If it is waiting on a prompt (y/n), send the answer. Otherwise ^C twice and retry. |
+
+The `› Summarize recent commits` line is codex's placeholder suggestion at the idle prompt, not a running task. If you see it, codex is done.
+
+## Session lifecycle
+
+All lifecycle operations read `/tmp/omx-sessions.jsonl`. The registry is the single source of truth — never guess surfaces from `cmux tree` alone.
+
+### List active sessions
 
 ```bash
-# interactively: user kills it, or
-cmux send-key --surface surface:NN C-c
-cmux send-key --surface surface:NN C-c        # second ^C exits codex cleanly
-# close the surface if the tab should go away:
-cmux close-surface --surface surface:NN
+jq -r '"\(.surface)\t\(.workspace)\t\(.label)\t\(.cwd)\t\(.start|todate)"' /tmp/omx-sessions.jsonl 2>/dev/null \
+  | column -t -s $'\t'
 ```
 
-Leave the `codex` workspace alive so the next launch reuses it. Only `cmux close-workspace` if the user explicitly asks.
+### Report what a session produced
+
+For the codex session identified by `$CODEX_SURFACE`, show commits since launch, working-tree diff, last HUD state, and a pane tail. This is the "share status about what was made" view Claude should present to the user before closing.
+
+```bash
+ENTRY=$(jq -c --arg sf "$CODEX_SURFACE" 'select(.surface == $sf)' /tmp/omx-sessions.jsonl | tail -1)
+CWD=$(echo "$ENTRY" | jq -r '.cwd')
+SHA_BEFORE=$(echo "$ENTRY" | jq -r '.sha_before')
+LABEL=$(echo "$ENTRY" | jq -r '.label')
+WS=$(echo "$ENTRY" | jq -r '.workspace')
+
+echo "== $LABEL ($CODEX_SURFACE in $WS, cwd $CWD) =="
+if [ -n "$SHA_BEFORE" ]; then
+  echo "-- commits since launch --"
+  git -C "$CWD" log --oneline "$SHA_BEFORE..HEAD" 2>/dev/null || echo "(no new commits)"
+fi
+echo "-- working tree --"
+git -C "$CWD" status -sb
+git -C "$CWD" diff --stat
+echo "-- HUD --"
+omx hud --json 2>/dev/null | jq '{turns: .hudNotify.turn_count, last_activity: .metrics.last_activity, last_output: (.hudNotify.last_agent_output // "" | .[0:200])}'
+echo "-- pane tail --"
+cmux capture-pane --workspace "$WS" --surface "$CODEX_SURFACE" --lines 40
+```
+
+### Close a session explicitly
+
+Closing is a two-step: quit codex cleanly, then drop the surface and the registry entry. Do NOT close-surface without sending `^C ^C` first, or codex can leave a half-flushed session file in `~/.codex/sessions/`.
+
+```bash
+ENTRY=$(jq -c --arg sf "$CODEX_SURFACE" 'select(.surface == $sf)' /tmp/omx-sessions.jsonl | tail -1)
+WS=$(echo "$ENTRY" | jq -r '.workspace')
+
+cmux send-key --workspace "$WS" --surface "$CODEX_SURFACE" C-c
+cmux send-key --workspace "$WS" --surface "$CODEX_SURFACE" C-c
+sleep 1
+cmux close-surface --workspace "$WS" --surface "$CODEX_SURFACE"
+
+# drop the entry from the registry
+jq -c --arg sf "$CODEX_SURFACE" 'select(.surface != $sf)' /tmp/omx-sessions.jsonl > /tmp/omx-sessions.jsonl.tmp \
+  && mv /tmp/omx-sessions.jsonl.tmp /tmp/omx-sessions.jsonl
+```
+
+If the user wants to reuse the tab for a follow-up, skip the close step and use "Resume" below instead.
+
+### Resume a session (send more instructions)
+
+Two flavors depending on whether codex is still running in the surface or has exited:
+
+**Codex still running (idle post-task at the `›` prompt)** — just type a new turn:
+
+```bash
+ENTRY=$(jq -c --arg sf "$CODEX_SURFACE" 'select(.surface == $sf)' /tmp/omx-sessions.jsonl | tail -1)
+WS=$(echo "$ENTRY" | jq -r '.workspace')
+FOLLOWUP_FILE=$(mktemp /tmp/codex-followup.XXXXXX.md)
+cat > "$FOLLOWUP_FILE" <<'EOF'
+<new instructions, self-contained>
+EOF
+cmux send --workspace "$WS" --surface "$CODEX_SURFACE" "$(cat $FOLLOWUP_FILE)"
+cmux send-key --workspace "$WS" --surface "$CODEX_SURFACE" Enter
+```
+
+**Codex already exited** — relaunch with `omx resume` (shows prior session picker):
+
+```bash
+cmux send --workspace "$WS" --surface "$CODEX_SURFACE" "omx resume"
+cmux send-key --workspace "$WS" --surface "$CODEX_SURFACE" Enter
+cmux capture-pane --workspace "$WS" --surface "$CODEX_SURFACE" --lines 40
+# read the picker, send the session number + Enter
+```
 
 ## Known caveats
 
-- **`omx team` workers die under cmux**: testing with `cmux omx team 2:writer "..."` in this cmux environment reproducibly lands both workers in `dead_worker` state (`alive:false`, `turn_count:null`). Root cause is suspected tmux-shim incompatibility (`cmux omx` startup logs `Unsupported tmux compatibility command: show-options`). Until resolved, prefer a single `cmux omx` session per task. If true parallelism is needed, spawn multiple independent surfaces manually instead of using team mode.
-- **tmux compat shim warnings are cosmetic**: the `show-options` warning does not break normal `cmux omx` runs, only `omx team` bootstrap.
+- **Never use `cmux omx`; always use plain `omx`**. `cmux omx` wraps OMX in a tmux compat shim that causes three concrete problems observed in practice: (1) HUD auto-attaches a second surface that can leak into the wrong workspace and shrink Claude's pane; (2) `omx team` workers die at boot with `dead_worker` status because the shim does not implement `show-options`; (3) the shim prints cosmetic `Unsupported tmux compatibility command` warnings. Plain `omx` avoids all three because OMX detects it is not inside tmux and stays in a single surface.
+- **`omx team` is unreliable in this environment**. Even with plain `omx`, `omx team` requires a real tmux session. In cmux with no outer tmux, workers will fail. If you need parallelism, spawn multiple independent codex surfaces (one `cmux new-surface` per task) instead of using team mode.
 - **First run touches `~/.codex/`**: `omx setup` overwrites `~/.codex/config.toml`. If the user has a hand-tuned codex config, back it up before running setup.
 - **Madmax is actually dangerous**: `--madmax` bypasses both approvals and the sandbox. Never use it on prompts whose content Claude has not fully vetted; never in the user's real home directory without explicit opt-in.
-
-## Resume workflow
-
-```bash
-cmux send --surface surface:NN "cmux omx resume"
-cmux capture-pane --surface surface:NN --lines 40
-```
-
-Codex shows a picker of prior interactive sessions. Send the session number + Enter.
+- **Idle post-task is not stuck**: see the "Tell stuck apart from idle post-task" table above. A codex surface sitting at `› Summarize recent commits` with `gpt-5.4 high · N% left` has already finished and is waiting for the next prompt.
 
 ## Alternative: omc for Claude Code orchestration
 
@@ -214,23 +320,37 @@ Do not mix omc and omx in the same workspace; use distinct cmux workspaces per d
 ## Quick recipe (TL;DR)
 
 ```bash
-# 1. ensure codex workspace exists
-cmux list-workspaces | grep -q codex || cmux new-workspace --name codex --cwd "$(pwd)"
+# 1. derive claude's pane from env and add a sibling codex tab
+CLAUDE_SURFACE="${CMUX_SURFACE_ID:-surface:20}"
+CLAUDE_PANE=$(cmux tree 2>&1 | awk -v s="$CLAUDE_SURFACE" '/pane pane:/ {match($0,/pane:[0-9]+/); p=substr($0,RSTART,RLENGTH)} $0 ~ s {print p; exit}')
+CODEX_SURFACE=$(cmux new-surface --pane "$CLAUDE_PANE" --type terminal 2>&1 | awk '{print $2}')
+CODEX_WS=$(cmux tree 2>&1 | awk -v s="$CODEX_SURFACE" '/workspace workspace:/ {match($0,/workspace:[0-9]+/); w=substr($0,RSTART,RLENGTH)} $0 ~ s {print w; exit}')
 
-# 2. write prompt
+# 2. write prompt (self-contained, no hidden context)
 PROMPT_FILE=$(mktemp /tmp/codex-prompt.XXXXXX.md)
 cat > "$PROMPT_FILE" <<'EOF'
-<full task brief - self-contained, no hidden context>
+<full task brief here>
 EOF
 
-# 3. find the codex workspace's initial surface and send the command
-#    (capture surface ref from `cmux tree` under workspace codex)
-cmux send --surface surface:NN "cd $(pwd) && cmux omx --yolo --high \"\$(cat $PROMPT_FILE)\""
+# 3. register the session so we can list/report/close/resume later
+OMX_TASK_LABEL="ship two dotagents PRs"
+jq -cn --arg ts "$(date +%s)" --arg ws "$CODEX_WS" --arg sf "$CODEX_SURFACE" \
+       --arg pn "$CLAUDE_PANE" --arg label "$OMX_TASK_LABEL" --arg cwd "$(pwd)" \
+       --arg prompt "$PROMPT_FILE" --arg sha "$(git rev-parse HEAD 2>/dev/null || echo '')" \
+  '{start:$ts|tonumber, workspace:$ws, surface:$sf, pane:$pn, label:$label, cwd:$cwd, prompt_file:$prompt, sha_before:$sha}' \
+  >> /tmp/omx-sessions.jsonl
 
-# 4. poll in background
-omx hud --json | jq '.hudNotify.turn_count, .metrics.last_activity'
+# 4. launch with plain omx (NOT cmux omx). git identity is inherited from ~/.zshrc exports.
+cmux send --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" "cd $(pwd) && omx --yolo --high \"\$(cat $PROMPT_FILE)\""
+cmux send-key --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" Enter
 
-# 5. inspect
+# 5. poll progress
+omx hud --json | jq '{turns: .hudNotify.turn_count, last: .metrics.last_activity, out: (.hudNotify.last_agent_output // "" | .[0:160])}'
+
+# 6. report results (see "Session lifecycle → Report" for the full block)
 git status -sb && git diff --stat
-cmux capture-pane --surface surface:NN --lines 60
+cmux capture-pane --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" --lines 60
+
+# 7. close cleanly when done (see "Session lifecycle → Close" for the full block)
+#    cmux send-key ... C-c C-c; cmux close-surface ...; prune /tmp/omx-sessions.jsonl
 ```
