@@ -90,11 +90,30 @@ Commits codex produces inherit `GIT_AUTHOR_*` / `GIT_COMMITTER_*` from the shell
 
 Each additional codex session is another `cmux new-surface --pane "$CLAUDE_PANE" --type terminal` call — just another tab in the same tab bar. Tabs are free, they do not resize each other.
 
+### How omx detects tmux and why it matters here
+
+Claude Code, when launched via the `cc` alias, runs inside an outer `tmux` session named `cc`. Codex launched via `cx` runs in its own outer tmux session too. That means when Claude invokes `omx` via `cmux send` into a sibling surface, omx sees `$TMUX` set (inherited from the parent cc process environment) and assumes it is inside tmux. Its response is to **spawn a detached sub-tmux session** named like `omx-dotagents-main-<ts>-<id>` where the actual codex process runs — and **leave the cmux surface at the idle zsh prompt**. The codex UI is NOT visible in the cmux surface; it is running headless in the detached tmux session.
+
+Practical implications:
+
+- `cmux capture-pane` on the spawned surface shows only the zsh prompt, never codex output.
+- `cmux send-key C-c C-c` to the spawned surface does NOT quit codex — it ^Cs the empty zsh.
+- `tmux list-sessions` shows both `cc` (your claude) and `omx-<project>-main-<ts>-<id>` (the detached codex).
+- Codex still makes real progress and reports via `omx hud --json`, which is why background polling still works.
+
+If you want the codex UI visible in the cmux surface, attach the detached session there after launching:
+
+```bash
+OMX_TMUX_SESSION=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
+cmux send --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" "tmux attach -t $OMX_TMUX_SESSION"
+cmux send-key --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" Enter
+```
+
+If you only need background delegation (the most common case), skip the attach — HUD polling + `git diff` + a final `tmux capture-pane -t $OMX_TMUX_SESSION -p` on finish is enough.
+
 ### Do NOT use `cmux omx` — use plain `omx`
 
-`cmux omx` wraps OMX in a tmux shim so OMX thinks it is inside tmux. Per OMX help: *"HUD auto-attaches only when already inside tmux"*. Under the shim, HUD auto-attach spawns a second surface (`omx hud --watch`), and that spawn can leak into the wrong workspace and shrink Claude's pane. It is also the root cause of `omx team` workers dying (shim does not implement `show-options`).
-
-Plain `omx` detects it is not in tmux, skips HUD auto-attach, and stays in a single surface. Poll the HUD manually from Claude's side via `omx hud --json` when needed.
+`cmux omx` wraps OMX in an extra tmux compat shim that causes HUD auto-attach to leak into the wrong workspace (can shrink Claude's pane) and breaks `omx team` workers (shim does not implement `show-options`). Plain `omx` leverages the real outer tmux and stays well-behaved.
 
 ## Launch a codex task
 
@@ -249,24 +268,36 @@ git -C "$CWD" status -sb
 git -C "$CWD" diff --stat
 echo "-- HUD --"
 omx hud --json 2>/dev/null | jq '{turns: .hudNotify.turn_count, last_activity: .metrics.last_activity, last_output: (.hudNotify.last_agent_output // "" | .[0:200])}'
-echo "-- pane tail --"
-cmux capture-pane --workspace "$WS" --surface "$CODEX_SURFACE" --lines 40
+echo "-- codex transcript tail (from detached omx tmux session) --"
+OMX_TMUX_SESSION=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
+if [ -n "$OMX_TMUX_SESSION" ]; then
+  tmux capture-pane -t "$OMX_TMUX_SESSION" -p 2>&1 | tail -40
+else
+  echo "(no omx tmux session found — codex either exited or never started)"
+fi
 ```
+
+The report reads from the detached `omx-*` tmux session, not the cmux surface. The cmux surface just hosts the zsh that launched omx; it does not contain codex's transcript.
 
 ### Close a session explicitly
 
-Closing is a two-step: quit codex cleanly, then drop the surface and the registry entry. Do NOT close-surface without sending `^C ^C` first, or codex can leave a half-flushed session file in `~/.codex/sessions/`.
+Closing is three steps: quit codex cleanly **in the detached tmux session**, close the cmux surface, prune the registry. The cmux surface's C-c does NOT reach codex — you must send it to the tmux session.
 
 ```bash
 ENTRY=$(jq -c --arg sf "$CODEX_SURFACE" 'select(.surface == $sf)' /tmp/omx-sessions.jsonl | tail -1)
 WS=$(echo "$ENTRY" | jq -r '.workspace')
 
-cmux send-key --workspace "$WS" --surface "$CODEX_SURFACE" C-c
-cmux send-key --workspace "$WS" --surface "$CODEX_SURFACE" C-c
-sleep 1
+# 1) quit codex cleanly in its detached tmux session
+OMX_TMUX_SESSION=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
+if [ -n "$OMX_TMUX_SESSION" ]; then
+  tmux send-keys -t "$OMX_TMUX_SESSION" C-c
+  tmux send-keys -t "$OMX_TMUX_SESSION" C-c
+fi
+
+# 2) close the cmux surface (the empty zsh that launched omx)
 cmux close-surface --workspace "$WS" --surface "$CODEX_SURFACE"
 
-# drop the entry from the registry
+# 3) drop the entry from the registry
 jq -c --arg sf "$CODEX_SURFACE" 'select(.surface != $sf)' /tmp/omx-sessions.jsonl > /tmp/omx-sessions.jsonl.tmp \
   && mv /tmp/omx-sessions.jsonl.tmp /tmp/omx-sessions.jsonl
 ```
@@ -275,34 +306,44 @@ If the user wants to reuse the tab for a follow-up, skip the close step and use 
 
 ### Resume a session (send more instructions)
 
-Two flavors depending on whether codex is still running in the surface or has exited:
+Two flavors depending on whether the detached codex tmux session is still alive:
 
-**Codex still running (idle post-task at the `›` prompt)** — just type a new turn:
+**Codex still running (detached tmux session still listed, idle post-task at the `›` prompt)** — send the new turn into the tmux session directly:
 
 ```bash
-ENTRY=$(jq -c --arg sf "$CODEX_SURFACE" 'select(.surface == $sf)' /tmp/omx-sessions.jsonl | tail -1)
-WS=$(echo "$ENTRY" | jq -r '.workspace')
+OMX_TMUX_SESSION=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
 FOLLOWUP_FILE=$(mktemp /tmp/codex-followup.XXXXXX.md)
 cat > "$FOLLOWUP_FILE" <<'EOF'
 <new instructions, self-contained>
 EOF
-cmux send --workspace "$WS" --surface "$CODEX_SURFACE" "$(cat $FOLLOWUP_FILE)"
-cmux send-key --workspace "$WS" --surface "$CODEX_SURFACE" Enter
+# send the text as a single paste, then Enter
+tmux load-buffer -b omxfu "$FOLLOWUP_FILE"
+tmux paste-buffer -b omxfu -t "$OMX_TMUX_SESSION"
+tmux send-keys -t "$OMX_TMUX_SESSION" Enter
+tmux delete-buffer -b omxfu
 ```
 
-**Codex already exited** — relaunch with `omx resume` (shows prior session picker):
+Then poll with `tmux capture-pane -t "$OMX_TMUX_SESSION" -p` and `omx hud --json` as usual.
+
+**Codex already exited (detached tmux session gone)** — launch a new codex in the same cmux surface via `omx resume`, which picks a prior interactive session by id:
 
 ```bash
+ENTRY=$(jq -c --arg sf "$CODEX_SURFACE" 'select(.surface == $sf)' /tmp/omx-sessions.jsonl | tail -1)
+WS=$(echo "$ENTRY" | jq -r '.workspace')
 cmux send --workspace "$WS" --surface "$CODEX_SURFACE" "omx resume"
 cmux send-key --workspace "$WS" --surface "$CODEX_SURFACE" Enter
-cmux capture-pane --workspace "$WS" --surface "$CODEX_SURFACE" --lines 40
-# read the picker, send the session number + Enter
+# then read the picker from the new omx tmux session that gets spawned:
+sleep 2
+OMX_TMUX_SESSION=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
+tmux capture-pane -t "$OMX_TMUX_SESSION" -p 2>&1 | tail -40
+# send the session number + Enter via tmux send-keys -t "$OMX_TMUX_SESSION"
 ```
 
 ## Known caveats
 
-- **Never use `cmux omx`; always use plain `omx`**. `cmux omx` wraps OMX in a tmux compat shim that causes three concrete problems observed in practice: (1) HUD auto-attaches a second surface that can leak into the wrong workspace and shrink Claude's pane; (2) `omx team` workers die at boot with `dead_worker` status because the shim does not implement `show-options`; (3) the shim prints cosmetic `Unsupported tmux compatibility command` warnings. Plain `omx` avoids all three because OMX detects it is not inside tmux and stays in a single surface.
-- **`omx team` is unreliable in this environment**. Even with plain `omx`, `omx team` requires a real tmux session. In cmux with no outer tmux, workers will fail. If you need parallelism, spawn multiple independent codex surfaces (one `cmux new-surface` per task) instead of using team mode.
+- **Plain `omx` backgrounds codex into a detached tmux session**. When launched from inside the outer `cc` tmux session (which Claude Code runs in by default), `omx` detects `$TMUX` and spawns a detached sub-session named `omx-<project>-main-<ts>-<id>`. The codex UI is NOT rendered in the cmux surface — that surface just hosts the idle zsh that called omx. All `tmux send-keys` / `tmux capture-pane` for interacting with or reading codex must target the detached session, not the cmux surface. The "Session lifecycle" section above reflects this.
+- **Never use `cmux omx`; always use plain `omx`**. `cmux omx` wraps OMX in an additional tmux compat shim. HUD auto-attach then leaks into the wrong workspace (can shrink Claude's pane) and `omx team` workers die at boot (`dead_worker`, shim missing `show-options`). Plain `omx` uses the real outer tmux and stays well-behaved.
+- **`omx team` is unreliable in this environment**. Workers need a clean outer tmux and still frequently land in `dead_worker` state. For parallelism, spawn multiple independent codex surfaces (one `cmux new-surface` + one `omx` launch per task) instead of using team mode.
 - **First run touches `~/.codex/`**: `omx setup` overwrites `~/.codex/config.toml`. If the user has a hand-tuned codex config, back it up before running setup.
 - **Madmax is actually dangerous**: `--madmax` bypasses both approvals and the sandbox. Never use it on prompts whose content Claude has not fully vetted; never in the user's real home directory without explicit opt-in.
 - **Idle post-task is not stuck**: see the "Tell stuck apart from idle post-task" table above. A codex surface sitting at `› Summarize recent commits` with `gpt-5.4 high · N% left` has already finished and is waiting for the next prompt.
