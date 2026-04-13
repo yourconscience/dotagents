@@ -22,15 +22,15 @@ Use the harness's available task or subagent delegation mechanism to fan out sea
 
 ### 1. X.com - power users
 
-Primary: use the local `twscrape` helper if it is available and authenticated. This is the best default for read-only X search.
+Primary: use `x-cli` for X.com searches. It uses X's internal GraphQL API with browser-based auth, providing reliable and structured results.
 
 Quick check:
 
 ```bash
-uv run --with twscrape python ~/.agents/skills/techsearch/tools/x_search.py doctor
+x-cli auth status
 ```
 
-Note: `doctor` only confirms the expected local DB path and whether the DB is readable. It does not prove that X auth is still valid.
+If not authenticated, run `x-cli auth login` to open a Chrome window for manual login.
 
 Search for posts from these accounts about the topic. Group into batches of 3-4 accounts per query to stay efficient.
 
@@ -49,7 +49,7 @@ Search for posts from these accounts about the topic. Group into batches of 3-4 
 | @karpathy | AI/ML, founder of Eureka Labs |
 | @fchollet | Keras creator, AI/ML |
 
-**Search pattern** - run these queries through the helper first:
+**Search pattern** - run these queries via x-cli:
 
 ```
 (from:banteg OR from:thorstenball OR from:thdxr) <topic>
@@ -62,37 +62,33 @@ If results are thin, broaden with:
 <topic> (recommended OR "game changer" OR "switched to" OR "moved to" OR "best" OR "opinion")
 ```
 
-Preferred helper usage:
+**x-cli usage:**
 
 ```bash
-uv run --with twscrape python ~/.agents/skills/techsearch/tools/x_search.py search --query '<query>' --limit 10 --product Latest
+# Latest tweets (fresh opinions)
+x-cli search "(from:karpathy OR from:fchollet) <topic>" --type latest --count 10
+
+# Top/relevant tweets (higher signal)
+x-cli search "<topic>" --type top --count 10
+
+# JSON output for parsing
+x-cli search "<query>" --type latest --count 10 --json
 ```
 
 Guidance:
-- Start with `product=Latest` for fresh opinions. Retry with `product=Top` if the result set is noisy.
-- Prefer cookie-backed accounts over scripted password login.
-- `twscrape` stores account session state in the local DB, so you should not need to log in on every run.
-- Do not attempt repeated automated login loops if auth is broken. Stop and report that X auth needs refresh.
-- The helper stores account state beside the skill, usually at `~/Workspace/dotagents/skills/techsearch/x/accounts.db`.
+- Start with `--type latest` for fresh opinions. Retry with `--type top` if the result set is noisy.
+- x-cli stores session credentials at `~/.x-cli/credentials.json`.
+- If auth expires, re-run `x-cli auth login`.
+- Use `--json` when you need structured output for downstream parsing.
+- The output includes engagement metrics (retweets, likes, replies, views) for quality assessment.
 
-Fallback 1: Playwright with a saved authenticated browser state.
-
-- Use this when `twscrape` breaks due to X GraphQL or login changes.
-- Save auth in the gitignored skill-local path, for example `~/Workspace/dotagents/skills/techsearch/x/playwright/.auth/user.json`.
-- Reuse the saved state and open normal X search URLs such as:
-
-```text
-https://x.com/search?q=<encoded query>&src=typed_query&f=live
-https://x.com/search?q=<encoded query>&src=typed_query
-```
-
-Fallback 2: harness web search with `site:x.com`.
+Fallback: harness web search with `site:x.com`.
 
 ```text
 site:x.com <topic> (recommended OR "game changer" OR "switched to" OR "moved to" OR "best" OR "opinion")
 ```
 
-Do not use `agent-twitter-client` as the default path for new work. It is a weak default compared with `twscrape` plus a Playwright fallback.
+Use this only if x-cli auth is broken and cannot be refreshed.
 
 ### 2. Hacker News
 
