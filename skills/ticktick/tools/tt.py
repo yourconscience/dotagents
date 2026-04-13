@@ -81,7 +81,7 @@ async def list_tasks(
         tasks = [t for t in tasks if getattr(t, "kind", None) != TaskKind.NOTE]
 
     # Sort by due date
-    tasks.sort(key=lambda t: (getattr(t, "due_date", None) or "9999-12-31", t.title))
+    tasks.sort(key=lambda t: (str(getattr(t, "due_date", None) or "9999-12-31"), t.title))
 
     if output_format == "json":
         output = []
@@ -102,7 +102,7 @@ async def list_tasks(
         print("|--------|-----|------------|-------|---------|")
         for t in tasks:
             status_mark = "x" if t.status == 2 else " "
-            pri = "!" * (t.priority // 2) if t.priority else ""
+            pri = {1: "!", 3: "!!", 5: "!!!"}.get(t.priority, "")
             due = format_date(getattr(t, "due_date", None))
             print(f"| [{status_mark}] | {pri:3} | {due} | {t.title} | {t.project_id[:8] if t.project_id else ''} |")
     else:

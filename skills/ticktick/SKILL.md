@@ -9,7 +9,15 @@ CLI for TickTick task management. Wraps ticktick-sdk Python library.
 
 ## Prerequisites
 
-The SDK is installed from local clone at `~/Public/ticktick-sdk`.
+Install ticktick-sdk from PyPI, or point to a local checkout via `TICKTICK_SDK_PATH`:
+
+```bash
+# Option A: from PyPI (recommended)
+uv pip install ticktick-sdk
+
+# Option B: from local checkout
+export TICKTICK_SDK_PATH=~/Public/ticktick-sdk
+```
 
 Required environment variables (set in shell or .env):
 ```
@@ -24,33 +32,36 @@ TICKTICK_PASSWORD=...
 
 First-time setup:
 ```bash
-cd ~/Public/ticktick-sdk && uv run ticktick-sdk auth
+uv run --with ticktick-sdk ticktick-sdk auth
 ```
 
 This opens browser for OAuth2 flow and prints the access token to add to env.
 
 ## Usage
 
-All commands run from the skill tools directory:
+All commands run the tool from the skill directory. Set `TICKTICK_SDK_PATH` if using a local checkout, otherwise the PyPI package is used:
 
 ```bash
-# List all tasks (default: today + overdue)
-uv run --with ~/Public/ticktick-sdk python ~/.agents/skills/ticktick/tools/tt.py tasks
+# Helper: define once per shell
+TT="uv run --with ${TICKTICK_SDK_PATH:-ticktick-sdk} python ~/.agents/skills/ticktick/tools/tt.py"
+
+# List all tasks (returns all incomplete tasks across projects)
+$TT tasks
 
 # List tasks with filters
-uv run --with ~/Public/ticktick-sdk python ~/.agents/skills/ticktick/tools/tt.py tasks --project "Work" --status incomplete
+$TT tasks --project "Work" --status incomplete
 
 # List all projects
-uv run --with ~/Public/ticktick-sdk python ~/.agents/skills/ticktick/tools/tt.py projects
+$TT projects
 
 # List tasks in a specific project
-uv run --with ~/Public/ticktick-sdk python ~/.agents/skills/ticktick/tools/tt.py tasks --project-id <project_id>
+$TT tasks --project-id <project_id>
 
 # Export tasks as JSON
-uv run --with ~/Public/ticktick-sdk python ~/.agents/skills/ticktick/tools/tt.py tasks --json
+$TT tasks --json
 
 # Search tasks by keyword
-uv run --with ~/Public/ticktick-sdk python ~/.agents/skills/ticktick/tools/tt.py search "keyword"
+$TT search "keyword"
 ```
 
 ## Output Formats
