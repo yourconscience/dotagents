@@ -68,3 +68,19 @@ To add a new skill:
 1. Copy or create the skill in `skills/skillname/` within this repo
 2. Create symlink: `mkdir -p ~/.claude/skills && ln -s ~/.agents/skills/skillname ~/.claude/skills/skillname`
 Do not install skills directly to `~/.claude/skills/` as copies - always use this repo as the source.
+
+# Durable memory capture
+After each user message, check whether it contains a durable preference, rule, or context fact worth persisting across sessions. When it does, at the end of your next response propose a concrete patch and ask for explicit approval before writing. Skip the proposal entirely if nothing new came up or the content is already present - do not shadow-write memory.
+Destinations:
+- Cross-agent durable rules: `~/Workspace/dotagents/AGENTS.md` (this file, tracked in git)
+- User-specific state, identity, situation, or long-term context: `~/Documents/knowledge/profile/<relevant file>.md`
+- Project-specific rules: nearest repo `AGENTS.md`
+
+# Canonical stores
+- Notes and agent memory vault: `~/Documents/knowledge/` (iCloud-synced markdown)
+- Durable cross-agent rules: `~/Workspace/dotagents/AGENTS.md` (this file)
+- User profile and long-term context: `~/Documents/knowledge/profile/`
+- Memory search layer: `memsearch` collection `ai` spanning the whole vault; index is derived and rebuildable, markdown is canonical.
+
+# Destructive actions
+Pause before destructive or hard-to-reverse operations (`rm -rf`, force push, `git reset --hard`, dropping DB tables, modifying shared configs). Explain what will happen and confirm before proceeding.
