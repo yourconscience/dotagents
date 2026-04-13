@@ -4,11 +4,6 @@ Use uv for everything: uv run, uv pip, uv venv.
 # Ad-hoc tooling
 When writing ad-hoc CLI scripts, background daemons, or tools outside of a repo context, use Go instead of Python or bash - fast startup, static binaries, and reliable LLM-generated code.
 
-# Style
-No emojis.
-No em dashes - use hyphens or colons instead.
-Write concise, explicit, actionable instructions.
-
 # Workflow
 Prefer execution over discussion: research, implement, verify, then report.
 Clarify ambiguous requests with targeted questions only when needed, then execute end-to-end.
