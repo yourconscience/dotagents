@@ -1,88 +1,72 @@
 ---
 name: ticktick
-description: TickTick task management - list tasks, projects, and notes via CLI.
+description: TickTick task management - list tasks, projects, and notes via CLI (read-only, V1 API).
 ---
 
 # ticktick
 
-CLI for TickTick task management. Wraps ticktick-sdk Python library.
+Read-only CLI for TickTick using the official V1 OAuth2 API. Wraps [pyticktick](https://github.com/sebpretzer/pyticktick).
 
 ## Prerequisites
 
-Install ticktick-sdk from PyPI, or point to a local checkout via `TICKTICK_SDK_PATH`:
-
-```bash
-# Option A: from PyPI (recommended)
-uv pip install ticktick-sdk
-
-# Option B: from local checkout
-export TICKTICK_SDK_PATH=~/Public/ticktick-sdk
+Required environment variables:
+```
+TICKTICK_CLIENT_ID=...      # from developer.ticktick.com
+TICKTICK_CLIENT_SECRET=...  # from developer.ticktick.com
+TICKTICK_ACCESS_TOKEN=...   # obtained via OAuth flow (see Auth below)
 ```
 
-Required environment variables (set in shell or .env):
-```
-TICKTICK_CLIENT_ID=...
-TICKTICK_CLIENT_SECRET=...
-TICKTICK_ACCESS_TOKEN=...
-TICKTICK_USERNAME=...
-TICKTICK_PASSWORD=...
-```
+No username/password needed - V1 API uses OAuth2 only.
 
 ## Auth
 
-First-time setup:
-```bash
-uv run --with ticktick-sdk ticktick-sdk auth
-```
+One-time setup to obtain an access token:
 
-This opens browser for OAuth2 flow and prints the access token to add to env.
+1. Create an app at https://developer.ticktick.com/manage
+2. Set OAuth redirect URL to `http://127.0.0.1:8080/callback`
+3. Export `TICKTICK_CLIENT_ID` and `TICKTICK_CLIENT_SECRET` in shell
+4. Run auth flow (any tool that does V1 OAuth works):
+   ```bash
+   uv run --with ticktick-sdk ticktick-sdk auth
+   ```
+5. Copy the token to `TICKTICK_ACCESS_TOKEN`. Valid for ~180 days.
 
 ## Usage
 
-All commands run the tool from the skill directory. Set `TICKTICK_SDK_PATH` if using a local checkout, otherwise the PyPI package is used:
-
 ```bash
-# Helper: define once per shell
-TT="uv run --with ${TICKTICK_SDK_PATH:-ticktick-sdk} python ~/.agents/skills/ticktick/tools/tt.py"
-
-# List all tasks (returns all incomplete tasks across projects)
-$TT tasks
-
-# List tasks with filters
-$TT tasks --project "Work" --status incomplete
+TT="uv run --with pyticktick python ~/.agents/skills/ticktick/tools/tt.py"
 
 # List all projects
 $TT projects
 
-# List tasks in a specific project
-$TT tasks --project-id <project_id>
+# List tasks in all projects
+$TT tasks
 
-# Export tasks as JSON
-$TT tasks --json
+# Filter by project name (substring match)
+$TT tasks --project "Заметки"
 
-# Search tasks by keyword
+# Filter by status
+$TT tasks --status incomplete
+
+# Search task titles and content
 $TT search "keyword"
+
+# JSON output for any command
+$TT --json tasks
+$TT --json projects
 ```
-
-## Output Formats
-
-- Default: Human-readable table
-- `--json`: JSON output for programmatic use
-- `--markdown`: Markdown table
 
 ## Agent Workflow
 
-When user asks about tasks:
-1. Run `tt.py tasks` to get current task list
-2. Parse output and summarize for user
-3. Do NOT create/edit tasks unless explicitly requested
-
-When user asks to see notes:
-1. Notes in TickTick are tasks with `kind: NOTE`
-2. Run `tt.py tasks --kind note` to filter notes
+When user asks about tasks or notes:
+1. Run `tt.py projects` to find relevant project
+2. Run `tt.py tasks --project NAME` to list tasks in that project
+3. Use `--json` for programmatic processing
+4. For free-text search, use `tt.py search "query"`
 
 ## Limitations
 
-- Read-only for now (no create/update/complete)
-- Requires OAuth2 setup before first use
-- Rate limits may apply (429 errors)
+- Read-only: no create/update/complete/delete
+- V1 API only: no tags, folders, habits, or focus data
+- V1 API fetches tasks per-project; listing all tasks iterates over projects
+- Access token expires after ~180 days - refresh via OAuth flow
