@@ -61,10 +61,10 @@ When modifying config files, use targeted edits or patches.
 Do not rewrite the entire file unless the user explicitly asks for that.
 
 # Skills
-All new skills for Claude Code, Codex, and other agent harnesses should be installed in `dotagents/skills/`.
-The skill directory is symlinked: `~/.agents/skills/` -> `dotagents/skills/`.
-Claude Code skills are symlinked from `~/.claude/skills/skillname` -> `~/.agents/skills/skillname`.
+All new skills should be installed in this repo's `skills/` directory.
+The skill directory is symlinked from `~/.agents/skills/` to this repo's `skills/` directory.
+Claude Code skills are then symlinked from `~/.claude/skills/skillname` -> `~/.agents/skills/skillname`.
 To add a new skill:
-1. Copy or create the skill in `dotagents/skills/skillname/`
-2. Create symlink: `ln -s ~/.agents/skills/skillname ~/.claude/skills/skillname`
-Do not install skills directly to `~/.claude/skills/` as copies - always use the dotagents source.
+1. Copy or create the skill in `skills/skillname/` within this repo
+2. Create symlink: `mkdir -p ~/.claude/skills && ln -s ~/.agents/skills/skillname ~/.claude/skills/skillname`
+Do not install skills directly to `~/.claude/skills/` as copies - always use this repo as the source.

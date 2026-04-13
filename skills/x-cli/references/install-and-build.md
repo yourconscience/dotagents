@@ -1,19 +1,25 @@
 # Install And Build
 
-Use these commands from the repository root:
+These commands are for building x-cli from its source repository (github.com/Gladium-AI/x-cli), not from this skills directory.
+
+From the x-cli source repo:
 
 ```bash
 make build
-sudo make install
+sudo make install   # installs to /usr/local/bin
 ```
 
-This installs `x-cli` to `/usr/local/bin` by default.
-
-For local development without installing globally:
+Or install to ~/bin without sudo:
 
 ```bash
-go run .
-./x-cli --help
+make build
+cp x-cli ~/bin/
 ```
 
-If the task is about the skill itself, use the repository's `install-skill.sh` script instead of copying files manually.
+Verify installation:
+
+```bash
+x-cli --help
+```
+
+The skill files in this directory are reference documentation only - the x-cli binary must be installed separately from its source repo.
