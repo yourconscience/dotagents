@@ -100,6 +100,20 @@ def _task_dict(project, task) -> dict:
     }
 
 
+def _print_task_table(results: list) -> None:
+    print(f"{'Status':<6} {'Pri':<3} {'Due':<10} {'Project':<15} {'Title'}")
+    print("-" * 90)
+    for project, task in results:
+        status = "[x]" if task.status else "[ ]"
+        pri = {1: "!", 3: "!!", 5: "!!!"}.get(task.priority, "")
+        due = str(task.due_date)[:10] if task.due_date else "-"
+        print(f"{status:<6} {pri:<3} {due:<10} {project.name[:14]:<15} {task.title}")
+
+
+def _sort_results(results: list) -> list:
+    return sorted(results, key=lambda x: (str(x[1].due_date or "9999-12-31"), x[1].title))
+
+
 def list_tasks(project_filter: str | None, status_filter: str | None, output_format: str) -> None:
     client = make_client()
     results = list(_iter_project_tasks(client, project_filter))
@@ -109,16 +123,13 @@ def list_tasks(project_filter: str | None, status_filter: str | None, output_for
     elif status_filter == "completed":
         results = [(p, t) for p, t in results if t.status]
 
+    results = _sort_results(results)
+
     if output_format == "json":
         print(json.dumps([_task_dict(p, t) for p, t in results], ensure_ascii=False, indent=2))
         return
 
-    print(f"{'Status':<6} {'Pri':<3} {'Project':<15} {'Title':<50}")
-    print("-" * 80)
-    for project, task in results:
-        status = "[x]" if task.status else "[ ]"
-        pri = {1: "!", 3: "!!", 5: "!!!"}.get(task.priority, "")
-        print(f"{status:<6} {pri:<3} {project.name[:14]:<15} {task.title[:49]:<50}")
+    _print_task_table(results)
     print(f"\n{len(results)} tasks", file=sys.stderr)
 
 
@@ -129,16 +140,13 @@ def search_tasks(query: str, output_format: str) -> None:
         (p, t) for p, t in _iter_project_tasks(client, None)
         if query_lower in t.title.lower() or query_lower in (t.content or "").lower()
     ]
+    matches = _sort_results(matches)
 
     if output_format == "json":
         print(json.dumps([_task_dict(p, t) for p, t in matches], ensure_ascii=False, indent=2))
         return
 
-    print(f"{'Status':<6} {'Project':<15} {'Title':<50}")
-    print("-" * 75)
-    for project, task in matches:
-        status = "[x]" if task.status else "[ ]"
-        print(f"{status:<6} {project.name[:14]:<15} {task.title[:49]:<50}")
+    _print_task_table(matches)
     print(f"\n{len(matches)} matches for '{query}'", file=sys.stderr)
 
 
