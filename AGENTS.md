@@ -3,6 +3,7 @@ Use uv for everything python-related: uv run, uv pip, uv venv.
 When writing ad-hoc CLI scripts, background daemons, or tools outside of a repo context, use Go instead of Python or bash - fast startup, static binaries, and reliable LLM-generated code.
 
 # Workflow
+Prefer simplicity and conciseness for all your changes - avoid duplicated or vague rules and code.
 Prefer execution over discussion: research, implement, verify, then report.
 Clarify ambiguous requests with targeted questions only when needed, then execute end-to-end.
 For complex tasks, research the codebase, confirm understanding when needed, then execute.
@@ -34,10 +35,10 @@ For production systems compatibility is often crucial.
 For experimental or research code simplicity is much more important - prefer clean breaks over backward-compat shims.
 
 # Git
-Never include "Co-Authored-By" lines in commit messages or PR descriptions.
 Commit messages must be short single lines - no multi-line bodies unless explicitly requested.
-Use the user's configured git identity for all commits and pushes - never override git config.
+Use the user's configured git identity for all commits and pushes - never override git config, never include "Co-Authored-By" lines in commit messages or PR descriptions.
 For PR work, check the user's existing comments and review state before taking autonomous action on review feedback.
+Never post GitHub issue or PR comments directly via `gh` by default (exception: replies to bot comments like Gemini / Claude / Copilot can go direct). Write the draft, `pbcopy` it, then `open` the issue/PR URL in the browser - the user reviews and submits from there.
 
 # Configuration
 When modifying config files, use targeted edits or patches.
