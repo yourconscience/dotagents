@@ -196,6 +196,9 @@ func parseClaudeSession(p string, now time.Time) (*SessionRecord, error) {
 			}
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
 	if turnCount == 0 || firstMsg == "" {
 		return nil, nil
 	}
@@ -281,6 +284,9 @@ func parseCodexSession(p string, now time.Time) (*SessionRecord, error) {
 				}
 			}
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 	if turnCount == 0 || firstMsg == "" {
 		return nil, nil
@@ -1157,8 +1163,8 @@ func parseEntries(content string) []Entry {
 			continue
 		}
 
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
+		trimmed := strings.TrimRight(line, " \t\r")
+		if strings.TrimSpace(trimmed) == "" {
 			continue
 		}
 		current.Body = append(current.Body, trimmed)
@@ -1243,7 +1249,7 @@ func generateDailyDigest(claudeBin string, sessions []Entry) ([]string, error) {
 func splitBullets(s string) []string {
 	var out []string
 	for _, line := range strings.Split(s, "\n") {
-		line = strings.TrimRight(line, " \t")
+		line = strings.TrimRight(line, " \t\r")
 		if line == "" {
 			continue
 		}
