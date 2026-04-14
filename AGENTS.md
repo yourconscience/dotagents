@@ -2,13 +2,14 @@
 Use uv for everything python-related: uv run, uv pip, uv venv.
 When writing ad-hoc CLI scripts, background daemons, or tools outside of a repo context, use Go instead of Python or bash - fast startup, static binaries, and reliable LLM-generated code.
 
-# Workflow
-Prefer simplicity and conciseness for all your changes - avoid duplicated or vague rules and code.
-Prefer execution over discussion: research, implement, verify, then report.
-Clarify ambiguous requests with targeted questions only when needed, then execute end-to-end.
-For complex tasks, research the codebase, confirm understanding when needed, then execute.
-Only ask for help when scripts timeout (>2 min), sudo is required, or a genuine blocker remains after reasonable attempts.
-Before building custom solutions or scripts, first check whether existing tools, scripts, or skills already solve the problem.
+# Coding
+Think before coding. State ambiguity explicitly, do not silently pick an interpretation. Present alternatives when the request is ambiguous. Push back if a simpler approach exists. Stop and ask rather than guess.
+Simplicity first. No features beyond what was asked. No abstractions for single-use code. No flexibility that was not requested. No error handling for impossible scenarios. Would a senior engineer call this overcomplicated?
+Surgical changes. Do not improve adjacent code. Do not refactor what is not broken. Match existing style. Mention unrelated dead code, do not delete it. Every changed line should trace directly to the request.
+Goal-driven execution. Transform "fix the bug" into "write a failing test, then make it pass." Define success criteria before looping.
+Research, implement, verify, then report. Execution over discussion.
+Check for existing tools, scripts, or skills before building a custom solution.
+Only ask for help when scripts timeout (>2 min), sudo is required, or a genuine blocker remains.
 
 # Epistemology
 Never guess numerical values - benchmark instead of estimating.
@@ -62,6 +63,7 @@ Do not install skills directly to `~/.claude/skills/` as copies - always use thi
 After each user message, check whether it contains a durable preference, rule, or context fact worth persisting across sessions. 
 When it does, at the end of your next response propose a concrete patch and ask for explicit approval before writing. 
 Skip the proposal entirely if nothing new came up or the content is already present - do not shadow-write memory.
+For long or substantive conversations on a specific topic, also consider proposing a short write-up note at the end. Trigger only when the conversation produced decisions, trade-offs, or research worth recovering later - operational back-and-forth is not a candidate. Draft for explicit approval, do not auto-write.
 Destinations are specified in canonical stores section.
 
 # Destructive actions
