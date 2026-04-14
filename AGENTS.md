@@ -66,3 +66,4 @@ Destinations are specified in canonical stores section.
 # Destructive actions
 Pause before destructive or hard-to-reverse operations (`rm -rf`, force push, `git reset --hard`, dropping DB tables, modifying shared configs). 
 Explain what will happen and confirm before proceeding.
+Same for changes to hook lifecycles, child-process spawning, or background daemons - recursion and fork bombs are easy to ship accidentally. Delegate to `omx` for a second pass before executing.
