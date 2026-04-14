@@ -4,7 +4,7 @@ Local tooling that wraps the upstream memsearch Claude Code plugin so it writes 
 
 ## hook.sh
 
-Recursion-safe wrapper invoked by the Claude Code SessionStart, Stop, and SessionEnd hooks. Sets `MEMSEARCH_MEMORY_DIR`, `MEMSEARCH_STATE_DIR`, and `MEMSEARCH_COLLECTION_NAME` so memsearch operates on `~/Documents/knowledge/ai` with collection `ai` regardless of cwd. Then execs the upstream plugin hook for the event.
+Recursion-safe wrapper invoked by the Claude Code SessionStart, Stop, and SessionEnd hooks. Sets `MEMSEARCH_MEMORY_DIR`, `MEMSEARCH_STATE_DIR`, and `MEMSEARCH_COLLECTION_NAME` so memsearch operates on `~/Workspace/knowledge/ai` with collection `ai` regardless of cwd. Then execs the upstream plugin hook for the event.
 
 The `MEMSEARCH_SKIP_CLAUDE_HOOKS=1` guard prevents the `claude -p` child spawned by `stop.sh` from recursively re-entering hooks and fork-bombing.
 
