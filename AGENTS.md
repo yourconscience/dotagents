@@ -54,9 +54,9 @@ To add a new skill:
 Do not install skills directly to `~/.claude/skills/` as copies - always use this repo as the source.
 
 # Canonical stores
-- Notes and agent memory vault: `~/Documents/knowledge/` (iCloud-synced markdown)
+- Notes and agent memory vault: `~/Workspace/knowledge/` (local git, no remote)
 - Durable cross-agent rules: `~/Workspace/dotagents/AGENTS.md` (this file)
-- User profile and long-term context: `~/Documents/knowledge/profile/`
+- User profile and long-term context: `~/Workspace/knowledge/profile/`
 - Memory search layer: `memsearch` collection `ai` spanning the whole vault; index is derived and rebuildable, markdown is canonical.
 
 # Durable memory capture

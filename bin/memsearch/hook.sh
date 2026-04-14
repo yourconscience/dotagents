@@ -2,7 +2,7 @@
 # Wrapper for memsearch Claude Code hook scripts.
 # Location: ~/.agents/bin/memsearch/hook.sh
 # Sets env-var overrides so memsearch operates on a single global vault
-# (~/Documents/knowledge/ai) with a single shared Milvus collection ("ai"),
+# (~/Workspace/knowledge/ai) with a single shared Milvus collection ("ai"),
 # regardless of the current project directory.
 #
 # Usage: bash memsearch-hook.sh <event>
@@ -26,7 +26,7 @@ if [ "${MEMSEARCH_SKIP_CLAUDE_HOOKS:-}" = "1" ]; then
 fi
 
 MEMSEARCH_SRC="$HOME/Public/memsearch/plugins/claude-code"
-export MEMSEARCH_MEMORY_DIR="$HOME/Documents/knowledge/ai"
+export MEMSEARCH_MEMORY_DIR="$HOME/Workspace/knowledge/ai"
 export MEMSEARCH_STATE_DIR="$HOME/.memsearch/state"
 export MEMSEARCH_COLLECTION_NAME="ai"
 export CLAUDE_PLUGIN_ROOT="$MEMSEARCH_SRC"
@@ -61,9 +61,9 @@ case "$EVENT" in
     # Full-vault reindex so human notes + profile edits + the fresh digest
     # all get picked up by memsearch.
     exec memsearch index \
-      "$HOME/Documents/knowledge/notes" \
-      "$HOME/Documents/knowledge/profile" \
-      "$HOME/Documents/knowledge/ai" \
+      "$HOME/Workspace/knowledge/notes" \
+      "$HOME/Workspace/knowledge/profile" \
+      "$HOME/Workspace/knowledge/ai" \
       --collection ai >/dev/null 2>&1
     ;;
   *)
