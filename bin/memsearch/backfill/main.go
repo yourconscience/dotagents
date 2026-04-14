@@ -884,7 +884,7 @@ func callHaikuWithPrompt(claudeBin, systemPrompt, input string) (string, error) 
 // consolidate subcommand
 // ---------------------------------------------------------------------------
 
-const VaultAIDir = "Documents/knowledge/ai"
+const VaultAIDir = "Workspace/knowledge/ai"
 
 // Entry represents one parsed session-or-turn block from an ai/*.md file.
 type Entry struct {
