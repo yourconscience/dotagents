@@ -9,11 +9,12 @@ make build
 sudo make install   # installs to /usr/local/bin
 ```
 
-Or install to ~/bin without sudo:
+Or install to ~/.local/bin without sudo (already on PATH):
 
 ```bash
 make build
-cp x-cli ~/bin/
+mkdir -p ~/.local/bin
+cp x-cli ~/.local/bin/
 ```
 
 Verify installation:
