@@ -6,13 +6,14 @@ This repo is under active development and currently holds shared rules plus cros
 
 ## Skills
 
-- `ghpr` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
-- `grillme` - pressure-test a plan one question at a time until scope and decisions are concrete.
+- `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
 - `gws` - use the Google Workspace CLI for Gmail, Drive, Docs, Sheets, and Calendar workflows.
 - `jobcheck` - analyze fit for a job posting, generate a focused interview quiz, and grade answers.
 - `jobsearch` - keep a lightweight local job-search tracker updated from Gmail, LinkedIn MCP, and exports.
 - `omx` - spawn oh-my-codex in a detached tmux session and delegate a substantial task to it.
+- `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
+- `repo-eval` - find, triage, and deep-evaluate GitHub repos for a given need.
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
-- `techsearch` - gather high-signal opinions from tech communities and blogs on a topic.
+- `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
 

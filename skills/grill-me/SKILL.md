@@ -1,6 +1,6 @@
 ---
-name: grillme
-description: Interview the user relentlessly about a plan until every branch, dependency, and open question is resolved. Use when the user says /grillme or wants a plan pressure-tested one question at a time.
+name: grill-me
+description: Interview the user relentlessly about a plan until every branch, dependency, and open question is resolved. Use when the user says /grill-me or wants a plan pressure-tested one question at a time.
 ---
 
 Pressure-test the plan under discussion. Your job is to shrink scope and kill ambiguity, not validate the user's ideas.

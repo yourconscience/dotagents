@@ -1,16 +1,16 @@
 ---
-name: techsearch
-description: Search web, specifically Hacker News, X.com, and Reddit from top tech bloggers and communities about a given topic. Use when user says /techsearch or wants curated tech opinions on a topic.
+name: tech-search
+description: Search web, specifically Hacker News, X.com, and Reddit from top tech bloggers and communities about a given topic. Use when user says /tech-search or wants curated tech opinions on a topic.
 ---
 
-# techsearch
+# tech-search
 
 Search for opinions and discussions from high-signal tech sources about a given topic.
 
 ## Usage
 
 ```
-/techsearch <topic>
+/tech-search <topic>
 ```
 
 ## Sources
@@ -42,14 +42,33 @@ For recency: use `search_by_date` instead. Read threads at `https://news.ycombin
 
 ### 3. Reddit
 
-Use JSON endpoints directly:
+**IMPORTANT**: Reddit 403s requests without a browser User-Agent. Always set the header.
+
+Global search (preferred - catches cross-subreddit discussion):
+```bash
+curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
+  "https://www.reddit.com/search.json?q=<topic>&sort=relevance&t=year&limit=10"
 ```
-https://www.reddit.com/r/<subreddit>/search.json?q=<topic>&restrict_sr=1&sort=relevance&t=year&limit=10
+
+Subreddit-scoped search (when topic maps to a known community):
+```bash
+curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
+  "https://www.reddit.com/r/<subreddit>/search.json?q=<topic>&restrict_sr=1&sort=relevance&t=year&limit=10"
+```
+
+Read full comment threads for high-signal posts:
+```bash
+curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
+  "https://www.reddit.com/r/<sub>/comments/<id>.json"
 ```
 
 **Target subreddits:** r/ExperiencedDevs, r/ClaudeAI, r/LocalLLaMA, r/MachineLearning, r/devops, r/commandline, r/neovim
 
-Pick 2-3 relevant to the topic. Fallback: Arctic Shift API or `site:reddit.com/r/<sub>` via WebSearch.
+Pick 2-3 relevant to the topic. Add context keywords for ambiguous terms (e.g. "warp terminal coding" not just "warp").
+
+**Optional CLI**: `rdt-cli` (`uv tool install rdt-cli`) provides structured output with anti-detection. Same author ecosystem as x-cli. Use `rdt search "<topic>" --compact --json` if installed.
+
+Fallback: Pullpush API for historical posts (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
 
 ### 4. Tech blogs (optional)
 
@@ -83,18 +102,3 @@ For authoritative sources: `site:simonwillison.net`, `site:jvns.ca`, `site:danlu
 - Run searches in parallel. Cap at ~12 total calls.
 - Deduplicate cross-platform mentions.
 
-## GitHub Repo Triage
-
-For comparing/vetting GitHub repos. Use the repo_triage tool:
-
-```bash
-# Topic discovery
-go run ~/.agents/skills/techsearch/tools/repo_triage --topic "rust terminal multiplexer"
-
-# Specific repos
-go run ~/.agents/skills/techsearch/tools/repo_triage --repos tmux/tmux,zellij-org/zellij
-```
-
-Output includes: stars, last push, last release, top issues, friction keywords, vibe label.
-
-Present as buckets: `Worth trying`, `Maybe`, `Avoid for now`.
