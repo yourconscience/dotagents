@@ -1,9 +1,9 @@
 ---
-name: ghpr
-description: Inspect PR failed checks and unresolved review comments, fix issues, push, and safely handle publish-via-PR workflows. Use when user says /ghpr, asks about PR status, CI failures, review comments, or wants changes published through a PR.
+name: pr-triage
+description: Inspect PR failed checks and unresolved review comments, fix issues, push, and safely handle publish-via-PR workflows. Use when user says /pr-triage, asks about PR status, CI failures, review comments, or wants changes published through a PR.
 ---
 
-# ghpr
+# pr-triage
 
 Inspect, fix, commit, push. One cycle per invocation.
 
