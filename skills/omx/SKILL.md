@@ -29,6 +29,8 @@ All interaction — send-keys, capture, close — targets the tmux session, neve
 
 Default to hidden unless the user explicitly asks to see codex.
 
+**Interactive mode requires cmux.** In other environments (Claude Desktop, bare terminal, Ghostty, Warp), use hidden mode and have the user `tmux attach -t $OMX_TMUX` from their own terminal when they want to watch.
+
 ## Write the prompt
 
 Same for both modes. Self-contained brief, no hidden context:
