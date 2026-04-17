@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -105,7 +106,7 @@ func parseSubcommandFlags(name string, args []string) (runOptions, error) {
 }
 
 func runStatus(opts runOptions) error {
-	repoRoot, home, cfg, selected, err := loadContext(opts)
+	repoRoot, home, _, selected, err := loadContext(opts)
 	if err != nil {
 		return err
 	}
@@ -134,7 +135,6 @@ func runStatus(opts runOptions) error {
 		}
 	}
 
-	_ = cfg
 	return nil
 }
 
@@ -200,12 +200,12 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 		return "", "", config{}, nil, fmt.Errorf("resolve home: %w", err)
 	}
 
-	repoRoot, err := findRepoRoot()
+	repoRoot, skillRoot, err := findRoots()
 	if err != nil {
 		return "", "", config{}, nil, err
 	}
 
-	cfg, err := loadConfig(repoRoot, home, opts.ConfigPath)
+	cfg, err := loadConfig(skillRoot, home, opts.ConfigPath)
 	if err != nil {
 		return "", "", config{}, nil, err
 	}
@@ -218,10 +218,10 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 	return repoRoot, home, cfg, selected, nil
 }
 
-func loadConfig(repoRoot string, home string, overridePath string) (config, error) {
+func loadConfig(skillRoot string, home string, overridePath string) (config, error) {
 	configPath := overridePath
 	if strings.TrimSpace(configPath) == "" {
-		configPath = filepath.Join(repoRoot, "dotagents.yaml")
+		configPath = filepath.Join(skillRoot, "dotagents.yaml")
 	}
 	configPath = expandPath(configPath, home)
 
@@ -233,9 +233,6 @@ func loadConfig(repoRoot string, home string, overridePath string) (config, erro
 	var cfg config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return config{}, fmt.Errorf("yaml decode: %w", err)
-	}
-	if err != nil {
-		return config{}, fmt.Errorf("parse config %s: %w", configPath, err)
 	}
 	if cfg.Version == 0 {
 		cfg.Version = 1
@@ -305,24 +302,24 @@ func selectAgents(cfg config, override string) ([]agentConfig, error) {
 	return selected, nil
 }
 
-func findRepoRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("resolve working directory: %w", err)
+func findRoots() (string, string, error) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", "", errors.New("could not resolve tool source path")
 	}
 
-	for {
-		if hasDir(filepath.Join(dir, "skills")) && hasFile(filepath.Join(dir, "AGENTS.md")) {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
+	toolDir := filepath.Dir(file)
+	skillRoot := filepath.Clean(filepath.Join(toolDir, "..", ".."))
+	repoRoot := filepath.Clean(filepath.Join(skillRoot, "..", ".."))
+
+	if !hasFile(filepath.Join(skillRoot, "SKILL.md")) {
+		return "", "", fmt.Errorf("skill root not found from %s", toolDir)
+	}
+	if !hasDir(filepath.Join(repoRoot, "skills")) || !hasFile(filepath.Join(repoRoot, "AGENTS.md")) {
+		return "", "", fmt.Errorf("repo root not found from %s", toolDir)
 	}
 
-	return "", errors.New("could not find dotagents repo root from current directory")
+	return repoRoot, skillRoot, nil
 }
 
 func expectedSkills(repoRoot string, home string) (map[string]string, error) {
@@ -704,6 +701,6 @@ func printUsage() {
 	fmt.Println("dotagents")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  go run ./bin/dotagents status [--config path] [--agents codex,claude-code]")
-	fmt.Println("  go run ./bin/dotagents sync   [--config path] [--agents codex,claude-code]")
+	fmt.Println("  go run ./skills/dotagents/tools/dotagents status [--config path] [--agents codex,claude-code]")
+	fmt.Println("  go run ./skills/dotagents/tools/dotagents sync   [--config path] [--agents codex,claude-code]")
 }
