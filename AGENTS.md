@@ -9,6 +9,15 @@ Surgical changes. Do not improve adjacent code. Do not refactor what is not brok
 Goal-driven execution. Transform "fix the bug" into "write a failing test, then make it pass." Define success criteria before looping.
 Research, implement, verify, then report. Execution over discussion.
 
+# Artifacts
+Rules for anything that outlives the conversation: code, comments, docs, commit messages, config files.
+Omit, don't fill. A section with default content ("none", "n/a", "no issues") is deleted, not written. Absence is the signal.
+Evidence only on surprise. Passed checks get one line. Attach output, grep results, or file:line refs only to failures or genuinely surprising results.
+Don't re-narrate. The commit and diff are authoritative. Prose adds only what they cannot express: why a choice was made, what was deferred, what would bite a future reader.
+One sentence over a paragraph. If the second sentence adds no new information, cut it.
+No conversation bleed. Never stamp task names, dispatch paths, model names, or removed alternatives into long-lived artifacts. Test: delete the conversation - does the text still make sense to a stranger in six months?
+No invented defaults. When the plan or user did not specify a value, do not fabricate a "safe-looking" one. Either use the rigid path (same as before, as the user wrote it) or stop and ask. "Common" is not authorization.
+
 # Compatibility
 During refactoring, always consider whether to keep compatibility with the existing interface or make breaking changes.
 For production systems compatibility is often crucial.

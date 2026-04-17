@@ -14,5 +14,6 @@ This repo is under active development and currently holds shared rules plus cros
 - `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
 - `repo-eval` - find, triage, and deep-evaluate GitHub repos for a given need.
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
+- `step-back` - circuit breaker: stop after repeated failures, diagnose root cause, propose a new direction.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
