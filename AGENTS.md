@@ -41,7 +41,7 @@ Never post GitHub issue or PR comments directly via `gh` by default (exception: 
 
 # Canonical stores
 - ~/.agents is symlinked with dotagents repo by design to be a single source of truth for all agents. Edit the repo to make changes.
-- All skills are stored in skills/ subdirectory of this repo. Use `go run ./bin/dotagents/main.go status` and `go run ./bin/dotagents/main.go sync` from repo root to manage the repo-owned skill symlink surface for supported agents. The checked-in `dotagents.yaml` file is the default target config; `--agents` is only a one-run override.
+- All skills are stored in skills/ subdirectory of this repo. Use `go run ./bin/dotagents status` and `go run ./bin/dotagents sync` from repo root to manage the repo-owned skill symlink surface for supported agents. The checked-in `dotagents.yaml` file is the default target config; `--agents` is only a one-run override.
 - Notes and agent memory vault: `~/Workspace/knowledge/` (local git, no remote)
 - User profile and long-term context: `~/Workspace/knowledge/profile/`
 - Memory search layer: `memsearch` collection `ai` spanning the whole vault; index is derived and rebuildable, markdown is canonical.

@@ -28,20 +28,20 @@ The default agent targets live in [dotagents.yaml](./dotagents.yaml). `--agents`
 Check status with:
 
 ```bash
-go run ./bin/dotagents/main.go status
+go run ./bin/dotagents status
 ```
 
 Sync the configured agent roots with this repo:
 
 ```bash
-go run ./bin/dotagents/main.go sync
+go run ./bin/dotagents sync
 ```
 
 Limit a single run to specific agents:
 
 ```bash
-go run ./bin/dotagents/main.go status --agents=codex
-go run ./bin/dotagents/main.go sync --agents=claude-code,codex
+go run ./bin/dotagents status --agents=codex
+go run ./bin/dotagents sync --agents=claude-code,codex
 ```
 
 Ownership rules:
