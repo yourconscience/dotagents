@@ -6,6 +6,7 @@ This repo is under active development and currently holds shared rules plus cros
 
 ## Skills
 
+- `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
 - `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
 - `gws` - use the Google Workspace CLI for Gmail, Drive, Docs, Sheets, and Calendar workflows.
 - `jobcheck` - analyze fit for a job posting, generate a focused interview quiz, and grade answers.
@@ -16,4 +17,3 @@ This repo is under active development and currently holds shared rules plus cros
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
-
