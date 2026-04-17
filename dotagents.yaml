@@ -1,8 +1,0 @@
-version: 1
-agents:
-  - name: claude-code
-    enabled: true
-    skill_root: ~/.claude/skills
-  - name: codex
-    enabled: true
-    skill_root: ~/.codex/skills
