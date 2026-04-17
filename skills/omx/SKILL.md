@@ -44,12 +44,28 @@ EOF
 
 Codex commits inherit git identity from `~/.zshrc` (`GIT_AUTHOR_*` / `GIT_COMMITTER_*` are exported globally — same identity used by `cc`, `cx`, `oc`). No per-launch wiring.
 
+## cmux compatibility
+
+Claude Code runs inside cmux which shims `tmux` at `~/.cmuxterm/claude-teams-bin/tmux`. This shim rejects `tmux show-options` which omx calls on interactive startup. Workarounds:
+
+- **`omx exec` works from Claude's Bash tool** - no tmux interaction needed.
+- **Interactive omx, ralph, team**: prepend `PATH="/opt/homebrew/bin:$PATH"` to bypass the shim, or launch from the user's own terminal.
+- When using `omx exec`, no PATH fix is needed.
+
 ## Launch
 
-### Hidden mode (default)
+### Non-interactive mode (omx exec) - preferred from Claude Code
 
 ```bash
-cd <repo> && omx --yolo --high "$(cat $PROMPT_FILE)"
+cd <repo> && omx exec "$(cat $PROMPT_FILE)"
+```
+
+`omx exec` runs Codex non-interactively with AGENTS.md overlay and MCP servers. It blocks until Codex finishes, then returns. No tmux session management needed. Best for single-shot implementation tasks delegated from Claude.
+
+### Hidden mode (default) - requires PATH fix in cmux
+
+```bash
+cd <repo> && PATH="/opt/homebrew/bin:$PATH" omx --yolo --high "$(cat $PROMPT_FILE)"
 OMX_TMUX=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
 echo "codex running detached in $OMX_TMUX"
 ```
@@ -127,7 +143,7 @@ tmux delete-buffer -b omxfu
 
 If `$OMX_TMUX` is gone, relaunch with `omx resume "$(cat $FOLLOWUP)"` to pick a prior session id — same launch pattern as above, new `$OMX_TMUX` handle.
 
-## Close
+## Close and cleanup
 
 ```bash
 # 1. quit codex in the detached session (this ends the omx-* tmux session)
@@ -136,13 +152,18 @@ tmux send-keys -t "$OMX_TMUX" C-c
 
 # 2. interactive mode only: close the viewer surface
 [ -n "${CODEX_SURFACE:-}" ] && cmux close-surface --workspace "$CODEX_WS" --surface "$CODEX_SURFACE"
+
+# 3. cleanup orphaned MCP processes and stale /tmp dirs
+omx cleanup 2>/dev/null
 ```
 
 `^C` to the viewer surface does NOT reach codex — it just detaches the viewer. Always target `$OMX_TMUX` directly.
+
+Always run `omx cleanup` after closing a session. Over many delegated tasks, orphaned MCP server processes and stale `/tmp/omx-*` directories accumulate. The cleanup command is safe and idempotent.
 
 ## Caveats
 
 - **Never use `cmux omx`**, always plain `omx`. The `cmux omx` wrapper adds an extra tmux compat shim that makes HUD auto-attach leak into Claude's pane (shrinking it) and breaks `omx team` workers (shim missing `show-options`). Plain `omx` uses the real outer tmux cleanly.
 - **`omx --madmax` is actually dangerous** — bypasses both approvals AND the sandbox. Never use on prompts whose contents Claude has not fully vetted, and never in the user's real home directory without explicit opt-in.
-- **First run touches `~/.codex/`**: `omx setup` overwrites `~/.codex/config.toml`. Back up any hand-tuned codex config before running it.
+- **First run touches `~/.codex/`**: `omx setup` merges into `~/.codex/config.toml` (adds MCP servers, notify hook, developer_instructions, feature flags). Hand-tuned settings are preserved, but review the diff after first setup.
 - **Default to `--high` reasoning**. Escalate to `--xhigh` for ambiguous design/debug work. `omx --help` lists the rest of the flags.
