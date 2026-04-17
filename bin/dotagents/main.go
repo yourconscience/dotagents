@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -9,19 +8,20 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type config struct {
-	Version int
-	Agents  []agentConfig
+	Version int           `yaml:"version"`
+	Agents  []agentConfig `yaml:"agents"`
 }
 
 type agentConfig struct {
-	Name      string
-	Enabled   bool
-	SkillRoot string
+	Name      string `yaml:"name"`
+	Enabled   bool   `yaml:"enabled"`
+	SkillRoot string `yaml:"skill_root"`
 }
 
 type repoLinkReport struct {
@@ -230,9 +230,18 @@ func loadConfig(repoRoot string, home string, overridePath string) (config, erro
 		return config{}, fmt.Errorf("read config %s: %w", configPath, err)
 	}
 
-	cfg, err := parseConfigYAML(string(data))
+	var cfg config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return config{}, fmt.Errorf("yaml decode: %w", err)
+	}
 	if err != nil {
 		return config{}, fmt.Errorf("parse config %s: %w", configPath, err)
+	}
+	if cfg.Version == 0 {
+		cfg.Version = 1
+	}
+	if len(cfg.Agents) == 0 {
+		return config{}, errors.New("config has no agents")
 	}
 
 	seen := make(map[string]struct{})
@@ -252,118 +261,6 @@ func loadConfig(repoRoot string, home string, overridePath string) (config, erro
 	}
 
 	return cfg, nil
-}
-
-func parseConfigYAML(input string) (config, error) {
-	var cfg config
-	cfg.Version = 1
-
-	scanner := bufio.NewScanner(strings.NewReader(input))
-	lineNumber := 0
-	inAgents := false
-	var current *agentConfig
-
-	for scanner.Scan() {
-		lineNumber++
-		raw := scanner.Text()
-		trimmed := strings.TrimSpace(raw)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-
-		if !inAgents {
-			switch {
-			case strings.HasPrefix(trimmed, "version:"):
-				value := strings.TrimSpace(strings.TrimPrefix(trimmed, "version:"))
-				version, err := strconv.Atoi(value)
-				if err != nil {
-					return config{}, fmt.Errorf("line %d: invalid version %q", lineNumber, value)
-				}
-				cfg.Version = version
-			case trimmed == "agents:":
-				inAgents = true
-			default:
-				return config{}, fmt.Errorf("line %d: unsupported top-level entry %q", lineNumber, trimmed)
-			}
-			continue
-		}
-
-		if strings.HasPrefix(trimmed, "- ") {
-			if current != nil {
-				cfg.Agents = append(cfg.Agents, *current)
-			}
-			current = &agentConfig{Enabled: true}
-			remainder := strings.TrimSpace(strings.TrimPrefix(trimmed, "- "))
-			if remainder == "" {
-				continue
-			}
-			key, value, err := parseKeyValue(remainder)
-			if err != nil {
-				return config{}, fmt.Errorf("line %d: %w", lineNumber, err)
-			}
-			if err := assignAgentField(current, key, value); err != nil {
-				return config{}, fmt.Errorf("line %d: %w", lineNumber, err)
-			}
-			continue
-		}
-
-		if current == nil {
-			return config{}, fmt.Errorf("line %d: agent field without list item", lineNumber)
-		}
-		key, value, err := parseKeyValue(trimmed)
-		if err != nil {
-			return config{}, fmt.Errorf("line %d: %w", lineNumber, err)
-		}
-		if err := assignAgentField(current, key, value); err != nil {
-			return config{}, fmt.Errorf("line %d: %w", lineNumber, err)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return config{}, err
-	}
-	if current != nil {
-		cfg.Agents = append(cfg.Agents, *current)
-	}
-	if len(cfg.Agents) == 0 {
-		return config{}, errors.New("config has no agents")
-	}
-
-	return cfg, nil
-}
-
-func parseKeyValue(input string) (string, string, error) {
-	key, value, ok := strings.Cut(input, ":")
-	if !ok {
-		return "", "", fmt.Errorf("expected key: value, got %q", input)
-	}
-	key = strings.TrimSpace(key)
-	value = strings.TrimSpace(value)
-	if key == "" {
-		return "", "", fmt.Errorf("empty key in %q", input)
-	}
-	value = strings.Trim(value, `"'`)
-	return key, value, nil
-}
-
-func assignAgentField(agent *agentConfig, key string, value string) error {
-	switch key {
-	case "name":
-		agent.Name = value
-	case "enabled":
-		switch strings.ToLower(value) {
-		case "true":
-			agent.Enabled = true
-		case "false":
-			agent.Enabled = false
-		default:
-			return fmt.Errorf("invalid boolean %q", value)
-		}
-	case "skill_root":
-		agent.SkillRoot = value
-	default:
-		return fmt.Errorf("unsupported agent field %q", key)
-	}
-	return nil
 }
 
 func selectAgents(cfg config, override string) ([]agentConfig, error) {
@@ -807,6 +704,6 @@ func printUsage() {
 	fmt.Println("dotagents")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  go run ./bin/dotagents/main.go status [--config path] [--agents codex,claude-code]")
-	fmt.Println("  go run ./bin/dotagents/main.go sync   [--config path] [--agents codex,claude-code]")
+	fmt.Println("  go run ./bin/dotagents status [--config path] [--agents codex,claude-code]")
+	fmt.Println("  go run ./bin/dotagents sync   [--config path] [--agents codex,claude-code]")
 }
