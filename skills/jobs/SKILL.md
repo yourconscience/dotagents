@@ -5,7 +5,7 @@ description: "Track a job search pipeline, analyze fit for postings, generate in
 
 # Jobs
 
-Single skill for job search tracking and fit analysis. Replaces the old `jobsearch` and `jobcheck` skills.
+Single skill for job search tracking and fit analysis.
 
 ## Modes
 
