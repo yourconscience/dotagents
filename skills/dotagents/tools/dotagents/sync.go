@@ -30,7 +30,7 @@ func runStatus(opts runOptions) error {
 	}
 
 	printReport("status", repoRoot, repoReport, reports)
-	if repoReport.State != "synced" {
+	if repoReport.State != stateSynced {
 		return errors.New("dotagents is not fully synced")
 	}
 	for _, report := range reports {
@@ -64,7 +64,7 @@ func runSync(opts runOptions) error {
 	preflight := cloneReports(reports)
 
 	var conflicts []string
-	if repoReport.State == "conflict" {
+	if repoReport.State == stateConflict {
 		conflicts = append(conflicts, fmt.Sprintf("repo link: %s", repoReport.Path))
 	}
 	for _, report := range reports {
@@ -100,16 +100,16 @@ func runSync(opts runOptions) error {
 
 func applyRepoLink(report repoLinkReport) error {
 	switch report.State {
-	case "synced":
+	case stateSynced:
 		return nil
-	case "missing":
+	case stateMissing:
 		return os.Symlink(report.ExpectedTarget, report.Path)
-	case "drifted":
+	case stateDrifted:
 		if err := os.Remove(report.Path); err != nil {
 			return fmt.Errorf("remove %s: %w", report.Path, err)
 		}
 		return os.Symlink(report.ExpectedTarget, report.Path)
-	case "conflict":
+	case stateConflict:
 		return fmt.Errorf("%s is not a symlink", report.Path)
 	default:
 		return fmt.Errorf("unsupported repo link state %q", report.State)

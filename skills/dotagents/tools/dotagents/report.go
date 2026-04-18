@@ -11,7 +11,7 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 	fmt.Printf("dotagents %s\n", mode)
 	fmt.Printf("repo: %s\n", repoRoot)
 	fmt.Printf("~/.agents: %s", repoReport.State)
-	if repoReport.State == "synced" {
+	if repoReport.State == stateSynced {
 		fmt.Printf(" -> %s\n", repoReport.ExpectedTarget)
 	} else {
 		fmt.Printf(" (expected %s", repoReport.ExpectedTarget)
