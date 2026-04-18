@@ -27,17 +27,19 @@ import (
 	"time"
 )
 
+const roleUser = "user"
+
 type SessionRecord struct {
-	Path           string `json:"path"`
-	Agent          string `json:"agent"`
-	SessionID      string `json:"session_id"`
-	StartTime      string `json:"start_time"`
-	EndTime        string `json:"end_time"`
-	TurnCount      int    `json:"turn_count"`
-	AgeDays        int    `json:"age_days"`
-	FirstUserMsg   string `json:"first_user_msg"`
-	FirstUserHash  string `json:"first_user_hash"`
-	FileSizeBytes  int64  `json:"file_size_bytes"`
+	Path          string `json:"path"`
+	Agent         string `json:"agent"`
+	SessionID     string `json:"session_id"`
+	StartTime     string `json:"start_time"`
+	EndTime       string `json:"end_time"`
+	TurnCount     int    `json:"turn_count"`
+	AgeDays       int    `json:"age_days"`
+	FirstUserMsg  string `json:"first_user_msg"`
+	FirstUserHash string `json:"first_user_hash"`
+	FileSizeBytes int64  `json:"file_size_bytes"`
 }
 
 const (
@@ -178,7 +180,7 @@ func parseClaudeSession(p string, now time.Time) (*SessionRecord, error) {
 			}
 			endTS = ts
 		}
-		if t, _ := obj["type"].(string); t == "user" {
+		if t, _ := obj["type"].(string); t == roleUser {
 			if obj["isMeta"] == true {
 				continue
 			}
@@ -376,11 +378,11 @@ func printStats(records []SessionRecord) {
 		clusters[r.FirstUserHash] = append(clusters[r.FirstUserHash], r)
 	}
 	type clusterRow struct {
-		Hash    string
-		Count   int
-		Sample  string
-		Oldest  int
-		Newest  int
+		Hash   string
+		Count  int
+		Sample string
+		Oldest int
+		Newest int
 	}
 	var rows []clusterRow
 	for h, rs := range clusters {
@@ -684,14 +686,14 @@ func formatClaudeTranscript(path string) (string, error) {
 			continue
 		}
 		t, _ := obj["type"].(string)
-		if t != "user" && t != "assistant" {
+		if t != roleUser && t != "assistant" {
 			continue
 		}
 		msg, _ := obj["message"].(map[string]any)
 		if msg == nil {
 			continue
 		}
-		if t == "user" {
+		if t == roleUser {
 			if obj["isMeta"] == true {
 				continue
 			}
