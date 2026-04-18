@@ -1,3 +1,7 @@
 go 1.23.0
 
-use ./skills/dotagents/tools/dotagents
+use (
+	./bin/memsearch/backfill
+	./skills/dotagents/tools/dotagents
+	./skills/gws
+)

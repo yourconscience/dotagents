@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+const (
+	stateMissing  = "missing"
+	stateConflict = "conflict"
+	stateSynced   = "synced"
+	stateDrifted  = "drifted"
+)
+
 func expectedSkills(repoRoot string, home string) (map[string]string, error) {
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
@@ -39,7 +46,7 @@ func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 	report := repoLinkReport{
 		Path:           linkPath,
 		ExpectedTarget: repoRoot,
-		State:          "missing",
+		State:          stateMissing,
 	}
 
 	info, err := os.Lstat(linkPath)
@@ -50,7 +57,7 @@ func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 		return repoLinkReport{}, fmt.Errorf("stat %s: %w", linkPath, err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		report.State = "conflict"
+		report.State = stateConflict
 		report.ActualTarget = "non-symlink path exists"
 		return report, nil
 	}
@@ -61,11 +68,11 @@ func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 	}
 	report.ActualTarget = rawTarget
 	if linkMatches(linkPath, rawTarget, repoRoot) {
-		report.State = "synced"
+		report.State = stateSynced
 		return report, nil
 	}
 
-	report.State = "drifted"
+	report.State = stateDrifted
 	return report, nil
 }
 
