@@ -4,6 +4,17 @@ Private repo for my shared authored `~/.agents` layer.
 
 This repo is under active development and currently holds shared rules plus cross-tool skills for Claude Code, Codex, and OpenCode.
 
+## Agents
+
+Reusable agent role definitions for Claude Code teams and subagents. Symlinked to `~/.claude/agents/` so they're available in all projects.
+
+- `architect` - designs system architecture, telemetry schemas, and technical plans. Sonnet, read + write.
+- `builder` - implements code changes following specs or architect designs. Sonnet, read + write.
+- `researcher` - investigates codebases, APIs, repos, and web sources. Sonnet, read + write + web.
+- `reviewer` - reviews code against specs, finds bugs and security issues. Sonnet, read-only.
+
+Reference these from TeamCreate teammates or as subagent types. See `skills/team/SKILL.md` for usage patterns.
+
 ## Skills
 
 - `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
@@ -14,6 +25,7 @@ This repo is under active development and currently holds shared rules plus cros
 - `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
 - `repo-eval` - find, triage, and deep-evaluate GitHub repos for a given need.
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
+- `team` - spawn and manage Claude Code agent teams with model routing and cmux integration.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
 
