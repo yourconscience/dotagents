@@ -1,9 +1,9 @@
 ---
-name: team
-description: Spawn a coordinated team of Claude Code agent teammates in cmux panes. Use when the user asks to "create a team", "launch teammates", or "spawn a team". Handles teammate model selection, task creation, and cmux integration.
+name: spawn
+description: Spawn a coordinated team of Claude Code agent teammates in cmux panes. Use when the user asks to "create a team", "launch teammates", "spawn a team", or "/spawn". Handles teammate model selection, task creation, and cmux integration.
 ---
 
-# team
+# spawn
 
 Spawn and manage Claude Code agent teams with proper model routing and cmux integration.
 
