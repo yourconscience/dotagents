@@ -31,6 +31,8 @@ Only ask for help when scripts timeout (>2 min), sudo is required, or a genuine 
 When asking structured questions, prefer the harness-native question tool.
 Claude Code: `AskUserQuestion`.
 Codex or Codex-derived harnesses: `request_user_input` when available.
+Hermes: `clarify`.
+OpenClaw: ask plain text (no structured question tool).
 
 # Git
 Commit messages must be short single lines - no multi-line bodies unless explicitly requested.

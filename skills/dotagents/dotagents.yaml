@@ -8,3 +8,11 @@ agents:
     enabled: true
     skill_root: ~/.codex/skills
     agent_root: ~/.codex/agents
+  - name: hermes
+    enabled: true
+    skill_root: ~/.hermes/skills
+    # no agent_root: Hermes uses SOUL.md per workspace, not named agent files
+  - name: openclaw
+    enabled: true
+    skill_root: ~/.openclaw/skills
+    # no agent_root: OpenClaw uses SOUL.md/IDENTITY.md per workspace, not named agent files

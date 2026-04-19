@@ -33,5 +33,15 @@ Codex (~/.codex/agents/reviewer.toml):
   developer_instructions = """<body text>"""
   # tools/color have no TOML equivalent; enforce read-only via approval_policy in config.toml
   # or use sandbox_mode = "read-only" for this agent
+
+Hermes (~/.hermes/ via SOUL.md):
+  # No per-agent files. Persona set in ~/.hermes/SOUL.md (freeform markdown).
+  # Body text goes into SOUL.md; model set in ~/.hermes/config.yaml.
+  # To use as delegation target: delegate_task(toolsets=["file"]) - omit "terminal" for read-only.
+
+OpenClaw (~/.openclaw/workspace/):
+  # No per-agent files. Persona split across SOUL.md + IDENTITY.md + AGENTS.md per workspace.
+  # Body text goes into SOUL.md; model set in openclaw.json agents.list[].model.
+  # For read-only: set sandbox in openclaw.json agents.list[] or use sessions_spawn sandbox param.
 -->
 
