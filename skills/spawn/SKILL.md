@@ -198,3 +198,79 @@ Codex does not have a "team" primitive equivalent to Claude Code's TeamCreate + 
 **Recommended pattern for Codex multi-agent work:**
 Use oh-my-codex's `$team` skill or the `team-executor` agent, which handles orchestration within a single Codex session. For truly parallel independent work, use omx to spawn separate Codex sessions in tmux panes.
 
+## Multi-agent in Hermes Agent
+
+Hermes uses `delegate_task` for subagent spawning. No named agent roles - subagents get a goal and context.
+
+**Delegation:**
+
+```python
+# single subagent
+delegate_task(goal="Review this PR for security issues", context="...", toolsets=["file"])
+
+# parallel (up to 3 concurrent)
+delegate_task(tasks=[
+  {goal: "Research approach A", context: "...", toolsets: ["web", "file"]},
+  {goal: "Research approach B", context: "...", toolsets: ["web", "file"]}
+])
+```
+
+**Constraints:**
+- Max depth: 2 (children cannot delegate further)
+- Max concurrency: 3 parallel subagents
+- Blocked toolsets for subagents: `delegation`, `clarify`, `memory`, `send_message`
+- Subagents start fresh - no parent context bleeds through
+
+**Subagent model override** (in `~/.hermes/config.yaml`):
+
+```yaml
+delegation:
+  model: "provider/model"
+  provider: "openrouter"
+  max_iterations: 50
+  default_toolsets: ["terminal", "file", "web"]
+```
+
+**Skill integration:** Add `~/.agents/skills` to `skills.external_dirs` in config.yaml to make dotagents skills available.
+
+**Limitations vs Claude Code teams:**
+- No shared task list
+- No bi-directional messaging between subagents
+- No named role definitions (pass role context via goal/context params)
+- No cmux/tmux pane visibility
+- Subagents report back to parent only; no peer-to-peer coordination
+
+## Multi-agent in OpenClaw
+
+OpenClaw uses `sessions_spawn` to delegate to named agents. Agents are workspace instances, not role files.
+
+**Named agents** are configured in `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "agents": {
+    "list": [
+      { "id": "main", "default": true, "workspace": "~/.openclaw/workspace" },
+      { "id": "researcher", "workspace": "~/.openclaw/workspace-research" }
+    ]
+  }
+}
+```
+
+**Spawning a subagent:**
+
+```
+sessions_spawn(task="...", agentId="researcher", model="...", mode="run")
+```
+
+**Access control:** `agents.list[].subagents.allowAgents` is an allowlist of spawnable agentIds. Default allows only self.
+
+**Skill integration:** `~/.agents/skills/` is already in OpenClaw's skill load path (precedence 3). No config needed.
+
+**Limitations vs Claude Code teams:**
+- No shared task list
+- No cmux/tmux pane visibility
+- No bi-directional messaging between agents
+- Subagent persona injection is broken (issue #50263) - subagents run with spawner's context
+- Named agents require separate workspace directories with their own SOUL.md/AGENTS.md
+

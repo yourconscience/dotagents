@@ -7,7 +7,7 @@ Pressure-test the plan under discussion. Your job is to shrink scope and kill am
 
 ## Rules
 
-- Use the current harness's native structured question tool for every question when one is available. Claude Code: `AskUserQuestion`. Codex or Codex-derived harnesses: `request_user_input` when available. If no such tool exists, ask a plain-text question directly. One question per message.
+- Use the current harness's native structured question tool for every question when one is available. Claude Code: `AskUserQuestion`. Codex or Codex-derived harnesses: `request_user_input` when available. Hermes: `clarify`. OpenClaw: ask plain text. If no such tool exists, ask a plain-text question directly. One question per message.
 - Be blunt. No praise, no hedging, no "great point". If something is vague, say it is vague.
 - For each question, state your recommended answer and why. Make the user argue if they disagree.
 - Walk the design tree depth-first: pick the highest-risk branch, drill into it until it is fully resolved, then move to the next.
