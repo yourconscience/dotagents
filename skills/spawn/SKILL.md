@@ -33,6 +33,28 @@ Spawn and manage Claude Code agent teams with proper model routing and cmux inte
 
 Default to subagents unless the user asks for a team or the work genuinely benefits from inter-agent coordination.
 
+## Delegation modes
+
+Three ways to spawn work. Pick based on the task shape, not habit.
+
+| Need | Mode | Entry point |
+|---|---|---|
+| Focused task where only the result matters | Subagent (Agent tool) | Built-in, no setup |
+| Coordinated team with shared tasks and visibility | Claude Code teammates (TeamCreate + cmux) | This skill |
+| Second-model perspective or GPT-5 reasoning on a substantial task | Codex via oh-my-codex | `/omx` skill |
+
+**When omx makes sense over subagents or teammates:**
+- You want a different model's take (GPT-5 vs Claude) on architecture, review, or a tricky bug.
+- The task is large and self-contained enough to hand off completely: multi-file refactor, deep research report, long test/debug loop.
+- You want parallel work without burning Claude context or token budget on it.
+
+**When omx is a bad fit:**
+- Task needs Claude's current conversation context (omx gets a fresh prompt, no shared state).
+- Sub-2-minute work (omx session overhead isn't worth it).
+- Tight coordination loop where agents need to message each other (use teammates instead).
+
+omx requires the `omx` CLI installed and working. If unavailable, fall back to subagents or teammates. See `/omx` skill for the full operational runbook.
+
 ## Prerequisites
 
 For visible panes, the session must be started via `cmux claude-teams` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and provides a tmux shim). Check:
