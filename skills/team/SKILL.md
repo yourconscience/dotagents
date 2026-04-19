@@ -117,7 +117,7 @@ color: blue
 You are a senior software architect...
 ```
 
-See `~/Workspace/dotagents/agents/` for maintained role definitions. Sync them to `~/.claude/agents/` via the dotagents tool.
+See the `agents/` directory in this repository for maintained role definitions. Sync them to `~/.claude/agents/` via the dotagents tool.
 
 ## Common team patterns
 
