@@ -16,3 +16,7 @@ This repo is under active development and currently holds shared rules plus cros
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
+
+## Research
+
+`research/` holds evaluation notes, landscape comparisons, and alternatives explored. Not necessarily implemented or supported - more about what was tried, what the options are, and why certain choices were made. Reference material for future decisions.
