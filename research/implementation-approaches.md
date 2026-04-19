@@ -70,7 +70,7 @@ Claude Code plugin (btseytlin/ultrapack) providing an opinionated SDLC pipeline:
 
 **Weaknesses:**
 - Heavy for small/medium tasks - full pipeline is 5+ stages
-- Claude-Code-only (not portable to Codex/OpenCode)
+- Claude-Code-only (not portable to Codex or other harnesses)
 - Burns significant Opus context on orchestration overhead
 - Prescriptive: one workflow shape, no escape hatch for tasks that don't fit
 - Brand new (created 2026-04-17), single author, unproven at scale
@@ -140,7 +140,7 @@ Key technique from Reddit (u/ljw1004, 61 upvotes): orchestration instructions te
 
 **Strengths:**
 - Zero tooling: just markdown files and a fresh agent
-- Portable: works with any agent that reads files (Claude Code, Codex, OpenCode)
+- Portable: works with any agent that reads files (Claude Code, Codex, or any other harness)
 - Transparent: the plan IS the orchestration, readable by humans and agents
 - Proven 3-4 hour autonomous runs in both greenfield and brownfield codebases
 - Cross-model validation built in (ask Codex to review Claude's output and vice versa)

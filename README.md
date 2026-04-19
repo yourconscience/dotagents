@@ -2,7 +2,7 @@
 
 Private repo for my shared authored `~/.agents` layer.
 
-This repo is under active development and currently holds shared rules plus cross-tool skills for Claude Code, Codex, and OpenCode.
+This repo is under active development and currently holds shared rules plus cross-tool skills for Claude Code and Codex.
 
 ## Agents
 
