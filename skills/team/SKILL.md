@@ -148,3 +148,61 @@ The most validated pattern (Anthropic's own feature-dev plugin uses this structu
 - Teammates without clear task boundaries (they'll step on each other's files)
 - Using opus for every teammate (burns quota fast; sonnet handles most work)
 - Not setting model explicitly (teammates inherit parent model, which may be opus)
+
+## Multi-agent in Codex
+
+Codex does not have a "team" primitive equivalent to Claude Code's TeamCreate + cmux panes.
+
+**What Codex does have:**
+- Native subagents: when `multi_agent = true` in `~/.codex/config.toml`, Codex can spawn child agents within a session. These run in the same session context, not separate panes.
+- oh-my-codex adds a `team-executor` agent (`~/.codex/agents/team-executor.toml`) that coordinates parallel work by delegating to named subagents and collecting results.
+- Agent definitions live in `~/.codex/agents/*.toml`. See `agents/` in this repo for maintained role definitions and their compat blocks.
+
+**Spawning a subagent in Codex (within a session):**
+
+```
+// Codex native subagent spawn (multi_agent feature must be enabled)
+// The orchestrating agent calls this pattern in its reasoning:
+// "spawn researcher subagent to investigate X, report findings here"
+// Codex routes this to the agent definition matching the name
+```
+
+**Limitations vs Claude Code teams:**
+- No shared task list across Codex sessions
+- No bi-directional messaging between independent sessions
+- No cmux pane visibility
+- Coordination is single-session only; parallel independent sessions require external orchestration (e.g., omx for tmux-based multi-session work)
+
+**Recommended pattern for Codex multi-agent work:**
+Use oh-my-codex's `$team` skill or the `team-executor` agent, which handles orchestration within a single Codex session. For truly parallel independent work, use omx to spawn separate Codex sessions in tmux panes.
+
+## Multi-agent in OpenCode
+
+OpenCode has a `mode` field on agent definitions but no "team" primitive.
+
+**Agent modes:**
+- `mode: all` - agent can be used as primary or spawned as subagent
+- `mode: primary` - only usable as the main agent for a session
+- `mode: subagent` - only spawnable by a primary agent
+
+**Agent definitions** (`~/.config/opencode/agents/*.md`) use YAML frontmatter with `description`, `mode`, `color`, and a `permission` map to restrict tool access. See the compat blocks in `agents/*.md` for field mappings.
+
+**Spawning subagents in OpenCode:**
+
+A primary agent can delegate tasks to subagents. The primary agent's system prompt should instruct it to use the `task` tool to spawn helpers. OpenCode routes the spawn to the matching agent definition by name.
+
+```markdown
+# In your primary agent's system prompt:
+When you need to research something, spawn the "researcher" subagent with the question.
+When you need code reviewed, spawn the "reviewer" subagent with the diff.
+```
+
+**Limitations vs Claude Code teams:**
+- No shared task list
+- No cmux/tmux pane visibility
+- No bi-directional messaging between agents
+- Subagents report back to the primary only; no peer-to-peer coordination
+- No model selection per-agent in the agent file (model set globally or via `-m` CLI flag)
+
+**Recommended pattern for OpenCode multi-agent work:**
+Define a primary agent with orchestration instructions and named subagent references. Keep subagents read-only where possible (use `permission: { edit: deny, bash: deny }`) to reduce risk of conflicting writes.

@@ -23,3 +23,29 @@ Report findings as:
 Be specific: file:line, what's wrong, what the fix should be. Don't nitpick style when the code is correct and readable.
 
 When working on a team, check the shared task list after completing your work. Message teammates if your review findings require their attention.
+
+<!-- compat
+Codex (~/.codex/agents/reviewer.toml):
+  name = "reviewer"
+  description = "<same>"
+  model = "gpt-5.4"               # sonnet -> gpt-5.4; haiku -> gpt-5.4-mini
+  model_reasoning_effort = "high"  # replaces effort
+  developer_instructions = """<body text>"""
+  # tools/color have no TOML equivalent; enforce read-only via approval_policy in config.toml
+  # or use sandbox_mode = "read-only" for this agent
+
+OpenCode (~/.config/opencode/agents/reviewer.md):
+  ---
+  description: <same>
+  mode: subagent  # reviewer is typically spawned as a helper, not a primary agent
+  color: warning
+  permission:
+    bash: deny
+    edit: deny
+    write: deny
+  ---
+  <body text>
+  # name comes from filename, not frontmatter
+  # model set globally in config or via -m flag, not per-agent
+-->
+
