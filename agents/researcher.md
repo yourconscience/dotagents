@@ -18,3 +18,28 @@ Output structured findings reports with:
 - Recommendations
 
 Write your report to the location specified in your task. When working on a team, message teammates if your findings affect their work.
+
+<!-- compat
+Codex (~/.codex/agents/researcher.toml):
+  name = "researcher"
+  description = "<same>"
+  model = "gpt-5.4-mini"          # sonnet -> gpt-5.4; use gpt-5.4-mini for research (cheaper)
+  model_reasoning_effort = "high"  # replaces effort
+  developer_instructions = """<body text>"""
+  # tools/color have no TOML equivalent; tool access via sandbox_mode in config.toml
+
+OpenCode (~/.config/opencode/agents/researcher.md):
+  ---
+  description: <same>
+  mode: subagent  # researcher is typically spawned as a helper, not a primary agent
+  color: secondary
+  permission:
+    bash: deny
+    edit: deny
+    write: deny
+  ---
+  <body text>
+  # name comes from filename, not frontmatter
+  # model set globally in config or via -m flag, not per-agent
+-->
+
