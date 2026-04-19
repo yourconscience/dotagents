@@ -8,7 +8,5 @@ agents:
     enabled: true
     skill_root: ~/.codex/skills
     agent_root: ~/.codex/agents
-  - name: opencode
-    enabled: true
-    agent_root: ~/.config/opencode/agents
-    # OpenCode uses plugins/commands rather than a skills directory
+  # opencode: agent_root ~/.config/opencode/agents
+  # Disabled: dotagents Go tool requires skill_root; enable after tool update
