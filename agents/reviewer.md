@@ -21,3 +21,5 @@ Report findings as:
 - **Medium**: style, naming, minor improvements
 
 Be specific: file:line, what's wrong, what the fix should be. Don't nitpick style when the code is correct and readable.
+
+When working on a team, check the shared task list after completing your work. Message teammates if your review findings require their attention.
