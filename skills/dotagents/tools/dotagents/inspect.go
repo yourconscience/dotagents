@@ -92,6 +92,10 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	report := agentReport{
 		Name:      agent.Name,
 		SkillRoot: agent.SkillRoot,
+		Detected:  isDetected(agent),
+	}
+	if !report.Detected {
+		return report, nil
 	}
 
 	expectedNames := sortedKeys(expected)

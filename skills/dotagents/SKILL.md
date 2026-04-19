@@ -1,6 +1,6 @@
 ---
 name: dotagents
-description: Inspect and sync the repo-owned agent skill links for the dotagents repo across supported coding agents. Use when the user asks for dotagents status, dotagents sync, or wants to reconcile ~/.agents with Claude/Codex skill roots.
+description: Inspect and sync the repo-owned agent skill links for the dotagents repo across supported coding agents. Use when the user asks for dotagents status, dotagents sync, or wants to reconcile ~/.agents with Claude/Codex/Hermes/OpenClaw skill roots.
 ---
 
 # dotagents
