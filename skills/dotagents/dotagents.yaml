@@ -3,6 +3,7 @@ agents:
   - name: claude-code
     enabled: true
     skill_root: ~/.claude/skills
+    agent_root: ~/.claude/agents
   - name: codex
     enabled: true
     skill_root: ~/.codex/skills
