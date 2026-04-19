@@ -29,7 +29,6 @@ Only ask for help when scripts timeout (>2 min), sudo is required, or a genuine 
 
 # User Questions
 When asking structured questions, prefer the harness-native question tool.
-OpenCode: `question`.
 Claude Code: `AskUserQuestion`.
 Codex or Codex-derived harnesses: `request_user_input` when available.
 

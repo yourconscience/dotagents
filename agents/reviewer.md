@@ -33,19 +33,5 @@ Codex (~/.codex/agents/reviewer.toml):
   developer_instructions = """<body text>"""
   # tools/color have no TOML equivalent; enforce read-only via approval_policy in config.toml
   # or use sandbox_mode = "read-only" for this agent
-
-OpenCode (~/.config/opencode/agents/reviewer.md):
-  ---
-  description: <same>
-  mode: subagent  # reviewer is typically spawned as a helper, not a primary agent
-  color: warning
-  permission:
-    bash: deny
-    edit: deny
-    write: deny
-  ---
-  <body text>
-  # name comes from filename, not frontmatter
-  # model set globally in config or via -m flag, not per-agent
 -->
 

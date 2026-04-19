@@ -16,7 +16,7 @@ Run a short interview and produce or update a minimal `SPEC.md` that guides plan
    - Also use it when `SPEC.md` is missing or stale, or the user asks for `/spec`.
 
 2) Interview (5 questions max).
-   - When the harness exposes a structured question tool, use it. OpenCode: `question`. Claude Code: `AskUserQuestion`. Codex or Codex-derived harnesses: `request_user_input` when available.
+   - When the harness exposes a structured question tool, use it. Claude Code: `AskUserQuestion`. Codex or Codex-derived harnesses: `request_user_input` when available.
    - Otherwise ask plain text directly.
    - Skip questions already answered in the request or prior context.
    - Aim for concise, unambiguous answers.

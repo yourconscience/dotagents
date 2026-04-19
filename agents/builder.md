@@ -30,18 +30,5 @@ Codex (~/.codex/agents/builder.toml):
   model_reasoning_effort = "high"  # replaces effort
   developer_instructions = """<body text>"""
   # tools/color have no TOML equivalent; tool access via sandbox_mode in config.toml
-
-OpenCode (~/.config/opencode/agents/builder.md):
-  ---
-  description: <same>
-  mode: all       # all = full primary agent; subagent = spawnable helper
-  color: yellow
-  permission:
-    bash: allow
-    edit: allow
-  ---
-  <body text>
-  # name comes from filename, not frontmatter
-  # model set globally in config or via -m flag, not per-agent
 -->
 

@@ -27,19 +27,5 @@ Codex (~/.codex/agents/researcher.toml):
   model_reasoning_effort = "high"  # replaces effort
   developer_instructions = """<body text>"""
   # tools/color have no TOML equivalent; tool access via sandbox_mode in config.toml
-
-OpenCode (~/.config/opencode/agents/researcher.md):
-  ---
-  description: <same>
-  mode: subagent  # researcher is typically spawned as a helper, not a primary agent
-  color: secondary
-  permission:
-    bash: deny
-    edit: deny
-    write: deny
-  ---
-  <body text>
-  # name comes from filename, not frontmatter
-  # model set globally in config or via -m flag, not per-agent
 -->
 
