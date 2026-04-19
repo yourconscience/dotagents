@@ -24,6 +24,11 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 
 	for _, report := range reports {
 		fmt.Printf("%s\n", report.Name)
+		if !report.Detected {
+			fmt.Println("  not detected (binary not on PATH)")
+			fmt.Println()
+			continue
+		}
 		fmt.Printf("  skill root: %s\n", report.SkillRoot)
 		if report.Synced {
 			fmt.Println("  sync: synced")

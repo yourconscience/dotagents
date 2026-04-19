@@ -34,7 +34,7 @@ func runStatus(opts runOptions) error {
 		return errors.New("dotagents is not fully synced")
 	}
 	for _, report := range reports {
-		if !report.Synced {
+		if report.Detected && !report.Synced {
 			return fmt.Errorf("%s is not synced", report.Name)
 		}
 	}
@@ -118,6 +118,9 @@ func applyRepoLink(report repoLinkReport) error {
 
 func applyAgentSync(reports []agentReport, expected map[string]string) error {
 	for _, report := range reports {
+		if !report.Detected {
+			continue
+		}
 		if len(report.Conflicts) > 0 {
 			return fmt.Errorf("%s has conflicts", report.Name)
 		}

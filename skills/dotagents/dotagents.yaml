@@ -2,17 +2,19 @@ version: 1
 agents:
   - name: claude-code
     enabled: true
+    detect: claude
     skill_root: ~/.claude/skills
     agent_root: ~/.claude/agents
   - name: codex
     enabled: true
+    detect: codex
     skill_root: ~/.codex/skills
     agent_root: ~/.codex/agents
   - name: hermes
     enabled: true
+    detect: hermes
     skill_root: ~/.hermes/skills
-    # no agent_root: Hermes uses SOUL.md per workspace, not named agent files
   - name: openclaw
     enabled: true
+    detect: openclaw
     skill_root: ~/.openclaw/skills
-    # no agent_root: OpenClaw uses SOUL.md/IDENTITY.md per workspace, not named agent files
