@@ -8,5 +8,3 @@ agents:
     enabled: true
     skill_root: ~/.codex/skills
     agent_root: ~/.codex/agents
-  # opencode: agent_root ~/.config/opencode/agents
-  # Disabled: dotagents Go tool requires skill_root; enable after tool update
