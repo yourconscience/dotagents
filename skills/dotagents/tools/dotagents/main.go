@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 )
 
 type config struct {
@@ -16,6 +17,7 @@ type agentConfig struct {
 	Name      string `yaml:"name"`
 	Enabled   bool   `yaml:"enabled"`
 	SkillRoot string `yaml:"skill_root"`
+	Detect    string `yaml:"detect"`
 }
 
 type repoLinkReport struct {
@@ -28,6 +30,7 @@ type repoLinkReport struct {
 type agentReport struct {
 	Name         string
 	SkillRoot    string
+	Detected     bool
 	Managed      []string
 	Drifted      []string
 	Missing      []string
@@ -38,6 +41,14 @@ type agentReport struct {
 	Updates      []string
 	Removes      []string
 	Synced       bool
+}
+
+func isDetected(agent agentConfig) bool {
+	if agent.Detect == "" {
+		return true
+	}
+	_, err := exec.LookPath(agent.Detect)
+	return err == nil
 }
 
 type runOptions struct {
@@ -102,6 +113,6 @@ func printUsage() {
 	fmt.Println("dotagents")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  go run ./skills/dotagents/tools/dotagents status [--config path] [--agents codex,claude-code]")
-	fmt.Println("  go run ./skills/dotagents/tools/dotagents sync   [--config path] [--agents codex,claude-code]")
+	fmt.Println("  go run ./skills/dotagents/tools/dotagents status [--config path] [--agents claude-code,codex,hermes,openclaw]")
+	fmt.Println("  go run ./skills/dotagents/tools/dotagents sync   [--config path] [--agents claude-code,codex,hermes,openclaw]")
 }
