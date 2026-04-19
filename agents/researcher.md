@@ -27,5 +27,16 @@ Codex (~/.codex/agents/researcher.toml):
   model_reasoning_effort = "high"  # replaces effort
   developer_instructions = """<body text>"""
   # tools/color have no TOML equivalent; tool access via sandbox_mode in config.toml
+
+Hermes (~/.hermes/ via SOUL.md):
+  # No per-agent files. Persona set in ~/.hermes/SOUL.md (freeform markdown).
+  # Body text goes into SOUL.md; model set in ~/.hermes/config.yaml.
+  # To use as delegation target: pass body text as context in delegate_task call.
+  # Toolsets for research: delegate_task(toolsets=["web", "file"])
+
+OpenClaw (~/.openclaw/workspace/):
+  # No per-agent files. Persona split across SOUL.md + IDENTITY.md + AGENTS.md per workspace.
+  # Body text goes into SOUL.md; model set in openclaw.json agents.list[].model.
+  # Named agents are workspace instances configured in openclaw.json, not role files.
 -->
 
