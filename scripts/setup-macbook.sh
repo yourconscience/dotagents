@@ -19,6 +19,7 @@ err()  { echo -e "${RED}[x]${NC} $*" >&2; exit 1; }
 TARGET_USER=""
 SKIP_CLAUDE=false
 SKIP_CODEX=false
+INSTALL_HERMES=false
 INSTALL_OLLAMA=false
 
 while [[ $# -gt 0 ]]; do
@@ -26,14 +27,16 @@ while [[ $# -gt 0 ]]; do
     --user)       TARGET_USER="$2"; shift 2 ;;
     --skip-claude) SKIP_CLAUDE=true; shift ;;
     --skip-codex)  SKIP_CODEX=true; shift ;;
+    --hermes)      INSTALL_HERMES=true; shift ;;
     --ollama)      INSTALL_OLLAMA=true; shift ;;
     -h|--help)
-      echo "Usage: sudo $0 --user <username> [--skip-claude] [--skip-codex] [--ollama]"
+      echo "Usage: sudo $0 --user <username> [--skip-claude] [--skip-codex] [--hermes] [--ollama]"
       echo ""
       echo "Options:"
       echo "  --user <name>    macOS username to configure (required)"
       echo "  --skip-claude    Skip Claude Code installation"
       echo "  --skip-codex     Skip OpenAI Codex installation"
+      echo "  --hermes         Install Hermes Agent (self-improving agent by Nous Research)"
       echo "  --ollama         Install Ollama + Qwen3.5-Coder for local inference"
       exit 0
       ;;
@@ -95,6 +98,11 @@ if [[ "$SKIP_CODEX" == false ]]; then
   run_as_user npm install -g @openai/codex || warn "Codex install failed (needs npm auth or API key later)"
 fi
 
+# --- Hermes Agent (optional) ---
+if [[ "$INSTALL_HERMES" == true ]]; then
+  log "Installing Hermes Agent (Nous Research)..."
+  run_as_user bash -c 'curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash' || warn "Hermes install failed - try manually: pip install hermes-agent"
+fi
 
 # --- Local models (optional) ---
 if [[ "$INSTALL_OLLAMA" == true ]]; then
@@ -150,6 +158,7 @@ log "Setup complete. Installed:"
 echo "  Core:    git, gh, node, go, python 3.12, uv, ripgrep, tmux"
 echo "  Python:  ipython, ruff, aider-chat (via uv tools)"
 echo "  Agents:  $([ "$SKIP_CLAUDE" == false ] && echo 'Claude Code, ')$([ "$SKIP_CODEX" == false ] && echo 'Codex, ')Aider"
+[[ "$INSTALL_HERMES" == true ]] && echo "  General: Hermes Agent (self-improving, messaging gateway)"
 [[ "$INSTALL_OLLAMA" == true ]] && echo "  Local:   Ollama + Qwen3.5-Coder"
 echo "  Skills:  dotagents (~/Workspace/dotagents -> ~/.agents)"
 echo ""
@@ -157,5 +166,6 @@ warn "Next steps:"
 echo "  1. Open a new terminal (or: source ~/.zshrc)"
 echo "  2. Run 'claude' and authenticate with Anthropic (if using Claude Code)"
 echo "  3. Run 'codex' and set OPENAI_API_KEY (if using Codex)"
-echo "  4. For local models: open Ollama.app, then 'aider --model ollama/qwen3.5-coder'"
+echo "  4. Run 'hermes setup' to configure model + messaging (if using Hermes)"
+echo "  5. For local models: open Ollama.app, then 'aider --model ollama/qwen3.5-coder'"
 echo ""
