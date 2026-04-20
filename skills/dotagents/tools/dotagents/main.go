@@ -82,6 +82,24 @@ func run(args []string) error {
 			return err
 		}
 		return runSync(opts)
+	case "setup":
+		opts, err := parseSubcommandFlags("setup", args[1:])
+		if err != nil {
+			return err
+		}
+		return runSetup(opts)
+	case "pull":
+		opts, err := parseSubcommandFlags("pull", args[1:])
+		if err != nil {
+			return err
+		}
+		return runPull(opts)
+	case "cron":
+		opts, err := parseCronFlags(args[1:])
+		if err != nil {
+			return err
+		}
+		return runCron(opts)
 	case "-h", "--help", "help":
 		printUsage()
 		return nil
@@ -109,10 +127,30 @@ func parseSubcommandFlags(name string, args []string) (runOptions, error) {
 	return opts, nil
 }
 
+func parseCronFlags(args []string) (cronOptions, error) {
+	fs := flag.NewFlagSet("cron", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	var opts cronOptions
+	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
+	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names")
+	fs.BoolVar(&opts.Remove, "remove", false, "Remove the cron entry instead of installing")
+	fs.StringVar(&opts.Interval, "interval", "30m", "Pull interval: 5m, 15m, 30m, 1h, 6h, 12h, daily")
+
+	if err := fs.Parse(args); err != nil {
+		return cronOptions{}, err
+	}
+	return opts, nil
+}
+
 func printUsage() {
-	fmt.Println("dotagents")
+	fmt.Println("dotagents - manage agent skill links across coding agents")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  go run ./skills/dotagents/tools/dotagents status [--config path] [--agents claude-code,codex,hermes,openclaw]")
-	fmt.Println("  go run ./skills/dotagents/tools/dotagents sync   [--config path] [--agents claude-code,codex,hermes,openclaw]")
+	fmt.Println("  dotagents setup  [--agents ...]           First-time setup: symlink, patch configs, sync")
+	fmt.Println("  dotagents status [--agents ...]           Show sync state for detected agents")
+	fmt.Println("  dotagents sync   [--agents ...]           Sync skill symlinks to detected agents")
+	fmt.Println("  dotagents pull   [--agents ...]           Git pull + sync (for cron use)")
+	fmt.Println("  dotagents cron   [--interval 30m]         Install a crontab entry for auto-pull")
+	fmt.Println("  dotagents cron   --remove                 Remove the crontab entry")
 }
