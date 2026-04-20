@@ -141,27 +141,44 @@ You are a senior software architect...
 
 See the `agents/` directory in this repository for maintained role definitions. Sync them to `~/.claude/agents/` via the dotagents tool.
 
-## Common team patterns
+## Team architecture patterns
 
-### Architect + Builder + Reviewer (3-agent)
+Six patterns for structuring agent teams. Quick reference below; full decision tree and tradeoff analysis in `references/patterns.md`.
 
-The most validated pattern (Anthropic's own feature-dev plugin uses this structure).
+| Pattern | Shape | Best for |
+|---|---|---|
+| Pipeline | A -> B -> C | Sequential dependencies (build lifecycle, ETL) |
+| Fan-out/Fan-in | Split -> parallel -> merge | Independent subtasks (multi-source research) |
+| Expert Pool | Router -> specialist | Heterogeneous work items (multi-language, mixed formats) |
+| Producer-Reviewer | Create <-> validate loop | Quality-gated output (code gen, docs, security review) |
+| Supervisor | Central dispatch + workers | Dynamic state, retry-on-failure, load balancing |
+| Hierarchical | Lead -> sub-leads -> workers | Large decomposable problems (monorepo refactors) |
 
-- **architect** (sonnet/opus): designs the plan, reviews the builder's output
-- **builder** (sonnet): implements exactly what the architect specifies
-- **reviewer** (sonnet): checks output against spec, catches bugs
+### Common compositions
 
-### Research team
+**Architect + Builder + Reviewer** (producer-reviewer): The most validated pattern. architect designs, builder implements, reviewer verifies against spec.
 
-- **researcher-a** (sonnet): investigates approach A
-- **researcher-b** (sonnet): investigates approach B
-- **synthesizer** (sonnet): combines findings into recommendation
+**Research team** (fan-out/fan-in): Multiple researchers investigate in parallel, synthesizer merges findings.
 
-### Parallel implementation
+**Parallel implementation** (fan-out/fan-in + producer-reviewer): frontend/backend/tester work in parallel, each reviewed independently.
 
-- **frontend** (sonnet): UI changes
-- **backend** (sonnet): API changes
-- **tester** (sonnet): writes and runs tests
+## Artifact management
+
+When a team produces intermediate files, use a `_workspace/` directory in the project root.
+
+**Naming convention:** `{phase}_{agent}_{artifact}.{ext}`
+
+```
+_workspace/
+  01_researcher_findings.md
+  02_architect_design.md
+  03_builder_implementation_notes.md
+  04_reviewer_report.md
+```
+
+- Intermediate artifacts stay in `_workspace/` for audit trails.
+- Final deliverables go to user-specified paths.
+- When re-running a team, move existing `_workspace/` to `_workspace_prev/` before starting.
 
 ## Anti-patterns
 
