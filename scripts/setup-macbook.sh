@@ -95,14 +95,6 @@ if [[ "$SKIP_CODEX" == false ]]; then
   run_as_user npm install -g @openai/codex || warn "Codex install failed (needs npm auth or API key later)"
 fi
 
-log "Installing Goose (Block)..."
-brew install --cask goose || brew install goose || warn "Goose install failed - try manual download from https://github.com/block/goose/releases"
-
-log "Installing OpenCode..."
-brew install opencode || {
-  warn "OpenCode not in brew, installing from binary..."
-  curl -fsSL https://opencode.ai/install.sh | run_as_user bash
-} || warn "OpenCode install failed"
 
 # --- Local models (optional) ---
 if [[ "$INSTALL_OLLAMA" == true ]]; then
@@ -135,9 +127,8 @@ ALIASES_FILE="$TARGET_HOME/.aliases_agents"
 cat > "$ALIASES_FILE" << 'ALIASES'
 # Agentic coding shortcuts
 alias cc='claude'
-alias oc='opencode'
+alias cdx='codex'
 alias aid='aider'
-alias goo='goose'
 
 # Python/ML
 alias py='python3'
@@ -158,13 +149,13 @@ echo ""
 log "Setup complete. Installed:"
 echo "  Core:    git, gh, node, go, python 3.12, uv, ripgrep, tmux"
 echo "  Python:  ipython, ruff, aider-chat (via uv tools)"
-echo "  Agents:  $([ "$SKIP_CLAUDE" == false ] && echo 'Claude Code, ')$([ "$SKIP_CODEX" == false ] && echo 'Codex, ')Goose, OpenCode, Aider"
+echo "  Agents:  $([ "$SKIP_CLAUDE" == false ] && echo 'Claude Code, ')$([ "$SKIP_CODEX" == false ] && echo 'Codex, ')Aider"
 [[ "$INSTALL_OLLAMA" == true ]] && echo "  Local:   Ollama + Qwen3.5-Coder"
 echo "  Skills:  dotagents (~/Workspace/dotagents -> ~/.agents)"
 echo ""
 warn "Next steps:"
 echo "  1. Open a new terminal (or: source ~/.zshrc)"
 echo "  2. Run 'claude' and authenticate with Anthropic (if using Claude Code)"
-echo "  3. Run 'goose' and configure your preferred LLM provider"
-echo "  4. For local models: open Ollama.app, then 'opencode' or 'aider --model ollama/qwen3.5-coder'"
+echo "  3. Run 'codex' and set OPENAI_API_KEY (if using Codex)"
+echo "  4. For local models: open Ollama.app, then 'aider --model ollama/qwen3.5-coder'"
 echo ""

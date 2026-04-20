@@ -1,49 +1,53 @@
 # One-Click Agentic Coding Environments (April 2026)
 
-Python/ML focused, macOS Apple Silicon. Ranked by install simplicity and agentic capability.
+Python/ML focused, macOS Apple Silicon. Ranked by real-world developer sentiment, not marketing star counts.
 
-## Tier 1: Production-Ready CLI Agents
+## Tier List (community consensus)
 
-| Tool | Install | Model | Cost | Stars |
-|------|---------|-------|------|-------|
-| **Claude Code** | `brew install --cask claude-code` or `curl -fsSL https://claude.ai/install.sh \| bash` | Claude 4.x (cloud) | $20-200/mo subscription | N/A (proprietary) |
-| **OpenAI Codex** | `npm install -g @openai/codex` | GPT-5/o3 (cloud) | Usage-based | ~15K |
-| **Goose** (Block/AAIF) | Desktop .dmg or `brew install goose` | Any (15+ providers, local via Ollama) | Free (Apache 2.0) | 29K |
-| **OpenCode** | `brew install opencode` or single binary | Any (75+ providers, local) | Free (MIT) | 140K |
-| **Aider** | `uv tool install aider-chat` | Any (Claude, GPT, local) | Free (Apache 2.0) | 30K+ |
+| Tier | Tool | Install | Cost | Verdict |
+|------|------|---------|------|---------|
+| S | **Claude Code** | `brew install --cask claude-code` | $20-200/mo | Best autonomous agent, context persistence via CLAUDE.md, Agent Teams |
+| A | **OpenAI Codex** | `npm install -g @openai/codex` | Usage-based | Cheaper tokens, good for isolated tasks, weaker on long multi-step chains |
+| B+ | **Aider** | `uv tool install aider-chat` | Free (BYOK) | Token-efficient, git-native commit-per-change, needs more human direction but honest and auditable |
+| B | **Cursor** | .dmg | $20/mo | Best supervised IDE experience, not for autonomous work |
+| C | **OpenCode** | `brew install opencode` | Free (BYOK) | 140K stars but hollow: 1GB RAM, silently leaks prompts to cloud, RCE vulnerability, opaque context compaction |
+| C | **Goose** | `brew install goose` | Free (BYOK) | Extension ecosystem but "useless" when wrapping Claude (loses system prompt), aggressive file edits, confusing docs |
 
-## Tier 2: IDE-Integrated
+## Why OpenCode and Goose rank low
 
-| Tool | Install | Notes |
-|------|---------|-------|
-| **Cursor** | .dmg download | Fork of VS Code with built-in agent. $20/mo. |
-| **Windsurf** (Codeium) | .dmg download | VS Code fork, Cascade agent. Free tier exists. |
-| **Kiro** (AWS) | .dmg download | Spec-driven development, free during preview. |
+**OpenCode** (HN thread, 1274 pts, 619 comments):
+- Prompts sent to Grok cloud by default even with local-only config
+- 1GB+ RAM for a terminal app
+- Critical unauthenticated RCE vulnerability disclosed
+- Context degrades after 100K tokens with no clear way to manage it
+- "Missing depth for extended unattended operation" (jock.pl comparison)
+- Project governance drama (multiple forks, naming confusion)
 
-## Tier 3: Local-Only / Privacy-First
+**Goose** (HN 249 pts, 68 comments; r/ClaudeAI threads):
+- "tried it useless" - Reddit sentiment when used with Claude
+- Wraps Claude but overrides system prompt poorly, losing CC's harness benefits
+- Documentation confusing, steep learning curve for marginal benefit
+- Aggressive file modification requiring frequent reverts
+- No real advantage over Claude Code if you have a subscription
 
-| Tool | Install | Notes |
-|------|---------|-------|
-| **Ollama + OpenCode** | `brew install ollama && ollama pull qwen3.5` | Fully offline. Qwen3.5 35B MoE works on 16GB. |
-| **llama.cpp + Aider** | Build from source or brew | Maximum control, no cloud dependency. |
+## What actually works for M1 Pro 16GB
 
-## Recommendations for M1 Pro 16GB
+1. **Claude Code** - best-in-class. Zero config if subscription exists.
+2. **Codex CLI** - strong complement for parallel isolated tasks.
+3. **Aider** - honest workhorse for incremental git-tracked work, 4.2x token efficiency.
+4. **Ollama + Aider** - for fully local work: `ollama pull qwen3.5-coder`, then `aider --model ollama/qwen3.5-coder`.
 
-For a friend doing Python/ML coding with agents:
+Skip everything else unless you specifically need provider flexibility for experimentation.
 
-1. **Claude Code** (if they have a subscription) - best agentic capability, zero config.
-2. **Goose** - best free option, desktop app with extension ecosystem, works with any API key.
-3. **OpenCode** - single binary, great TUI, works with local models or cloud.
-4. **Aider** - Python-native, excellent git integration, good for ML workflows.
+## Meta-insight
 
-For fully local (no API keys): Ollama + Qwen3.5-Coder (fits in 16GB unified memory) paired with OpenCode or Aider as the frontend.
+Harness quality produces 5-40 percentage point swings independent of the model (same Claude Opus: 77% in Claude Code vs 93% in Cursor on benchmarks). The tool's system prompts, context management, and tool descriptions matter as much as the LLM.
 
 ## Sources
 
-- [Goose by Block](https://github.com/block/goose) - 29K stars, Apache 2.0
-- [OpenCode](https://opencode.ai/) - 140K stars, MIT
-- [Aider](https://aider.chat/) - AI pair programming
-- [Claude Code Homebrew](https://formulae.brew.sh/cask/claude-code)
-- [Fazm: Open-Source AI Agents Mac 2026](https://fazm.ai/blog/open-source-ai-agents-mac-2026)
-- [KDnuggets: Goose Review](https://www.kdnuggets.com/free-agentic-coding-with-goose)
-- [Pinggy: Top 5 CLI Coding Agents 2026](https://pinggy.io/blog/top_cli_based_ai_coding_agents/)
+- [HN: OpenCode 1274pts](https://news.ycombinator.com/item?id=47460525) - real developer criticism
+- [HN: Goose 249pts](https://news.ycombinator.com/item?id=42879323) - mixed reception
+- [AI Coding Harness Comparison 2026](https://thoughts.jock.pl/p/ai-coding-harness-agents-2026) - tier rankings with benchmarks
+- [Codex vs Claude Code](https://www.builder.io/blog/codex-vs-claude-code) - architecture comparison
+- [r/ClaudeAI: Goose vs Claude Code](https://www.reddit.com/r/ClaudeAI/comments/1mgefn2) - "tried it useless"
+- [OpenCode RCE](https://news.ycombinator.com/item?id=46539718) - security vulnerability
