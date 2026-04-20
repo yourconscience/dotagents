@@ -1,6 +1,6 @@
 ---
 name: dotagents
-description: Inspect and sync the repo-owned agent skill links for the dotagents repo across supported coding agents. Use when the user asks for dotagents status, dotagents sync, or wants to reconcile ~/.agents with Claude/Codex/Hermes/OpenClaw skill roots.
+description: Inspect and sync the repo-owned agent skill links for the dotagents repo across supported coding agents. Use when the user asks for dotagents status, dotagents sync, dotagents setup, or wants to reconcile ~/.agents with Claude/Codex/Hermes/OpenClaw skill roots.
 ---
 
 # dotagents
@@ -12,21 +12,50 @@ Use the skill-local CLI tool. This skill is specific to the `~/Workspace/dotagen
 From the repo root:
 
 ```bash
-go run ./skills/dotagents/tools/dotagents status
-go run ./skills/dotagents/tools/dotagents sync
+go run ./skills/dotagents/tools/dotagents setup                # first-time machine setup
+go run ./skills/dotagents/tools/dotagents status               # show sync state
+go run ./skills/dotagents/tools/dotagents sync                 # sync skill symlinks
+go run ./skills/dotagents/tools/dotagents pull                 # git pull + sync (for cron)
+go run ./skills/dotagents/tools/dotagents cron --interval 30m  # install auto-pull crontab
+go run ./skills/dotagents/tools/dotagents cron --remove        # remove crontab entry
 ```
 
-Limit a run to specific configured agents:
+Limit a run to specific agents:
 
 ```bash
-go run ./skills/dotagents/tools/dotagents status --agents=codex
-go run ./skills/dotagents/tools/dotagents sync --agents=claude-code,codex
+go run ./skills/dotagents/tools/dotagents sync --agents=claude-code,hermes
 ```
+
+## Subcommands
+
+### setup
+
+First-time setup on a new machine. Does three things:
+1. Creates `~/.agents` symlink pointing at the repo root.
+2. Patches detected agent configs to load skills from `~/.agents/skills` (Hermes: adds to `skills.external_dirs` in config.yaml; OpenClaw: adds to `skills.load.extraDirs` in openclaw.json; Claude Code/Codex: handled by symlinks, no patching needed).
+3. Runs `sync` to create all skill symlinks.
+
+### status
+
+Reports sync state for each detected agent. Agents whose binary is not on PATH show "not detected" and are skipped.
+
+### sync
+
+Creates, updates, or removes skill symlinks in each detected agent's skill root. Non-repo skills are reported as `external` and left untouched.
+
+### pull
+
+Runs `git pull --ff-only` in the repo root, then `sync`. Designed to be called from cron for auto-sync on remote machines.
+
+### cron
+
+Installs or removes a crontab entry that runs `pull` on a schedule. Default interval is 30m. Options: 5m, 15m, 30m, 1h, 6h, 12h, daily.
 
 ## What it manages
 
-- Fixes `~/.agents` if it should point at `~/Workspace/dotagents` and is missing or drifted.
-- Treats repo skills under `skills/` as the managed set for each selected agent.
+- Fixes `~/.agents` if it should point at the repo root and is missing or drifted.
+- Detects agents by checking if their binary is on PATH (`detect` field in config).
+- Treats repo skills under `skills/` as the managed set for each detected agent.
 - Reports non-repo skills already present in agent skill roots as `external` and leaves them untouched.
 - Stops on conflicts when a managed skill path exists as a real file or directory instead of a symlink.
 
