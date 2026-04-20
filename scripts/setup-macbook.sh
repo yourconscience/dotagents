@@ -76,12 +76,12 @@ export PATH="/opt/homebrew/bin:$PATH"
 
 # --- Core dev tools ---
 log "Installing core dev tools..."
-brew install git gh node go python@3.12 uv ripgrep fd jq tmux neovim
+run_as_user /opt/homebrew/bin/brew install git gh node go python@3.12 uv ripgrep fd jq tmux neovim
 
 # --- Modern CLI replacements ---
 log "Installing modern CLI tools..."
-brew install fzf bat eza lazygit zoxide glow
-brew install --cask font-hack-nerd-font || true
+run_as_user /opt/homebrew/bin/brew install fzf bat eza lazygit zoxide glow
+run_as_user /opt/homebrew/bin/brew install --cask font-hack-nerd-font || true
 
 # --- Oh-My-Zsh ---
 OMZ_DIR="$TARGET_HOME/.oh-my-zsh"
@@ -101,7 +101,7 @@ run_as_user uv tool install ruff
 # --- Coding agents ---
 if [[ "$SKIP_CLAUDE" == false ]]; then
   log "Installing Claude Code..."
-  brew install --cask claude-code || true
+  run_as_user /opt/homebrew/bin/brew install --cask claude-code || true
 fi
 
 if [[ "$SKIP_CODEX" == false ]]; then
@@ -118,7 +118,7 @@ fi
 # --- Local models (optional) ---
 if [[ "$INSTALL_OLLAMA" == true ]]; then
   log "Installing Ollama..."
-  brew install --cask ollama
+  run_as_user /opt/homebrew/bin/brew install --cask ollama
   log "Pulling Qwen3.5-Coder (fits 16GB unified memory)..."
   run_as_user ollama pull qwen3.5-coder:latest || warn "Model pull failed - run 'ollama pull qwen3.5-coder' manually after Ollama starts"
 fi
@@ -165,9 +165,9 @@ ALIASES
 chown "$TARGET_USER" "$ALIASES_FILE"
 
 if [[ -f "$ZSHRC" ]]; then
-  grep -q ".aliases_agents" "$ZSHRC" || echo '[[ -f ~/.aliases_agents ]] && source ~/.aliases_agents' >> "$ZSHRC"
-  grep -q "zoxide init" "$ZSHRC" || echo 'eval "$(zoxide init zsh)"' >> "$ZSHRC"
-  grep -q "fzf --zsh" "$ZSHRC" || echo 'source <(fzf --zsh)' >> "$ZSHRC"
+  grep -q ".aliases_agents" "$ZSHRC" || printf '\n[[ -f ~/.aliases_agents ]] && source ~/.aliases_agents\n' >> "$ZSHRC"
+  grep -q "zoxide init" "$ZSHRC" || printf 'eval "$(zoxide init zsh)"\n' >> "$ZSHRC"
+  grep -q "fzf --zsh" "$ZSHRC" || printf 'source <(fzf --zsh)\n' >> "$ZSHRC"
 fi
 
 # --- Summary ---

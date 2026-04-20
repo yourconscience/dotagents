@@ -15,7 +15,6 @@ jobs:
         module:
           - skills/dotagents/tools/dotagents
           - skills/gws
-          - bin/memsearch/backfill
     steps:
       - uses: actions/checkout@v4
 
