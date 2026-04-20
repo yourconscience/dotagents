@@ -1,17 +1,39 @@
 # bin/memsearch
 
-Local tooling that wraps the upstream memsearch Claude Code plugin so it writes into a single global vault and shared Milvus collection.
+Portable Claude Code hook integration for memsearch. Reads all paths from `~/.agents/memsearch.conf` - no hardcoded directories.
+
+## Setup
+
+```bash
+uv tool install memsearch
+dotagents memsearch setup --vault ~/Workspace/knowledge
+```
+
+This creates the vault directory structure, initializes git, and writes `~/.agents/memsearch.conf`.
 
 ## hook.sh
 
-Recursion-safe wrapper invoked by the Claude Code SessionStart, Stop, and SessionEnd hooks. Sets `MEMSEARCH_MEMORY_DIR`, `MEMSEARCH_STATE_DIR`, and `MEMSEARCH_COLLECTION_NAME` so memsearch operates on `~/Workspace/knowledge/ai` with collection `ai` regardless of cwd. Then execs the upstream plugin hook for the event.
+Recursion-safe wrapper invoked by Claude Code hooks (SessionStart, Stop, SessionEnd). Sources `~/.agents/memsearch.conf` for all paths. Exits gracefully if memsearch is not configured.
 
-The `MEMSEARCH_SKIP_CLAUDE_HOOKS=1` guard prevents the `claude -p` child spawned by `stop.sh` from recursively re-entering hooks and fork-bombing.
+Configure in Claude Code settings:
+```json
+{
+  "hooks": {
+    "SessionStart": [{"command": "bash ~/.agents/bin/memsearch/hook.sh session-start"}],
+    "Stop": [{"command": "bash ~/.agents/bin/memsearch/hook.sh stop"}],
+    "SessionEnd": [{"command": "bash ~/.agents/bin/memsearch/hook.sh session-end"}]
+  }
+}
+```
 
-## apply-local.sh
+## Config format
 
-Idempotent patcher that rewrites four files under `~/Public/memsearch/plugins/claude-code/` so the upstream plugin honors our env var overrides and writes per-turn memory entries with our preferred `## HH:MM claude-code` heading format. Run it after any `git pull` inside `~/Public/memsearch`. Safe to run twice.
-
-## backfill/
-
-One-time Go tool that consolidates historical Claude Code and Codex session transcripts into daily digest files in the vault. Kept here as an artifact in case re-consolidation is ever needed. NOT part of the live pipeline. Build with `go build .` inside this directory. The compiled binary is gitignored.
+`~/.agents/memsearch.conf` (shell-sourceable):
+```bash
+MEMSEARCH_VAULT_DIR="$HOME/Workspace/knowledge"
+MEMSEARCH_AI_DIR="$HOME/Workspace/knowledge/ai"
+MEMSEARCH_NOTES_DIR="$HOME/Workspace/knowledge/notes"
+MEMSEARCH_PROFILE_DIR="$HOME/Workspace/knowledge/profile"
+MEMSEARCH_STATE_DIR="$HOME/.memsearch/state"
+MEMSEARCH_COLLECTION="ai"
+```
