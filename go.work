@@ -1,7 +1,6 @@
 go 1.24.0
 
 use (
-	./bin/memsearch/backfill
 	./skills/dotagents/tools/dotagents
 	./skills/gws
 )

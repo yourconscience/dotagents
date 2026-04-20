@@ -64,7 +64,7 @@ gh api graphql \
 
 ## Review policy
 
-Bot families (auto-resolvable): `gemini*`, `copilot*`, `cursor*`, `claude*`, `codex*`.
+Bot families (auto-resolvable): `gemini*`, `copilot*`, `cursor*`, `claude*`, `codex*`, `coderabbitai*`.
 
 **Bot comments**: think first - bots are frequently wrong. Valid and fixed: reply "Fixed", resolve. Wrong/low-value: resolve silently.
 
@@ -73,9 +73,9 @@ Bot families (auto-resolvable): `gemini*`, `copilot*`, `cursor*`, `claude*`, `co
 Filters:
 ```bash
 # bot
-select(.comments.nodes[0].author.login | test("^(gemini|copilot|cursor|claude|codex)"; "i"))
+select(.comments.nodes[0].author.login | test("^(gemini|copilot|cursor|claude|codex|coderabbitai)"; "i"))
 # human
-select((.comments.nodes[0].author.login | test("^(gemini|copilot|cursor|claude|codex)"; "i")) | not)
+select((.comments.nodes[0].author.login | test("^(gemini|copilot|cursor|claude|codex|coderabbitai)"; "i")) | not)
 ```
 
 ## Fix and push workflow
@@ -93,7 +93,17 @@ git commit -m "fix: address PR review feedback"
 ```bash
 git push
 ```
-5) After push, re-run the inspect step to verify checks pass and threads are resolved.
+5) Wait for new bot reviews to arrive. A push triggers fresh review rounds from CodeRabbit, Gemini, etc. that take 30-90 seconds. Poll until review comment count stabilizes:
+```bash
+PREV_COUNT=0
+for i in 1 2 3 4 5; do
+  sleep 30
+  COUNT=$(gh api repos/$OWNER/$REPO/pulls/$PR/comments --jq 'length')
+  if [ "$COUNT" = "$PREV_COUNT" ] && [ "$i" -gt 1 ]; then break; fi
+  PREV_COUNT=$COUNT
+done
+```
+6) Re-run the full inspect step (checks + threads). Triage any new bot threads the same way. Repeat fix-push-wait-inspect if new valid issues are found, up to 3 cycles max to avoid infinite loops.
 
 ## Summary output
 
