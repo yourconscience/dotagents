@@ -216,7 +216,7 @@ func runCron(opts cronOptions) error {
 	}
 
 	toolPath := filepath.Join(repoRoot, "skills", "dotagents", "tools", "dotagents")
-	cronCmd := fmt.Sprintf("cd %s && %s run %s pull", repoRoot, goPath, toolPath)
+	cronCmd := fmt.Sprintf(". \"$HOME/.profile\" 2>/dev/null; cd %s && %s run %s pull", repoRoot, goPath, toolPath)
 
 	if opts.Remove {
 		return removeCronEntry(cronCmd)
