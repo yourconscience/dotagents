@@ -2,9 +2,8 @@
 set -euo pipefail
 
 # Setup script for a fresh macOS (Apple Silicon) machine with agentic coding tools.
-# Installs: Homebrew, core dev tools, Python/ML stack, coding agents, dotagents.
-# Usage: curl -fsSL <raw-url> | sudo bash -s -- --user <username>
-#   or:  sudo ./setup-macbook.sh --user <username>
+# Installs: Homebrew, shell tools, Python/ML stack, coding agents, dotagents.
+# Usage: sudo ./setup-macbook.sh --user <username>
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -24,7 +23,7 @@ INSTALL_OLLAMA=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --user)       TARGET_USER="$2"; shift 2 ;;
+    --user)        TARGET_USER="$2"; shift 2 ;;
     --skip-claude) SKIP_CLAUDE=true; shift ;;
     --skip-codex)  SKIP_CODEX=true; shift ;;
     --hermes)      INSTALL_HERMES=true; shift ;;
@@ -36,7 +35,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --user <name>    macOS username to configure (required)"
       echo "  --skip-claude    Skip Claude Code installation"
       echo "  --skip-codex     Skip OpenAI Codex installation"
-      echo "  --hermes         Install Hermes Agent (self-improving agent by Nous Research)"
+      echo "  --hermes         Install Hermes Agent (Nous Research)"
       echo "  --ollama         Install Ollama + Qwen3.5-Coder for local inference"
       exit 0
       ;;
@@ -61,7 +60,6 @@ else
   log "Homebrew already installed"
 fi
 
-# Ensure brew is on PATH for the target user
 BREW_SHELLENV='eval "$(/opt/homebrew/bin/brew shellenv)"'
 for rc in "$TARGET_HOME/.zprofile" "$TARGET_HOME/.profile"; do
   if [[ -f "$rc" ]] && grep -q "brew shellenv" "$rc"; then
@@ -76,21 +74,34 @@ done
 
 export PATH="/opt/homebrew/bin:$PATH"
 
-# --- Core tools ---
+# --- Core dev tools ---
 log "Installing core dev tools..."
-brew install git gh node go python@3.12 uv ripgrep fd jq tmux
+run_as_user /opt/homebrew/bin/brew install git gh node go python@3.12 uv ripgrep fd jq tmux neovim
+
+# --- Modern CLI replacements ---
+log "Installing modern CLI tools..."
+run_as_user /opt/homebrew/bin/brew install fzf bat eza lazygit zoxide glow
+run_as_user /opt/homebrew/bin/brew install --cask font-hack-nerd-font || true
+
+# --- Oh-My-Zsh ---
+OMZ_DIR="$TARGET_HOME/.oh-my-zsh"
+if [[ ! -d "$OMZ_DIR" ]]; then
+  log "Installing Oh-My-Zsh..."
+  run_as_user sh -c 'RUNZSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
+else
+  log "Oh-My-Zsh already installed"
+fi
 
 # --- Python / ML ---
 log "Setting up Python environment..."
 run_as_user uv python install 3.12
 run_as_user uv tool install ipython
 run_as_user uv tool install ruff
-run_as_user uv tool install aider-chat
 
 # --- Coding agents ---
 if [[ "$SKIP_CLAUDE" == false ]]; then
   log "Installing Claude Code..."
-  brew install --cask claude-code || true
+  run_as_user /opt/homebrew/bin/brew install --cask claude-code || true
 fi
 
 if [[ "$SKIP_CODEX" == false ]]; then
@@ -101,13 +112,13 @@ fi
 # --- Hermes Agent (optional) ---
 if [[ "$INSTALL_HERMES" == true ]]; then
   log "Installing Hermes Agent (Nous Research)..."
-  run_as_user bash -c 'curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash' || warn "Hermes install failed - try manually: pip install hermes-agent"
+  run_as_user bash -c 'curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash' || warn "Hermes install failed - try: pip install hermes-agent"
 fi
 
 # --- Local models (optional) ---
 if [[ "$INSTALL_OLLAMA" == true ]]; then
   log "Installing Ollama..."
-  brew install --cask ollama
+  run_as_user /opt/homebrew/bin/brew install --cask ollama
   log "Pulling Qwen3.5-Coder (fits 16GB unified memory)..."
   run_as_user ollama pull qwen3.5-coder:latest || warn "Model pull failed - run 'ollama pull qwen3.5-coder' manually after Ollama starts"
 fi
@@ -126,17 +137,29 @@ log "Running dotagents setup..."
 cd "$DOTAGENTS_DIR"
 run_as_user go run ./skills/dotagents/tools/dotagents setup
 
+# --- Knowledge vault + memsearch ---
+log "Setting up knowledge vault + memsearch..."
+run_as_user uv tool install memsearch || warn "memsearch install failed"
+run_as_user go run ./skills/dotagents/tools/dotagents memsearch setup --vault "$TARGET_HOME/Workspace/knowledge" || warn "memsearch setup failed (non-critical)"
+
 log "Installing dotagents auto-pull cron (every 30m)..."
 run_as_user go run ./skills/dotagents/tools/dotagents cron --interval 30m
 
 # --- Shell config ---
-log "Adding useful aliases..."
+log "Configuring shell aliases and integrations..."
+ZSHRC="$TARGET_HOME/.zshrc"
+
 ALIASES_FILE="$TARGET_HOME/.aliases_agents"
 cat > "$ALIASES_FILE" << 'ALIASES'
-# Agentic coding shortcuts
+# Coding agents
 alias cc='claude'
 alias cdx='codex'
-alias aid='aider'
+
+# Modern CLI replacements
+alias ls='eza --icons --group-directories-first'
+alias ll='eza -la --icons --git --time-style=relative'
+alias lt='eza --tree --icons --level=2'
+alias cat='bat --paging=never'
 
 # Python/ML
 alias py='python3'
@@ -146,26 +169,28 @@ alias uvp='uv pip'
 ALIASES
 chown "$TARGET_USER" "$ALIASES_FILE"
 
-# Source aliases from .zshrc if not already there
-ZSHRC="$TARGET_HOME/.zshrc"
-if [[ -f "$ZSHRC" ]] && ! grep -q ".aliases_agents" "$ZSHRC"; then
-  echo '[[ -f ~/.aliases_agents ]] && source ~/.aliases_agents' >> "$ZSHRC"
+if [[ -f "$ZSHRC" ]]; then
+  grep -q ".aliases_agents" "$ZSHRC" || printf '\n[[ -f ~/.aliases_agents ]] && source ~/.aliases_agents\n' >> "$ZSHRC"
+  grep -q "zoxide init" "$ZSHRC" || printf 'eval "$(zoxide init zsh)"\n' >> "$ZSHRC"
+  grep -q "fzf --zsh" "$ZSHRC" || printf 'source <(fzf --zsh)\n' >> "$ZSHRC"
 fi
 
 # --- Summary ---
 echo ""
 log "Setup complete. Installed:"
-echo "  Core:    git, gh, node, go, python 3.12, uv, ripgrep, tmux"
-echo "  Python:  ipython, ruff, aider-chat (via uv tools)"
-echo "  Agents:  $([ "$SKIP_CLAUDE" == false ] && echo 'Claude Code, ')$([ "$SKIP_CODEX" == false ] && echo 'Codex, ')Aider"
-[[ "$INSTALL_HERMES" == true ]] && echo "  General: Hermes Agent (self-improving, messaging gateway)"
+echo "  Core:    git, gh, node, go, python 3.12, uv, neovim, ripgrep, tmux"
+echo "  CLI:     fzf, bat, eza, lazygit, zoxide, glow, nerd-font"
+echo "  Shell:   oh-my-zsh, aliases, zoxide, fzf integration"
+echo "  Python:  ipython, ruff (via uv tools)"
+echo "  Agents:  $([ "$SKIP_CLAUDE" == false ] && echo 'Claude Code, ')$([ "$SKIP_CODEX" == false ] && echo 'Codex CLI')"
+[[ "$INSTALL_HERMES" == true ]] && echo "  General: Hermes Agent"
 [[ "$INSTALL_OLLAMA" == true ]] && echo "  Local:   Ollama + Qwen3.5-Coder"
 echo "  Skills:  dotagents (~/Workspace/dotagents -> ~/.agents)"
 echo ""
 warn "Next steps:"
 echo "  1. Open a new terminal (or: source ~/.zshrc)"
-echo "  2. Run 'claude' and authenticate with Anthropic (if using Claude Code)"
-echo "  3. Run 'codex' and set OPENAI_API_KEY (if using Codex)"
-echo "  4. Run 'hermes setup' to configure model + messaging (if using Hermes)"
-echo "  5. For local models: open Ollama.app, then 'aider --model ollama/qwen3.5-coder'"
+echo "  2. Run 'claude' and authenticate with Anthropic"
+echo "  3. Run 'codex' and set OPENAI_API_KEY"
+[[ "$INSTALL_HERMES" == true ]] && echo "  4. Run 'hermes setup' to configure model + messaging"
+[[ "$INSTALL_OLLAMA" == true ]] && echo "  5. Open Ollama.app, then use local models from agents"
 echo ""

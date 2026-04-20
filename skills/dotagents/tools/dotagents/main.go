@@ -100,6 +100,8 @@ func run(args []string) error {
 			return err
 		}
 		return runCron(opts)
+	case "memsearch":
+		return runMemsearch(args[1:])
 	case "-h", "--help", "help":
 		printUsage()
 		return nil
@@ -147,10 +149,12 @@ func printUsage() {
 	fmt.Println("dotagents - manage agent skill links across coding agents")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  dotagents setup  [--agents ...]           First-time setup: symlink, patch configs, sync")
-	fmt.Println("  dotagents status [--agents ...]           Show sync state for detected agents")
-	fmt.Println("  dotagents sync   [--agents ...]           Sync skill symlinks to detected agents")
-	fmt.Println("  dotagents pull   [--agents ...]           Git pull + sync (for cron use)")
-	fmt.Println("  dotagents cron   [--interval 30m]         Install a crontab entry for auto-pull")
-	fmt.Println("  dotagents cron   --remove                 Remove the crontab entry")
+	fmt.Println("  dotagents setup     [--agents ...]           First-time setup: symlink, patch configs, sync")
+	fmt.Println("  dotagents status    [--agents ...]           Show sync state for detected agents")
+	fmt.Println("  dotagents sync      [--agents ...]           Sync skill symlinks to detected agents")
+	fmt.Println("  dotagents pull      [--agents ...]           Git pull + sync (for cron use)")
+	fmt.Println("  dotagents cron      [--interval 30m]         Install a crontab entry for auto-pull")
+	fmt.Println("  dotagents cron      --remove                 Remove the crontab entry")
+	fmt.Println("  dotagents memsearch setup [--vault ...]      Bootstrap knowledge vault + memsearch config")
+	fmt.Println("  dotagents memsearch status                   Show memsearch configuration")
 }
