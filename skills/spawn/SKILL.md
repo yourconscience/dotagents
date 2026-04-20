@@ -164,12 +164,12 @@ Six patterns for structuring agent teams. Quick reference below; full decision t
 
 ## Artifact management
 
-When a team produces intermediate files, use a `_workspace/` directory in the project root.
+When a team produces intermediate files, use a `_workspace/{team_name}/` directory in the project root (and add `_workspace/` to `.gitignore`).
 
 **Naming convention:** `{phase}_{agent}_{artifact}.{ext}`
 
 ```
-_workspace/
+_workspace/{team_name}/
   01_researcher_findings.md
   02_architect_design.md
   03_builder_implementation_notes.md
@@ -178,7 +178,7 @@ _workspace/
 
 - Intermediate artifacts stay in `_workspace/` for audit trails.
 - Final deliverables go to user-specified paths.
-- When re-running a team, move existing `_workspace/` to `_workspace_prev/` before starting.
+- When re-running a team, clear `_workspace_prev/{team_name}/` if it exists, then move `_workspace/{team_name}/` there before starting.
 
 ## Anti-patterns
 
