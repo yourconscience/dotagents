@@ -1,4 +1,6 @@
 .omx
 tmp/
-dotagents
-bin/memsearch/
+/dotagents
+memsearch.conf
+bin/memsearch/backfill/
+bin/memsearch/apply-local.sh
