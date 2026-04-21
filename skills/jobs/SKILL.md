@@ -21,13 +21,12 @@ All paths are relative to the skill root (`skills/jobs/`).
 - Tracker: `data/opportunities.yaml` (canonical)
 - Dashboard: `data/status.md` (derived, rewritten on demand)
 - CV/Resume: `data/cv/`
-- Prompts: `prompts/` (tracked - reusable voice mode interview prompts)
-- Interview prep plan: `~/Workspace/knowledge/profile/interview_prep_plan.md`
-- LinkedIn exports: `data/linkedin-exports/` (historical seed only)
+- Prompts: `prompts/` (tracked, reusable voice mode interview prompts)
+- LinkedIn exports: `data/linkedin-exports/`
 - Company research: `data/company-research/`
-- Story bank: `data/story-bank.md` (STAR+R stories accumulated across evaluations)
-- Portal config: `data/portals.yml` (tracked companies for scanner)
-- Scanner tool: `tools/portals-scan/` (Go binary, zero-token ATS API scanner)
+- Story bank: `data/story-bank.md`
+- Portal config: `data/portals.yml`
+- Scanner: `tools/portals-scan/` (see its README for flags and config format)
 
 `data/` is gitignored - all personal data stays local.
 
@@ -94,7 +93,7 @@ Fetch the posting via LinkedIn MCP (`get_job_details`) or WebFetch. Read candida
 ### 2. Fit-gap analysis
 
 Produce:
-- Archetype classification (ml-infra / eval-research / applied-ml / search-retrieval or hybrid)
+- Archetype classification (per Tracker Schema)
 - `Matches X of Y required qualifications` / `A of B additional`
 - One line per requirement: check / miss / uncertain + evidence
 - Top strengths with evidence
@@ -138,9 +137,9 @@ Present signals as observations, not accusations. Always note legitimate explana
 
 For the top 2-3 gaps, suggest STAR+R stories from existing experience:
 - **S**ituation, **T**ask, **A**ction, **R**esult, **R**eflection (what would you do differently)
-- If `story-bank.md` exists, check for reusable stories first. Append new ones.
+- Check `data/story-bank.md` for reusable stories first. Append new ones.
 
-### 7. Grade answers
+### 7. Grade answers (after user responds to quiz)
 
 Per answer: score 1-5, strengths, gaps, how to improve, weakness type (knowledge / clarity / specificity / evidence).
 
@@ -152,31 +151,12 @@ Upsert the posting in `opportunities.yaml`. Set `archetype` field. Preserve exis
 
 ## Scan Mode (`/jobs scan`)
 
-Discover new roles at tracked companies via ATS public APIs. Zero LLM tokens.
-
-### Usage
-
-```bash
-# From the skill root (skills/jobs/)
-go run ./tools/portals-scan
-
-# Scan a single company
-go run ./tools/portals-scan --company Nebius
-
-# Preview without output
-go run ./tools/portals-scan --dry-run
-```
-
-### Config
-
-`data/portals.yml` defines tracked companies and title filters. Supports Greenhouse, Ashby, and Lever APIs (auto-detected from careers_url).
-
-### Workflow
+Run `go run ./tools/portals-scan` from the skill root. See `tools/portals-scan/README.md` for flags and config format. The scanner uses zero LLM tokens - direct ATS API calls only.
 
 1. Run the scanner via Bash.
 2. Review the new roles found.
 3. For interesting roles, run `/jobs check <url>` for fit-gap analysis.
-4. For non-interesting roles, skip them (the scanner deduplicates against opportunities.yaml on next run).
+4. Scanner deduplicates against `data/opportunities.yaml` automatically.
 
 ## Status Mode (`/jobs status`)
 
@@ -186,7 +166,3 @@ Read `opportunities.yaml`, render a concise pipeline view. Answer:
 - What is most promising (role, location, comp, relocation fit)?
 
 Do not pull new evidence. Do not rewrite `status.md` unless asked.
-
-## User Context
-
-Bias analysis toward senior ML / AI infrastructure roles: LLM infrastructure, evaluation, production AI systems, TTS, instruction tuning, search/retrieval. Candidate profile and CV live in the workspace.
