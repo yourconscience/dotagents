@@ -3,4 +3,5 @@ go 1.24.0
 use (
 	./skills/dotagents/tools/dotagents
 	./skills/gws
+	./skills/jobs/tools/portals-scan
 )
