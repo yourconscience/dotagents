@@ -4,3 +4,5 @@ tmp/
 memsearch.conf
 bin/memsearch/backfill/
 bin/memsearch/apply-local.sh
+skills/jobs/data/
+skills/jobs/tools/portals-scan/portals-scan

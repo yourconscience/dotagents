@@ -1,6 +1,6 @@
 ---
 name: jobs
-description: "Track a job search pipeline, analyze fit for postings, generate interview quizzes, and grade answers. Modes: `/jobs` syncs evidence and updates tracker; `/jobs check <url>` runs fit-gap analysis; `/jobs status` shows the pipeline."
+description: "Track a job search pipeline, analyze fit for postings, generate interview quizzes, and grade answers. Modes: `/jobs` syncs evidence and updates tracker; `/jobs check <url>` runs fit-gap analysis; `/jobs scan` discovers new roles; `/jobs status` shows the pipeline."
 ---
 
 # Jobs
@@ -11,18 +11,25 @@ Single skill for job search tracking and fit analysis.
 
 - **`/jobs`** (default): Pull evidence from Gmail/LinkedIn, update tracker, rewrite status dashboard, report changes and next actions.
 - **`/jobs check <url>`**: Fit-gap analysis against a specific posting. Generates quiz, grades answers, updates tracker.
+- **`/jobs scan`**: Run portal scanner to discover new roles at tracked companies via ATS APIs (zero tokens).
 - **`/jobs status`**: Show current pipeline state from tracker without pulling new evidence.
 
 ## Workspace
 
-- Root: `~/Workspace/jobsearch/`
-- Tracker: `~/Workspace/jobsearch/opportunities.yaml` (canonical)
-- Dashboard: `~/Workspace/jobsearch/status.md` (derived, rewritten on demand)
-- CV/Resume: `~/Workspace/jobsearch/cv/`
-- Interview prompts: `~/Workspace/jobsearch/interview-prompts/`
+All paths are relative to the skill root (`skills/jobs/`).
+
+- Tracker: `data/opportunities.yaml` (canonical)
+- Dashboard: `data/status.md` (derived, rewritten on demand)
+- CV/Resume: `data/cv/`
+- Prompts: `prompts/` (tracked - reusable voice mode interview prompts)
 - Interview prep plan: `~/Workspace/knowledge/profile/interview_prep_plan.md`
-- LinkedIn exports: `~/Workspace/jobsearch/linkedin-exports/` (historical seed only)
-- Company research: `~/Workspace/jobsearch/company-research/`
+- LinkedIn exports: `data/linkedin-exports/` (historical seed only)
+- Company research: `data/company-research/`
+- Story bank: `data/story-bank.md` (STAR+R stories accumulated across evaluations)
+- Portal config: `data/portals.yml` (tracked companies for scanner)
+- Scanner tool: `tools/portals-scan/` (Go binary, zero-token ATS API scanner)
+
+`data/` is gitignored - all personal data stays local.
 
 ## Tracker Schema
 
@@ -31,6 +38,7 @@ Single skill for job search tracking and fit analysis.
 ```yaml
 - company: Example Corp
   role: Senior Applied Scientist
+  archetype: ml-infra
   stage: new
   contact:
   comp:
@@ -41,6 +49,8 @@ Single skill for job search tracking and fit analysis.
   next_action_due: 2026-04-03
   notes: Recruiter reached out on LinkedIn about an inference role.
 ```
+
+Archetypes (set during `/jobs check`): `ml-infra` (LLMOps, inference, training), `eval-research` (evaluation, benchmarks, applied research), `applied-ml` (product ML, RAG, agents, recommendations), `search-retrieval` (ranking, IR, query understanding). Hybrid is fine: `ml-infra / eval-research`.
 
 Stages: `new`, `needs-action`, `active`, `waiting`, `low-priority`, `closed`.
 
@@ -79,11 +89,12 @@ Use LinkedIn MCP for current reads. Historical exports for seed/backfill only.
 
 ### 1. Gather evidence
 
-Fetch the posting via LinkedIn MCP (`get_job_details`) or WebFetch. Read candidate profile from CV at `~/Workspace/jobsearch/cv/` and LinkedIn MCP (`get_person_profile`). Do not block on MCP unavailability - use whatever is available.
+Fetch the posting via LinkedIn MCP (`get_job_details`) or WebFetch. Read candidate profile from CV at `data/cv/` and LinkedIn MCP (`get_person_profile`). Do not block on MCP unavailability - use whatever is available.
 
 ### 2. Fit-gap analysis
 
 Produce:
+- Archetype classification (ml-infra / eval-research / applied-ml / search-retrieval or hybrid)
 - `Matches X of Y required qualifications` / `A of B additional`
 - One line per requirement: check / miss / uncertain + evidence
 - Top strengths with evidence
@@ -93,22 +104,79 @@ Produce:
 
 Be specific. Not "highlight leadership" but "add the Inworld eval pipeline ownership story with team adoption metrics."
 
-### 3. Interview quiz (gap-targeted)
+### 3. Comp research
+
+Run 1-2 WebSearch queries for market compensation data:
+- `"{company}" "{role}" salary levels.fyi glassdoor`
+- `"{role}" compensation {location} 2026`
+
+Report what's available. If no data, say so - do not invent numbers.
+
+### 4. Ghost job detection
+
+Assess whether the posting is likely a real, active opening. Check:
+- **Posting age**: extract date if visible. Over 60 days is a yellow flag.
+- **Company hiring signals**: WebSearch for `"{company}" layoffs 2026` or `"{company}" hiring freeze`. If layoffs found, note whether they hit the same department.
+- **Description quality**: does it name specific technologies, team size, scope? Generic boilerplate correlates with ghost postings.
+- **Role-company fit**: does this role make sense for this company's business?
+
+Output one of three tiers:
+- **High Confidence**: multiple signals suggest a real, active opening
+- **Proceed with Caution**: mixed signals worth noting
+- **Suspicious**: multiple ghost indicators, investigate before investing time
+
+Present signals as observations, not accusations. Always note legitimate explanations.
+
+### 5. Interview quiz (gap-targeted)
 
 - 5-10 questions, every question maps to a gap
 - Mix of technical, system design, and experience-story questions
 - Each question: why it matters, what a strong answer includes, depth 1-5
 - Do not quiz on covered strengths
 
-### 4. Grade answers
+### 6. STAR+R story suggestions
+
+For the top 2-3 gaps, suggest STAR+R stories from existing experience:
+- **S**ituation, **T**ask, **A**ction, **R**esult, **R**eflection (what would you do differently)
+- If `story-bank.md` exists, check for reusable stories first. Append new ones.
+
+### 7. Grade answers
 
 Per answer: score 1-5, strengths, gaps, how to improve, weakness type (knowledge / clarity / specificity / evidence).
 
 Overall: grade, strongest areas, weakest areas, likely interviewer concerns, next-step prep.
 
-### 5. Update tracker
+### 8. Update tracker
 
-Upsert the posting in `opportunities.yaml`. Preserve existing stage/contact/comp/dates/notes. Add jobcheck date and top gaps in notes. Set `next_action` only when analysis yields a clear user-side action.
+Upsert the posting in `opportunities.yaml`. Set `archetype` field. Preserve existing stage/contact/comp/dates/notes. Add jobcheck date, ghost job assessment, and top gaps in notes. Set `next_action` only when analysis yields a clear user-side action.
+
+## Scan Mode (`/jobs scan`)
+
+Discover new roles at tracked companies via ATS public APIs. Zero LLM tokens.
+
+### Usage
+
+```bash
+# From the skill root (skills/jobs/)
+go run ./tools/portals-scan
+
+# Scan a single company
+go run ./tools/portals-scan --company Nebius
+
+# Preview without output
+go run ./tools/portals-scan --dry-run
+```
+
+### Config
+
+`data/portals.yml` defines tracked companies and title filters. Supports Greenhouse, Ashby, and Lever APIs (auto-detected from careers_url).
+
+### Workflow
+
+1. Run the scanner via Bash.
+2. Review the new roles found.
+3. For interesting roles, run `/jobs check <url>` for fit-gap analysis.
+4. For non-interesting roles, skip them (the scanner deduplicates against opportunities.yaml on next run).
 
 ## Status Mode (`/jobs status`)
 
