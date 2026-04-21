@@ -84,6 +84,7 @@ func main() {
 	if err != nil {
 		fatalf("failed to load config: %v", err)
 	}
+	cfg.TitleFilter = lowercaseFilter(cfg.TitleFilter)
 
 	existingKeys := loadExistingKeys(*trackerPath)
 
@@ -176,6 +177,7 @@ func main() {
 func scanAll(companies []Company, filter TitleFilter, maxConcurrent int) []scanResult {
 	results := make([]scanResult, len(companies))
 	sem := make(chan struct{}, maxConcurrent)
+	client := &http.Client{Timeout: 30 * time.Second}
 	var wg sync.WaitGroup
 
 	for i, c := range companies {
@@ -184,7 +186,7 @@ func scanAll(companies []Company, filter TitleFilter, maxConcurrent int) []scanR
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			results[idx] = scanCompany(company, filter)
+			results[idx] = scanCompany(client, company, filter)
 		}(i, c)
 	}
 
@@ -192,13 +194,12 @@ func scanAll(companies []Company, filter TitleFilter, maxConcurrent int) []scanR
 	return results
 }
 
-func scanCompany(c Company, filter TitleFilter) scanResult {
+func scanCompany(client *http.Client, c Company, filter TitleFilter) scanResult {
 	platform, slug, err := detectPlatform(c.CareersURL)
 	if err != nil {
 		return scanResult{company: c.Name, err: err}
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
 	var jobs []Job
 
 	switch platform {
@@ -376,13 +377,26 @@ func getJSON(client *http.Client, url string) ([]byte, error) {
 
 // Title filtering
 
+func lowercaseFilter(filter TitleFilter) TitleFilter {
+	out := TitleFilter{
+		Positive: make([]string, len(filter.Positive)),
+		Negative: make([]string, len(filter.Negative)),
+	}
+	for i, kw := range filter.Positive {
+		out.Positive[i] = strings.ToLower(kw)
+	}
+	for i, kw := range filter.Negative {
+		out.Negative[i] = strings.ToLower(kw)
+	}
+	return out
+}
+
 func matchesFilter(title string, filter TitleFilter) bool {
 	lower := strings.ToLower(title)
 
-	// Must match at least one positive keyword
 	hasPositive := false
 	for _, kw := range filter.Positive {
-		if strings.Contains(lower, strings.ToLower(kw)) {
+		if strings.Contains(lower, kw) {
 			hasPositive = true
 			break
 		}
@@ -391,9 +405,8 @@ func matchesFilter(title string, filter TitleFilter) bool {
 		return false
 	}
 
-	// Must not match any negative keyword
 	for _, kw := range filter.Negative {
-		if strings.Contains(lower, strings.ToLower(kw)) {
+		if strings.Contains(lower, kw) {
 			return false
 		}
 	}
@@ -415,17 +428,14 @@ func loadExistingKeys(path string) map[string]bool {
 		return keys
 	}
 
-	// opportunities.yaml is a list of maps; we only need company and role
-	var entries []map[string]interface{}
+	var entries []Opportunity
 	if err := yaml.Unmarshal(data, &entries); err != nil {
 		return keys
 	}
 
 	for _, e := range entries {
-		company, _ := e["company"].(string)
-		role, _ := e["role"].(string)
-		if company != "" && role != "" {
-			keys[dedupKey(company, role)] = true
+		if e.Company != "" && e.Role != "" {
+			keys[dedupKey(e.Company, e.Role)] = true
 		}
 	}
 	return keys
@@ -448,16 +458,20 @@ func loadConfig(path string) (*Config, error) {
 // Helpers
 
 func findDefault(relPath string) string {
+	// Try cwd first (works with go run from skill root)
+	if _, err := os.Stat(relPath); err == nil {
+		abs, _ := filepath.Abs(relPath)
+		return abs
+	}
+	// Try relative to compiled binary (works with built binary in tools/portals-scan/)
 	exe, err := os.Executable()
 	if err == nil {
-		// Resolve relative to skill root (two levels up from tools/portals-scan/)
 		skillRoot := filepath.Dir(filepath.Dir(filepath.Dir(exe)))
 		candidate := filepath.Join(skillRoot, relPath)
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
 	}
-	// Fallback: relative to cwd
 	return relPath
 }
 
