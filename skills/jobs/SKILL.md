@@ -166,3 +166,7 @@ Read `opportunities.yaml`, render a concise pipeline view. Answer:
 - What is most promising (role, location, comp, relocation fit)?
 
 Do not pull new evidence. Do not rewrite `status.md` unless asked.
+
+## User Context
+
+Bias fit-gap analysis toward the candidate's profile and job search direction in `~/Workspace/knowledge/profile/USER.md`.
