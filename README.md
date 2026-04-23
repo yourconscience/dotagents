@@ -26,6 +26,7 @@ Reference these from TeamCreate teammates or as subagent types. See `skills/spaw
 - `mobile-access` - access coding agents from iOS/Android. Claude Code remote-control, Hermes Telegram gateway, Moshi, web UIs, takopi.
 - `omx` - spawn oh-my-codex in a detached tmux session and delegate a substantial task to it.
 - `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
+- `quota` - check remaining quota, reset windows, and historical usage for Claude, Codex, and similar coding agents.
 - `repo-eval` - find, triage, and deep-evaluate GitHub repos for a given need.
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
 - `spawn` - spawn and manage Claude Code agent teams with model routing and cmux integration.
