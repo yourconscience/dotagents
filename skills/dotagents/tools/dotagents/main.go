@@ -102,6 +102,8 @@ func run(args []string) error {
 		return runCron(opts)
 	case "memsearch":
 		return runMemsearch(args[1:])
+	case "skillify":
+		return runSkillify(args[1:])
 	case "-h", "--help", "help":
 		printUsage()
 		return nil
@@ -157,4 +159,5 @@ func printUsage() {
 	fmt.Println("  dotagents cron      --remove                 Remove the crontab entry")
 	fmt.Println("  dotagents memsearch setup [--vault ...]      Bootstrap knowledge vault + memsearch config")
 	fmt.Println("  dotagents memsearch status                   Show memsearch configuration")
+	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
 }
