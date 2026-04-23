@@ -86,7 +86,9 @@ func checkSkillFrontmatter(repoRoot string) checkResult {
 		}
 		total++
 		fm, err := parseSkillFrontmatter(skillMD)
-		if err != nil || fm.Name == "" || fm.Description == "" {
+		if err != nil {
+			invalid = append(invalid, fmt.Sprintf("%s (parse error: %v)", entry.Name(), err))
+		} else if fm.Name == "" || fm.Description == "" {
 			invalid = append(invalid, entry.Name())
 		}
 	}
@@ -111,12 +113,20 @@ func parseSkillFrontmatter(path string) (skillFrontmatter, error) {
 	}
 
 	var lines []string
+	foundEnd := false
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.TrimSpace(line) == "---" {
+			foundEnd = true
 			break
 		}
 		lines = append(lines, line)
+	}
+	if err := scanner.Err(); err != nil {
+		return skillFrontmatter{}, err
+	}
+	if !foundEnd {
+		return skillFrontmatter{}, fmt.Errorf("frontmatter not terminated")
 	}
 
 	var fm skillFrontmatter
@@ -224,7 +234,7 @@ func checkREADMESkillList(repoRoot string) checkResult {
 			continue
 		}
 		total++
-		if !strings.Contains(readmeContent, entry.Name()) {
+		if !strings.Contains(readmeContent, "`"+entry.Name()+"`") {
 			missing = append(missing, entry.Name())
 		}
 	}
