@@ -89,14 +89,80 @@ If the agent has a web dashboard exposed via Tailscale Serve:
 
 ### Non-Chat Access: SSH via Moshi
 
-For full terminal access:
+Moshi is an iOS terminal app that supports SSH and Mosh (mobile shell) protocols. Mosh uses UDP, survives network switches, sleep, and WiFi-to-cellular transitions. Best option for full terminal access from phone.
 
-1. Install **Moshi** from the App Store (iOS terminal using Mosh protocol)
-2. Add your Mac's Tailscale IP as a host
-3. Set up SSH key auth (Moshi stores keys in iOS Keychain with biometric unlock)
-4. SSH in, run the agent in tmux
+#### Mac-side setup (one-time)
 
-Moshi survives network switches, sleep, and WiFi-to-cellular transitions. Push notifications on task completion. Voice-to-terminal dictation.
+1. Enable SSH (Remote Login):
+```bash
+sudo systemsetup -setremotelogin on
+```
+Or: System Settings > General > Sharing > Remote Login > toggle ON
+
+2. Install mosh-server:
+```bash
+brew install mosh
+```
+
+3. Generate a dedicated SSH key for the phone:
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/phone_access -N "" -C "phone@moshi"
+```
+
+4. Add the public key to authorized_keys:
+```bash
+cat ~/.ssh/phone_access.pub >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+5. Get the private key onto the phone:
+```bash
+base64 < ~/.ssh/phone_access | pbcopy
+```
+AirDrop, paste into Notes, or use iCloud Keychain to transfer the base64 string to the phone.
+
+#### Phone-side setup (one-time)
+
+1. Install **Moshi** from the App Store
+2. Decode the base64 private key and import it as an Ed25519 SSH key in Moshi
+3. Create a new connection:
+   - Host: your Mac's Tailscale MagicDNS name (e.g. `kirills-macbook-pro.taila0218e.ts.net`) or Tailscale IP (e.g. `100.80.21.89`)
+   - Port: 22
+   - User: your Mac username
+   - Auth: select the imported key
+   - Mosh: enable (recommended, uses UDP for resilience)
+
+#### Daily use
+
+From Moshi, connect and run:
+```bash
+tmux new -s dev
+hermes
+```
+
+If Moshi disconnects, the tmux session persists. Reattach with:
+```bash
+tmux attach -t dev
+```
+
+#### Prevent Mac from sleeping
+
+Moshi/SSH works best if the Mac stays awake:
+- `caffeinate -s` (prevent sleep while on AC power)
+- Or install KeepingYouAwake from the App Store (caffeinate GUI)
+
+#### Mosh vs SSH in Moshi
+
+| | Mosh | SSH |
+|---|---|---|
+| Protocol | UDP | TCP |
+| Survives network switch | Yes | No |
+| Survives phone sleep | Yes | Sometimes |
+| Push notifications | Yes | No |
+| Voice-to-terminal | Yes | Yes |
+| Requires mosh-server | Yes | No |
+
+Use Mosh unless there is a reason not to. It requires `mosh-server` on the Mac (installed via `brew install mosh`).
 
 ### Non-Chat Access: Tailscale SSH
 
@@ -167,6 +233,8 @@ See per-agent sections below for gateway setup.
 - Gateway on Mac with Telegram
 - Dashboard on port 9119, exposed via Tailscale Serve
 - URL: `https://kirills-macbook-pro.taila0218e.ts.net/`
+- Moshi SSH key: `~/.ssh/phone_access` (Ed25519, public key in `~/.ssh/authorized_keys`)
+- mosh-server installed via Homebrew (`/opt/homebrew/bin/mosh-server`)
 
 **Quick commands:**
 ```bash
@@ -194,7 +262,17 @@ hermes dashboard --no-open --host 0.0.0.0 --port 9119 --insecure
 **Mobile access:**
 - Chat: Telegram bot (gateway handles reconnection)
 - Web: Tailscale Serve URL (dashboard, sessions, skills, memory)
-- Terminal: Moshi + tmux, or Tailscale SSH
+- Terminal: Moshi + tmux (preferred) or Tailscale SSH
+
+**Moshi quick reference:**
+```
+Host: kirills-macbook-pro.taila0218e.ts.net
+Port: 22
+User: conscience
+Auth: phone_access key (imported)
+Mosh: enabled
+```
+Then: `tmux new -s dev` > `hermes`
 
 **Config:** `~/.hermes/config.yaml`, `~/.hermes/.env`
 
