@@ -104,6 +104,12 @@ func run(args []string) error {
 		return runMemsearch(args[1:])
 	case "skillify":
 		return runSkillify(args[1:])
+	case "doctor":
+		opts, err := parseSubcommandFlags("doctor", args[1:])
+		if err != nil {
+			return err
+		}
+		return runDoctor(opts)
 	case "-h", "--help", "help":
 		printUsage()
 		return nil
@@ -160,4 +166,5 @@ func printUsage() {
 	fmt.Println("  dotagents memsearch setup [--vault ...]      Bootstrap knowledge vault + memsearch config")
 	fmt.Println("  dotagents memsearch status                   Show memsearch configuration")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
+	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes")
 }
