@@ -30,6 +30,9 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 			continue
 		}
 		fmt.Printf("  skill root: %s\n", report.SkillRoot)
+		if report.Name == "hermes" {
+			fmt.Println("  integration: config-driven via ~/.hermes/config.yaml -> skills.external_dirs")
+		}
 		if report.Synced {
 			fmt.Println("  sync: synced")
 		} else {
