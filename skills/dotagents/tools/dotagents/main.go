@@ -110,6 +110,8 @@ func run(args []string) error {
 			return err
 		}
 		return runDoctor(opts)
+	case "promote":
+		return runPromote(args[1:])
 	case "-h", "--help", "help":
 		printUsage()
 		return nil
@@ -166,5 +168,6 @@ func printUsage() {
 	fmt.Println("  dotagents memsearch setup [--vault ...]      Bootstrap knowledge vault + memsearch config")
 	fmt.Println("  dotagents memsearch status                   Show memsearch configuration")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
+	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
 	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes")
 }
