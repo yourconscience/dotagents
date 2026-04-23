@@ -99,7 +99,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if !report.Detected {
 		return report, nil
 	}
-	if agent.Name == "hermes" {
+	if agent.Name == agentHermes {
 		return inspectHermesAgent(agent, agentsSkillRoot)
 	}
 

@@ -121,7 +121,7 @@ func applyAgentSync(reports []agentReport, expected map[string]string) error {
 		if !report.Detected {
 			continue
 		}
-		if report.Name == "hermes" {
+		if report.Name == agentHermes {
 			continue
 		}
 		if len(report.Conflicts) > 0 {

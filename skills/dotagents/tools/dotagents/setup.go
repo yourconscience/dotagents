@@ -59,7 +59,7 @@ func runSetup(opts runOptions) error {
 
 func patchAgentConfig(agent agentConfig, home string) (bool, error) {
 	switch agent.Name {
-	case "hermes":
+	case agentHermes:
 		return patchHermesConfig(home)
 	case "openclaw":
 		return patchOpenClawConfig(home)
