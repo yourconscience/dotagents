@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -97,6 +99,9 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if !report.Detected {
 		return report, nil
 	}
+	if agent.Name == "hermes" {
+		return inspectHermesAgent(agent, agentsSkillRoot)
+	}
 
 	expectedNames := sortedKeys(expected)
 	rootInfo, err := os.Stat(agent.SkillRoot)
@@ -178,6 +183,92 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	sortReportLists(&report)
 	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0
 	return report, nil
+}
+
+func inspectHermesAgent(agent agentConfig, agentsSkillRoot string) (agentReport, error) {
+	report := agentReport{
+		Name:      agent.Name,
+		SkillRoot: agent.SkillRoot,
+		Detected:  isDetected(agent),
+	}
+	if !report.Detected {
+		return report, nil
+	}
+
+	entries, err := os.ReadDir(agent.SkillRoot)
+	if err == nil {
+		for _, entry := range entries {
+			name := entry.Name()
+			if strings.HasPrefix(name, ".") {
+				continue
+			}
+			report.External = append(report.External, name)
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return agentReport{}, fmt.Errorf("read %s: %w", agent.SkillRoot, err)
+	}
+
+	ok, err := hermesHasExternalSkillsDir(agentsSkillRoot)
+	if err != nil {
+		return agentReport{}, err
+	}
+	if ok {
+		sortReportLists(&report)
+		report.Synced = true
+		return report, nil
+	}
+
+	report.Missing = append(report.Missing, "config skills.external_dirs -> ~/.agents/skills")
+	report.Adds = append(report.Adds, "config skills.external_dirs -> ~/.agents/skills")
+	sortReportLists(&report)
+	report.Synced = false
+	return report, nil
+}
+
+func hermesHasExternalSkillsDir(expected string) (bool, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false, fmt.Errorf("resolve home: %w", err)
+	}
+	configPath := filepath.Join(home, ".hermes", "config.yaml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", configPath, err)
+	}
+
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return false, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+
+	skillsRaw, ok := raw["skills"]
+	if !ok {
+		return false, nil
+	}
+	skills, ok := skillsRaw.(map[string]interface{})
+	if !ok {
+		return false, nil
+	}
+	dirsRaw, ok := skills["external_dirs"]
+	if !ok {
+		return false, nil
+	}
+	dirs, ok := dirsRaw.([]interface{})
+	if !ok {
+		return false, nil
+	}
+
+	for _, d := range dirs {
+		s, ok := d.(string)
+		if !ok {
+			continue
+		}
+		if expandPath(strings.TrimSpace(s), home) == expected {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func linkMatches(linkPath string, rawTarget string, expectedTarget string) bool {

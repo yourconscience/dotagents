@@ -63,14 +63,14 @@ Rules:
 ## Sync Mode (`/jobs`)
 
 1. Read `opportunities.yaml`.
-2. Pull evidence from Gmail (`gws`) and LinkedIn MCP.
+2. Pull evidence from Gmail (`google-workspace`, using the `gws` CLI where relevant) and LinkedIn MCP.
 3. Update tracker conservatively from concrete evidence only.
 4. Rewrite `status.md`.
 5. Report: what changed, what needs action, what is stale.
 
 ### Gmail
 
-Use `gws` read-only. Never send mail unless explicitly asked.
+Use `google-workspace` / `gws` read-only. Never send mail unless explicitly asked.
 
 ```bash
 gws gmail users messages list --params '{"userId":"me","q":"newer_than:30d (recruiter OR interview OR application OR hiring OR linkedin OR greenhouse OR lever OR ashby)","maxResults":25}'

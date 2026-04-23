@@ -15,6 +15,22 @@ This creates the vault directory structure, initializes git, and writes `~/.agen
 
 Recursion-safe wrapper invoked by Claude Code hooks (SessionStart, Stop, SessionEnd). Sources `~/.agents/memsearch.conf` for all paths. Exits gracefully if memsearch is not configured.
 
+## Hermes
+
+Hermes can feed the same vault through a shell hook on `on_session_finalize`.
+The hook command is `~/.agents/bin/memsearch/finalize.sh`.
+It reads the Hermes session transcript from `~/.hermes/sessions/`, appends a session digest to `ai/YYYY-MM-DD.md`, then runs `memsearch index` over `notes/`, `profile/`, and `ai/`.
+
+Configure in `~/.hermes/config.yaml`:
+```yaml
+hooks:
+  on_session_finalize:
+    - command: ~/.agents/bin/memsearch/finalize.sh
+      timeout: 30
+```
+
+First use requires normal Hermes shell-hook consent. `hermes hooks list` and `hermes hooks doctor` inspect the registration state.
+
 Configure in Claude Code settings:
 ```json
 {

@@ -33,7 +33,9 @@ go run ./skills/dotagents/tools/dotagents sync --agents=claude-code,hermes
 First-time setup on a new machine. Does three things:
 1. Creates `~/.agents` symlink pointing at the repo root.
 2. Patches detected agent configs to load skills from `~/.agents/skills` (Hermes: adds to `skills.external_dirs` in config.yaml; OpenClaw: adds to `skills.load.extraDirs` in openclaw.json; Claude Code/Codex: handled by symlinks, no patching needed).
-3. Runs `sync` to create all skill symlinks.
+3. Runs `sync` for agents that use managed skill-root symlinks.
+
+Important Hermes note: Hermes should consume dotagents skills primarily via `skills.external_dirs: ["~/.agents/skills"]`, not by mirroring repo skills into `~/.hermes/skills`. Hermes already ships a bundled categorized skill tree under `~/.hermes/skills`, so symlinking repo skills there can collide with bundled category directories. Example: a repo skill named `research` conflicts with Hermes' builtin `research/` category. Treat `external_dirs` as the canonical Hermes integration path.
 
 ### status
 
@@ -41,7 +43,7 @@ Reports sync state for each detected agent. Agents whose binary is not on PATH s
 
 ### sync
 
-Creates, updates, or removes skill symlinks in each detected agent's skill root. Non-repo skills are reported as `external` and left untouched.
+Creates, updates, or removes skill symlinks in each detected agent's skill root for agents that use managed mirrors. Non-repo skills are reported as `external` and left untouched. Hermes is special-cased: `sync` verifies the `skills.external_dirs` integration and does not try to mirror repo skills into `~/.hermes/skills`.
 
 ### pull
 

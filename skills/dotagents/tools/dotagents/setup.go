@@ -91,13 +91,17 @@ func patchHermesConfig(home string) (bool, error) {
 	}
 
 	target := "~/.agents/skills"
+	targetExpanded := filepath.Join(home, ".agents", "skills")
 	dirsRaw, ok := skills["external_dirs"]
 	if ok {
 		dirs, ok := dirsRaw.([]interface{})
 		if ok {
 			for _, d := range dirs {
-				if s, ok := d.(string); ok && s == target {
-					return false, nil
+				if s, ok := d.(string); ok {
+					expanded := expandPath(strings.TrimSpace(s), home)
+					if s == target || expanded == targetExpanded {
+						return false, nil
+					}
 				}
 			}
 			skills["external_dirs"] = append(dirs, target)
