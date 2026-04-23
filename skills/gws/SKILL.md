@@ -1,11 +1,13 @@
 ---
-name: gws
-description: Google Workspace CLI (gws) for Drive, Docs, Gmail, Sheets, Calendar, and more.
+name: google-workspace
+description: Google Workspace CLI (`gws`) for Drive, Docs, Gmail, Sheets, Calendar, and more.
 ---
 
-# gws (googleworkspace-cli)
+# google-workspace (`gws`)
 
 CLI for Google Workspace APIs. Binary: `gws`. Config: `~/.config/gws/`.
+
+On Hermes, prefer the bundled native `google-workspace` skill. This shared skill exists so the same workflow remains available to agents that do not ship a first-party equivalent.
 
 ## Auth
 
