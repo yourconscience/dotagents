@@ -55,6 +55,26 @@ Runs `git pull --ff-only` in the repo root, then `sync`. Designed to be called f
 
 Installs or removes a crontab entry that runs `pull` on a schedule. Default interval is 30m. Options: 5m, 15m, 30m, 1h, 6h, 12h, daily.
 
+### promote
+
+Promotes a Hermes skill to dotagents shared skills. Copies the skill, creates a branch, commits, pushes, and opens a PR.
+
+```bash
+go run ./skills/dotagents/tools/dotagents promote <skill-name>        # by name (searches ~/.hermes/skills/)
+go run ./skills/dotagents/tools/dotagents promote <category>/<name>   # with category prefix
+go run ./skills/dotagents/tools/dotagents promote <name> --dry-run    # copy only, skip git/PR
+```
+
+The skill is searched in `~/.hermes/skills/` by name (including inside category subdirectories). The promote command:
+1. Copies the skill to `skills/<name>/`
+2. Creates branch `promote/<name>`
+3. Commits as "add <name> skill"
+4. Pushes and creates a PR via `gh`
+
+Requires `gh` CLI authenticated with push access to the repo.
+
+For the full promotion workflow (evaluation, pr-triage, merge), use the `skill-promote` Hermes skill.
+
 ## What it manages
 
 - Fixes `~/.agents` if it should point at the repo root and is missing or drifted.
