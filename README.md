@@ -29,6 +29,8 @@ Reference these from TeamCreate teammates or as subagent types. See `skills/spaw
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
 
-## Research
+Hermes uses `~/.agents/skills` through `skills.external_dirs` in `~/.hermes/config.yaml`. Do not mirror repo skills into `~/.hermes/skills`, because Hermes already ships bundled categorized skills there and name collisions are easy.
 
-`research/` holds evaluation notes, landscape comparisons, and alternatives explored. Not necessarily implemented or supported - more about what was tried, what the options are, and why certain choices were made. Reference material for future decisions.
+## Experimental
+
+`experimental/` holds evaluation notes, landscape comparisons, and alternatives explored. Not necessarily implemented or supported - more about what was tried, what the options are, and why certain choices were made. Reference material for future decisions.
