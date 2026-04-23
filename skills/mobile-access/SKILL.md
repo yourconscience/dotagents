@@ -130,8 +130,10 @@ See per-agent sections below for gateway setup.
 ## Common Mistakes
 
 - Do not forget `TELEGRAM_ALLOWED_USERS` on messaging gateways. Without it, the bot accepts messages from anyone.
-- Do not expose services to `0.0.0.0` without Tailscale. Use `tailscale serve` instead of `--insecure` binds.
-- Tailscale Serve requires the Serve feature to be enabled on your tailnet first. It will prompt you with a URL.
+- Do not expose services to `0.0.0.0` on public networks. Use `tailscale serve` instead of `--insecure` binds. On a tailnet, `--insecure` is fine since the network is private.
+- Tailscale Serve requires the Serve feature to be enabled on your tailnet first. It will prompt you with a URL to visit.
+- When using Tailscale Serve, bind the local service to `0.0.0.0` (not `127.0.0.1`) so it accepts the MagicDNS hostname in the Host header. `hermes dashboard` validates Host headers and rejects requests to `127.0.0.1` when the Host is `*.ts.net`.
+- `brew install --cask tailscale-app` does not put the CLI on PATH. Create a symlink: `sudo ln -sf /Applications/Tailscale.app/Contents/MacOS/Tailscale /usr/local/bin/tailscale`
 - Claude Code remote-control relays through Anthropic's servers; it is not the same as SSH.
 
 ## Troubleshooting
@@ -140,6 +142,11 @@ See per-agent sections below for gateway setup.
 - `tailscale status` — both devices should show as connected
 - Check if Tailscale is running (menu bar icon on Mac)
 - `tailscale ping <ip>` — verify direct connectivity
+
+**Web UI "Invalid Host header" error:**
+- The dashboard is bound to `127.0.0.1` but Tailscale Serve sends `*.ts.net` as Host
+- Fix: restart dashboard with `--host 0.0.0.0`
+- Or skip Tailscale Serve and access via `http://100.x.x.x:9119` directly
 
 **Web UI not accessible from phone:**
 - `tailscale serve status` — verify serve is running
@@ -168,10 +175,20 @@ hermes gateway status       # check status
 hermes dashboard --no-open  # start web UI on :9119
 ```
 
-**Dashboard setup:**
+**Dashboard setup (Tailscale Serve):**
 ```bash
-hermes dashboard --no-open --host 127.0.0.1 --port 9119
+# IMPORTANT: bind to 0.0.0.0, not 127.0.0.1
+# Tailscale Serve sends the MagicDNS hostname as Host header,
+# which hermes dashboard rejects when bound to 127.0.0.1
+hermes dashboard --no-open --host 0.0.0.0 --port 9119 --insecure
 tailscale serve --bg --https=443 http://127.0.0.1:9119
+```
+
+**Dashboard setup (direct IP, no Tailscale Serve):**
+```bash
+hermes dashboard --no-open --host 0.0.0.0 --port 9119 --insecure
+# Access via http://100.x.x.x:9119 from any tailnet device
+# Shorter URL but no HTTPS
 ```
 
 **Mobile access:**
