@@ -35,6 +35,29 @@ REPO="$(echo "$REMOTE_URL" | sed -E 's#.+[:/]([^/]+)/([^/.]+)(\.git)?$#\2#')"
 PR="${1:-$(gh pr view --json number --jq '.number')}"
 ```
 
+## Merge conflicts
+
+Always check merge status before inspecting reviews or checks:
+```bash
+gh pr view "$PR" --json mergeable,mergeStateStatus --jq '{mergeable, mergeStateStatus}'
+```
+
+If `mergeable` is `CONFLICTING`: fetch the base branch, merge it locally, resolve conflicts, commit, and push before proceeding with the rest of the inspect. Stash any uncommitted local changes first if needed, restore after.
+
+```bash
+BASE=$(gh pr view "$PR" --json baseRefName --jq '.baseRefName')
+git fetch origin "$BASE"
+git stash --include-untracked -m "pr-triage: stash before conflict resolution" 2>/dev/null || true
+git merge "origin/$BASE" --no-edit || true
+# Resolve any conflict markers in files, then:
+git add <resolved-files>
+git commit -m "Merge $BASE: resolve conflicts"
+git push
+git stash pop 2>/dev/null || true
+```
+
+Do not skip this step. A PR with conflicts cannot be merged regardless of review or CI status.
+
 ## Inspect
 
 1) All checks:
@@ -111,6 +134,7 @@ After completing all work, output a compact summary:
 
 ```
 ## PR #<number> Status
+Merge: <MERGEABLE or CONFLICTING (resolved/unresolved)>
 CI: <PASS or list failures with one-line cause>
 Reviews: <N> total, <M> unresolved
 
