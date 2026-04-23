@@ -10,6 +10,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const agentHermes = "hermes"
+
 type checkResult struct {
 	name   string
 	status string // "pass", "warn", "fail"
@@ -124,18 +126,20 @@ func parseSkillFrontmatter(path string) (skillFrontmatter, error) {
 	return fm, nil
 }
 
-func checkSkillNameCollisions(repoRoot string, home string, cfg config) checkResult {
-	// Detect hermes from config
-	hermesDetected := false
+func isAgentDetected(cfg config, name string) bool {
 	for _, agent := range cfg.Agents {
-		if agent.Name == "hermes" && isDetected(agent) {
-			hermesDetected = true
-			break
+		if agent.Name == name && isDetected(agent) {
+			return true
 		}
 	}
+	return false
+}
+
+func checkSkillNameCollisions(repoRoot string, home string, cfg config) checkResult {
+	hermesDetected := isAgentDetected(cfg, agentHermes)
 
 	if !hermesDetected {
-		return checkResult{"skill name collisions", "pass", "hermes not detected, skipped"}
+		return checkResult{"skill name collisions", "pass", agentHermes + " not detected, skipped"}
 	}
 
 	hermesSkillsDir := filepath.Join(home, ".hermes", "skills")
@@ -250,16 +254,8 @@ func checkMemsearchIndex(home string) checkResult {
 }
 
 func checkHermesHooks(home string, cfg config) checkResult {
-	hermesDetected := false
-	for _, agent := range cfg.Agents {
-		if agent.Name == "hermes" && isDetected(agent) {
-			hermesDetected = true
-			break
-		}
-	}
-
-	if !hermesDetected {
-		return checkResult{"hermes hooks", "pass", "hermes not detected, skipped"}
+	if !isAgentDetected(cfg, agentHermes) {
+		return checkResult{"hermes hooks", "pass", agentHermes + " not detected, skipped"}
 	}
 
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
