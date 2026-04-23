@@ -17,6 +17,7 @@ Reference these from TeamCreate teammates or as subagent types. See `skills/spaw
 
 ## Skills
 
+- `cmux` - reference for cmux CLI subcommands: workspace management, screen reading, browser automation, agent teams.
 - `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
 - `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
 - `google-workspace` - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex/OpenClaw and CLI helpers.
