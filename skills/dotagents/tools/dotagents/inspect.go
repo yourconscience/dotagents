@@ -78,10 +78,10 @@ func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 	return report, nil
 }
 
-func inspectAgents(selected []agentConfig, expected map[string]string, repoRoot string, home string) ([]agentReport, error) {
+func inspectAgents(selected []agentConfig, expected map[string]string, repoRoot string, home string, cfg config) ([]agentReport, error) {
 	reports := make([]agentReport, 0, len(selected))
 	for _, agent := range selected {
-		report, err := inspectAgent(agent, expected, repoRoot, filepath.Join(home, ".agents", "skills"))
+		report, err := inspectAgent(agent, expected, repoRoot, filepath.Join(home, ".agents", "skills"), cfg, home)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +90,7 @@ func inspectAgents(selected []agentConfig, expected map[string]string, repoRoot 
 	return reports, nil
 }
 
-func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string, agentsSkillRoot string) (agentReport, error) {
+func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
 	report := agentReport{
 		Name:      agent.Name,
 		SkillRoot: agent.SkillRoot,
@@ -100,7 +100,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		return report, nil
 	}
 	if agent.Name == agentHermes {
-		return inspectHermesAgent(agent, agentsSkillRoot)
+		return inspectHermesAgent(agent, agentsSkillRoot, cfg, home)
 	}
 
 	expectedNames := sortedKeys(expected)
@@ -180,12 +180,16 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		}
 	}
 
+	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
+		return agentReport{}, err
+	}
+
 	sortReportLists(&report)
-	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0
+	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0
 	return report, nil
 }
 
-func inspectHermesAgent(agent agentConfig, agentsSkillRoot string) (agentReport, error) {
+func inspectHermesAgent(agent agentConfig, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
 	report := agentReport{
 		Name:      agent.Name,
 		SkillRoot: agent.SkillRoot,
@@ -212,16 +216,16 @@ func inspectHermesAgent(agent agentConfig, agentsSkillRoot string) (agentReport,
 	if err != nil {
 		return agentReport{}, err
 	}
-	if ok {
-		sortReportLists(&report)
-		report.Synced = true
-		return report, nil
+	if !ok {
+		report.Missing = append(report.Missing, "config skills.external_dirs -> ~/.agents/skills")
+		report.Adds = append(report.Adds, "config skills.external_dirs -> ~/.agents/skills")
+	}
+	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
+		return agentReport{}, err
 	}
 
-	report.Missing = append(report.Missing, "config skills.external_dirs -> ~/.agents/skills")
-	report.Adds = append(report.Adds, "config skills.external_dirs -> ~/.agents/skills")
 	sortReportLists(&report)
-	report.Synced = false
+	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0
 	return report, nil
 }
 

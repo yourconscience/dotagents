@@ -74,6 +74,24 @@ func loadConfig(skillRoot string, home string, overridePath string) (config, err
 		seen[cfg.Agents[i].Name] = struct{}{}
 	}
 
+	seenMCP := make(map[string]struct{})
+	for i := range cfg.MCPServers {
+		cfg.MCPServers[i].Name = strings.TrimSpace(cfg.MCPServers[i].Name)
+		if cfg.MCPServers[i].Name == "" {
+			return config{}, errors.New("config MCP server name cannot be empty")
+		}
+		if cfg.MCPServers[i].Command == "" {
+			return config{}, fmt.Errorf("config MCP server %s is missing command", cfg.MCPServers[i].Name)
+		}
+		if _, ok := seenMCP[cfg.MCPServers[i].Name]; ok {
+			return config{}, fmt.Errorf("config MCP server %s is duplicated", cfg.MCPServers[i].Name)
+		}
+		seenMCP[cfg.MCPServers[i].Name] = struct{}{}
+		for j := range cfg.MCPServers[i].Agents {
+			cfg.MCPServers[i].Agents[j] = normalizeAgentName(cfg.MCPServers[i].Agents[j])
+		}
+	}
+
 	return cfg, nil
 }
 

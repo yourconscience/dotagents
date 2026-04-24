@@ -32,8 +32,8 @@ go run ./skills/dotagents/tools/dotagents sync --agents=claude-code,hermes
 
 First-time setup on a new machine. Does three things:
 1. Creates `~/.agents` symlink pointing at the repo root.
-2. Patches detected agent configs to load skills from `~/.agents/skills` (Hermes: adds to `skills.external_dirs` in config.yaml; OpenClaw: adds to `skills.load.extraDirs` in openclaw.json; Claude Code/Codex: handled by symlinks, no patching needed).
-3. Runs `sync` for agents that use managed skill-root symlinks.
+2. Patches detected agent configs to load shared dotagents config where needed (Hermes: adds `skills.external_dirs` in `config.yaml`).
+3. Runs `sync` for managed skills and managed MCP entries.
 
 Important Hermes note: Hermes should consume dotagents skills primarily via `skills.external_dirs: ["~/.agents/skills"]`, not by mirroring repo skills into `~/.hermes/skills`. Hermes already ships a bundled categorized skill tree under `~/.hermes/skills`, so symlinking repo skills there can collide with bundled category directories. Example: a repo skill named `research` conflicts with Hermes' builtin `research/` category. Prefer Hermes-native bundled skills when an equivalent already exists there. Example: use Hermes' builtin `google-workspace` skill instead of trying to override it from dotagents. Treat `external_dirs` as the canonical Hermes integration path.
 
@@ -41,11 +41,13 @@ When a dotagents skill overlaps with a Hermes builtin skill, prefer the Hermes b
 
 ### status
 
-Reports sync state for each detected agent. Agents whose binary is not on PATH show "not detected" and are skipped.
+Reports sync state for each detected agent. Agents whose binary is not on PATH show "not detected" and are skipped. The report covers both managed skills and any managed MCP entries declared in `dotagents.yaml`.
 
 ### sync
 
 Creates, updates, or removes skill symlinks in each detected agent's skill root for agents that use managed mirrors. Non-repo skills are reported as `external` and left untouched. Hermes is special-cased: `sync` verifies the `skills.external_dirs` integration and does not try to mirror repo skills into `~/.hermes/skills`.
+
+For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone.
 
 ### pull
 
@@ -82,6 +84,29 @@ For the full promotion workflow (evaluation, pr-triage, merge), use the `skill-p
 - Treats repo skills under `skills/` as the managed set for each detected agent.
 - Reports non-repo skills already present in agent skill roots as `external` and leaves them untouched.
 - Stops on conflicts when a managed skill path exists as a real file or directory instead of a symlink.
+
+## MCP support
+
+`dotagents` can also manage selected MCP server parity across agents without symlinking whole config files.
+
+Current managed MCP set lives in `skills/dotagents/dotagents.yaml` under `mcp_servers:`. Minimal example in this repo:
+
+- `linkedin` -> `uvx linkedin-scraper-mcp@latest`
+- managed for `claude-code`, `codex`, and `hermes`
+
+Status and sync rules:
+
+- `dotagents status` reports `mcp managed`, `mcp missing`, and `mcp drifted` alongside skills.
+- `dotagents sync` patches only the managed MCP entries for each supported agent.
+- Unrelated MCP servers remain untouched.
+
+Per-agent targets:
+
+- Claude Code: `~/.claude/settings.json` -> `mcpServers.<name>`
+- Codex: `~/.codex/config.toml` -> `[mcp_servers.<name>]`
+- Hermes: `~/.hermes/config.yaml` -> `mcp_servers.<name>`
+
+Do not symlink whole agent config files. Use targeted patches only.
 
 ## Config
 
