@@ -9,8 +9,9 @@ import (
 )
 
 type config struct {
-	Version int           `yaml:"version"`
-	Agents  []agentConfig `yaml:"agents"`
+	Version    int               `yaml:"version"`
+	Agents     []agentConfig     `yaml:"agents"`
+	MCPServers []mcpServerConfig `yaml:"mcp_servers"`
 }
 
 type agentConfig struct {
@@ -32,13 +33,18 @@ type agentReport struct {
 	SkillRoot    string
 	Detected     bool
 	Managed      []string
+	ManagedMCP   []string
 	Drifted      []string
+	DriftedMCP   []string
 	Missing      []string
+	MissingMCP   []string
 	Conflicts    []string
 	StaleManaged []string
 	External     []string
 	Adds         []string
+	AddsMCP      []string
 	Updates      []string
+	UpdatesMCP   []string
 	Removes      []string
 	Synced       bool
 }
@@ -156,12 +162,12 @@ func parseCronFlags(args []string) (cronOptions, error) {
 }
 
 func printUsage() {
-	fmt.Println("dotagents - manage agent skill links across coding agents")
+	fmt.Println("dotagents - manage shared skills and MCP config across coding agents")
 	fmt.Println()
 	fmt.Println("Usage:")
 	fmt.Println("  dotagents setup     [--agents ...]           First-time setup: symlink, patch configs, sync")
-	fmt.Println("  dotagents status    [--agents ...]           Show sync state for detected agents")
-	fmt.Println("  dotagents sync      [--agents ...]           Sync skill symlinks to detected agents")
+	fmt.Println("  dotagents status    [--agents ...]           Show skill/MCP sync state for detected agents")
+	fmt.Println("  dotagents sync      [--agents ...]           Sync managed skills and MCP config to detected agents")
 	fmt.Println("  dotagents pull      [--agents ...]           Git pull + sync (for cron use)")
 	fmt.Println("  dotagents cron      [--interval 30m]         Install a crontab entry for auto-pull")
 	fmt.Println("  dotagents cron      --remove                 Remove the crontab entry")

@@ -10,7 +10,7 @@ import (
 )
 
 func runStatus(opts runOptions) error {
-	repoRoot, home, _, selected, err := loadContext(opts)
+	repoRoot, home, cfg, selected, err := loadContext(opts)
 	if err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func runStatus(opts runOptions) error {
 	if err != nil {
 		return err
 	}
-	reports, err := inspectAgents(selected, expected, repoRoot, home)
+	reports, err := inspectAgents(selected, expected, repoRoot, home, cfg)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func runStatus(opts runOptions) error {
 }
 
 func runSync(opts runOptions) error {
-	repoRoot, home, _, selected, err := loadContext(opts)
+	repoRoot, home, cfg, selected, err := loadContext(opts)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func runSync(opts runOptions) error {
 	if err != nil {
 		return err
 	}
-	reports, err := inspectAgents(selected, expected, repoRoot, home)
+	reports, err := inspectAgents(selected, expected, repoRoot, home, cfg)
 	if err != nil {
 		return err
 	}
@@ -83,12 +83,15 @@ func runSync(opts runOptions) error {
 	if err := applyAgentSync(reports, expected); err != nil {
 		return err
 	}
+	if err := applyAgentMCPSync(reports, cfg, home); err != nil {
+		return err
+	}
 
 	repoReport, err = inspectRepoLink(repoRoot, home)
 	if err != nil {
 		return err
 	}
-	reports, err = inspectAgents(selected, expected, repoRoot, home)
+	reports, err = inspectAgents(selected, expected, repoRoot, home, cfg)
 	if err != nil {
 		return err
 	}
