@@ -7,6 +7,40 @@ on:
     branches: [main]
 
 jobs:
+  skill-frontmatter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          fail=0
+          for f in skills/*/SKILL.md; do
+            # Extract YAML between --- delimiters
+            fm=$(awk '/^---$/{if(n++)exit;next}n' "$f")
+            if [ -z "$fm" ]; then
+              echo "FAIL: $f - no frontmatter"
+              fail=1
+              continue
+            fi
+            # Check name and description exist
+            name=$(echo "$fm" | grep -oP '^name:\s*\K.*' | sed 's/^["'"'"']//;s/["'"'"']$//')
+            desc=$(echo "$fm" | grep -oP '^description:\s*\K.*' | sed 's/^["'"'"']//;s/["'"'"']$//')
+            if [ -z "$name" ] || [ -z "$desc" ]; then
+              echo "FAIL: $f - missing name or description"
+              fail=1
+              continue
+            fi
+            # Validate YAML parses (catch unquoted colons etc.)
+            if ! echo "$fm" | python3 -c "import sys,yaml; yaml.safe_load(sys.stdin)" 2>/tmp/yaml-err; then
+              echo "FAIL: $f - invalid YAML: $(cat /tmp/yaml-err)"
+              fail=1
+              continue
+            fi
+            echo "OK: $f ($name)"
+          done
+          exit $fail
+
   build-and-lint:
     runs-on: ubuntu-latest
     strategy:
