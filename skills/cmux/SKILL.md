@@ -215,6 +215,7 @@ cmux remote-daemon-status
 cmux claude-teams [claude-args...]    # Claude Code with teams enabled
 cmux omx [omx-args...]               # launch omx (Codex wrapper)
 cmux omo [opencode-args...]           # launch opencode
+cmux hermes [hermes-args...]          # launch Hermes Agent
 ```
 
 ## Notifications and Signals
@@ -253,3 +254,30 @@ cmux paste-buffer --name scratch --surface surface:N
 - `browser open` opens as a tab; `browser open-split` creates a split.
 - `markdown open` opens as a tab by default; add `--direction` for a split.
 - Use `--snapshot-after` on browser interaction commands to get the DOM state after the action.
+
+## Contributing to cmux
+
+Repo: `~/Public/cmux` (clone of `manaflow-ai/cmux`). Fork remote: `fork` (`yourconscience/cmux`).
+
+```bash
+# update to latest main
+cd ~/Public/cmux && git fetch origin && git checkout main && git pull origin main
+
+# check existing issues and PRs
+gh issue list -R manaflow-ai/cmux --state open
+gh pr list -R manaflow-ai/cmux --state open
+
+# create an issue first
+gh issue create -R manaflow-ai/cmux --title "..." --label enhancement --body "..."
+
+# branch, implement, push to fork
+git checkout -b issue-NNNN-description main
+# ... make changes ...
+git add -A && git commit -m "description"
+git push fork issue-NNNN-description
+
+# open PR against upstream
+gh pr create --repo manaflow-ai/cmux --head yourconscience:issue-NNNN-description --base main --title "..." --body "Closes #NNNN ..."
+```
+
+The codebase is Swift (macOS app) + CLI. Agent launchers follow a pattern: resolve executable, create tmux shim directory, configure environment, execvp. See `runOMX` / `runHermes` in `CLI/cmux.swift` as templates. No Xcode on this machine: use `xcodebuild` or push and let CI verify.
