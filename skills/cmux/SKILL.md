@@ -213,7 +213,7 @@ cmux remote-daemon-status
 
 ```bash
 cmux claude-teams [claude-args...]    # Claude Code with teams enabled
-cmux omx [omx-args...]               # launch omx (Codex wrapper)
+cmux omx [omx-args...]               # launch omx (Codex wrapper) - prefer plain `omx` from agents (see /omx skill)
 cmux omo [opencode-args...]           # launch opencode
 cmux hermes [hermes-args...]          # launch Hermes Agent
 ```
@@ -226,7 +226,7 @@ cmux list-notifications
 cmux clear-notifications
 
 # tmux-style signal (for coordination between agents)
-cmux wait-for --signal "build-done"
+cmux wait-for "build-done"
 cmux wait-for "build-done" --timeout 30
 ```
 
