@@ -2,7 +2,7 @@
 
 Private repo for my shared authored `~/.agents` layer.
 
-This repo is under active development and currently holds shared rules plus cross-tool skills for Claude Code, Codex, Hermes Agent, and OpenClaw.
+This repo is under active development and currently holds shared rules, cross-tool skills, and small agent-native config parity such as managed MCP entries for Claude Code, Codex, Hermes Agent, and OpenClaw.
 
 ## Agents
 
@@ -20,7 +20,7 @@ Reference these from TeamCreate teammates or as subagent types. See `skills/spaw
 - `cmux` - reference for cmux CLI subcommands: workspace management, screen reading, browser automation, agent teams.
 - `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
 - `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
-- `google-workspace` - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex/OpenClaw and CLI helpers.
+- `google-workspace` (`gws`) - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex/OpenClaw and CLI helpers.
 - `jobs` - track job search pipeline, analyze fit for postings, generate interview quizzes, grade answers.
 - `mobile-access` - access coding agents from iOS/Android. Claude Code remote-control, Hermes Telegram gateway, Moshi, web UIs, takopi.
 - `omx` - spawn oh-my-codex in a detached tmux session and delegate a substantial task to it.

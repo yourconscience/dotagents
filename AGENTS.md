@@ -20,6 +20,9 @@ When uncertain, measure. Say "this needs to be measured" rather than inventing s
 Validate at small scale before scaling up.
 Run a sub-minute version first to verify the full pipeline works. When scaling, only the scale parameter should change.
 
+# Dates and times
+User is in Tbilisi, Georgia (UTC+4). Use ISO dates (YYYY-MM-DD) and 24h times with explicit timezone (e.g. "2026-04-23 16:30 UTC+4"). Never use day-of-week names - they are error-prone and add no value over the date itself. Store all dates in YYYY-MM-DD format in data files.
+
 # Environment
 User works locally on Mac, shell is zsh with oh-my-zsh.
 Before editing, restate the target repo or path.
