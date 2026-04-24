@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -70,7 +69,7 @@ func applyAgentMCPSync(reports []agentReport, cfg config, home string) error {
 		for _, server := range servers {
 			byName[server.Name] = server
 		}
-		for _, name := range append(append([]string{}, report.AddsMCP...), report.UpdatesMCP...) {
+		for _, name := range append(report.AddsMCP, report.UpdatesMCP...) {
 			server, ok := byName[name]
 			if !ok {
 				return fmt.Errorf("missing MCP config for %s/%s", report.Name, name)
@@ -219,24 +218,15 @@ func patchHermesMCPServer(server mcpServerConfig, home string) error {
 		return fmt.Errorf("read %s: %w", configPath, err)
 	}
 
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return fmt.Errorf("parse %s: %w", configPath, err)
 	}
-
-	serversMap, _ := asMap(raw["mcp_servers"])
-	if serversMap == nil {
-		serversMap = map[string]interface{}{}
-		raw["mcp_servers"] = serversMap
+	if err := upsertHermesMCPNode(&doc, server); err != nil {
+		return fmt.Errorf("update %s: %w", configPath, err)
 	}
-	entry, _ := asMap(serversMap[server.Name])
-	if entry == nil {
-		entry = map[string]interface{}{}
-	}
-	applyManagedMCPMap(entry, server)
-	serversMap[server.Name] = entry
 
-	out, err := yaml.Marshal(raw)
+	out, err := marshalYAMLNode(&doc)
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", configPath, err)
 	}
@@ -377,15 +367,27 @@ func upsertTOMLSection(content string, header string, section string) string {
 }
 
 func findTOMLInsertPoint(content string) int {
-	candidates := []string{"\n[profiles.", "\n[projects.", "\n[tui]", "\n[analytics]", "\n[notice]", "\n[[skills.config]]", "\n[env]", "\n[agents]", "\n[marketplaces.", "\n[plugins."}
+	candidates := []string{"[profiles.", "[projects.", "[tui]", "[analytics]", "[notice]", "[[skills.config]]", "[env]", "[agents]", "[marketplaces.", "[plugins."}
 	best := -1
 	for _, candidate := range candidates {
-		idx := strings.Index(content, candidate)
+		idx := indexTOMLHeaderCandidate(content, candidate)
 		if idx != -1 && (best == -1 || idx < best) {
-			best = idx + 1
+			best = idx
 		}
 	}
 	return best
+}
+
+func indexTOMLHeaderCandidate(content string, candidate string) int {
+	for i := 0; i < len(content); i++ {
+		if !strings.HasPrefix(content[i:], candidate) {
+			continue
+		}
+		if i == 0 || content[i-1] == '\n' {
+			return i
+		}
+	}
+	return -1
 }
 
 func indexNextTOMLHeader(content string) int {
@@ -512,7 +514,138 @@ func toStringSlice(v interface{}) ([]string, bool) {
 }
 
 func stringSlicesEqual(a []string, b []string) bool {
-	return bytes.Equal([]byte(strings.Join(a, "\x00")), []byte(strings.Join(b, "\x00")))
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func upsertHermesMCPNode(doc *yaml.Node, server mcpServerConfig) error {
+	root := doc
+	if root.Kind == 0 {
+		root.Kind = yaml.DocumentNode
+	}
+	if root.Kind != yaml.DocumentNode {
+		return fmt.Errorf("unexpected YAML root kind %d", root.Kind)
+	}
+	if len(root.Content) == 0 {
+		root.Content = []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}
+	}
+	mapping := root.Content[0]
+	if mapping.Kind != yaml.MappingNode {
+		return fmt.Errorf("top-level YAML node is not a mapping")
+	}
+
+	serversNode := ensureMappingValue(mapping, "mcp_servers")
+	entryNode := ensureMappingValue(serversNode, server.Name)
+	setMappingString(entryNode, "command", server.Command)
+	setMappingStringSlice(entryNode, "args", server.Args)
+	if len(server.Env) > 0 {
+		envNode := ensureMappingValue(entryNode, "env")
+		setMappingStringMap(envNode, server.Env)
+	}
+	return nil
+}
+
+func marshalYAMLNode(doc *yaml.Node) ([]byte, error) {
+	var builder strings.Builder
+	encoder := yaml.NewEncoder(&builder)
+	encoder.SetIndent(4)
+	if err := encoder.Encode(doc); err != nil {
+		return nil, err
+	}
+	if err := encoder.Close(); err != nil {
+		return nil, err
+	}
+	return []byte(builder.String()), nil
+}
+
+func ensureMappingValue(mapping *yaml.Node, key string) *yaml.Node {
+	if mapping.Kind != yaml.MappingNode {
+		mapping.Kind = yaml.MappingNode
+		mapping.Tag = "!!map"
+		mapping.Content = nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		keyNode := mapping.Content[i]
+		if keyNode.Value == key {
+			valueNode := mapping.Content[i+1]
+			if valueNode.Kind == 0 {
+				valueNode.Kind = yaml.MappingNode
+				valueNode.Tag = "!!map"
+			}
+			return valueNode
+		}
+	}
+	keyNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
+	valueNode := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	mapping.Content = append(mapping.Content, keyNode, valueNode)
+	return valueNode
+}
+
+func setMappingString(mapping *yaml.Node, key string, value string) {
+	if mapping.Kind != yaml.MappingNode {
+		mapping.Kind = yaml.MappingNode
+		mapping.Tag = "!!map"
+		mapping.Content = nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			mapping.Content[i+1] = &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value}
+			return
+		}
+	}
+	mapping.Content = append(mapping.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value},
+	)
+}
+
+func setMappingStringSlice(mapping *yaml.Node, key string, values []string) {
+	seq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+	for _, value := range values {
+		seq.Content = append(seq.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value})
+	}
+	setMappingNode(mapping, key, seq)
+}
+
+func setMappingStringMap(mapping *yaml.Node, values map[string]string) {
+	if mapping.Kind != yaml.MappingNode {
+		mapping.Kind = yaml.MappingNode
+		mapping.Tag = "!!map"
+		mapping.Content = nil
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		setMappingString(mapping, key, values[key])
+	}
+}
+
+func setMappingNode(mapping *yaml.Node, key string, value *yaml.Node) {
+	if mapping.Kind != yaml.MappingNode {
+		mapping.Kind = yaml.MappingNode
+		mapping.Tag = "!!map"
+		mapping.Content = nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			mapping.Content[i+1] = value
+			return
+		}
+	}
+	mapping.Content = append(mapping.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+		value,
+	)
 }
 
 func stringInSlice(needle string, haystack []string) bool {
