@@ -1,6 +1,6 @@
 ---
 name: spawn
-description: Decide how to delegate work to subagents or teams. Agent-agnostic: covers Claude Code, Hermes, and Codex as primary agents.
+description: "Decide how to delegate work to subagents or teams. Agent-agnostic: covers Claude Code, Hermes, and Codex."
 ---
 
 # spawn
