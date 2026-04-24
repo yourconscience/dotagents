@@ -40,11 +40,20 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		}
 		fmt.Printf("  managed (%d): %s\n", len(report.Managed), displayList(report.Managed))
 		fmt.Printf("  external (%d): %s\n", len(report.External), displayList(report.External))
+		if len(report.ManagedMCP)+len(report.MissingMCP)+len(report.DriftedMCP) > 0 {
+			fmt.Printf("  mcp managed (%d): %s\n", len(report.ManagedMCP), displayList(report.ManagedMCP))
+		}
 		if len(report.Missing) > 0 {
 			fmt.Printf("  missing (%d): %s\n", len(report.Missing), displayList(report.Missing))
 		}
+		if len(report.MissingMCP) > 0 {
+			fmt.Printf("  mcp missing (%d): %s\n", len(report.MissingMCP), displayList(report.MissingMCP))
+		}
 		if len(report.Drifted) > 0 {
 			fmt.Printf("  drifted (%d): %s\n", len(report.Drifted), displayList(report.Drifted))
+		}
+		if len(report.DriftedMCP) > 0 {
+			fmt.Printf("  mcp drifted (%d): %s\n", len(report.DriftedMCP), displayList(report.DriftedMCP))
 		}
 		if len(report.StaleManaged) > 0 {
 			fmt.Printf("  stale managed (%d): %s\n", len(report.StaleManaged), displayList(report.StaleManaged))
@@ -53,7 +62,7 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 			fmt.Printf("  conflicts (%d): %s\n", len(report.Conflicts), displayList(report.Conflicts))
 		}
 		if mode == "sync" {
-			fmt.Printf("  sync actions: add=%d update=%d remove=%d\n", len(report.Adds), len(report.Updates), len(report.Removes))
+			fmt.Printf("  sync actions: add=%d update=%d remove=%d mcp-add=%d mcp-update=%d\n", len(report.Adds), len(report.Updates), len(report.Removes), len(report.AddsMCP), len(report.UpdatesMCP))
 		}
 		fmt.Println()
 	}
@@ -68,13 +77,18 @@ func displayList(items []string) string {
 
 func sortReportLists(report *agentReport) {
 	sort.Strings(report.Managed)
+	sort.Strings(report.ManagedMCP)
 	sort.Strings(report.Drifted)
+	sort.Strings(report.DriftedMCP)
 	sort.Strings(report.Missing)
+	sort.Strings(report.MissingMCP)
 	sort.Strings(report.Conflicts)
 	sort.Strings(report.StaleManaged)
 	sort.Strings(report.External)
 	sort.Strings(report.Adds)
+	sort.Strings(report.AddsMCP)
 	sort.Strings(report.Updates)
+	sort.Strings(report.UpdatesMCP)
 	sort.Strings(report.Removes)
 }
 
@@ -92,7 +106,9 @@ func restoreSyncActions(current []agentReport, preflight []agentReport) {
 	for i := range current {
 		if original, ok := index[current[i].Name]; ok {
 			current[i].Adds = append([]string{}, original.Adds...)
+			current[i].AddsMCP = append([]string{}, original.AddsMCP...)
 			current[i].Updates = append([]string{}, original.Updates...)
+			current[i].UpdatesMCP = append([]string{}, original.UpdatesMCP...)
 			current[i].Removes = append([]string{}, original.Removes...)
 		}
 	}
