@@ -1,136 +1,102 @@
 ---
 name: cmux
-description: Reference for cmux CLI subcommands. Workspace management, screen reading, input sending, browser automation, and agent teams.
+description: cmux CLI reference. Workspaces, panes, terminals, browser, markdown, agent launchers.
 ---
 
 # cmux
 
-Use when you need to interact with cmux workspaces, read terminal output from other panes, send input to other agents, use the built-in browser, or manage agent teams.
-
 ## Environment
 
-cmux sets these env vars in terminals it manages:
-- `CMUX_WORKSPACE_ID` - current workspace UUID
-- `CMUX_SURFACE_ID` - current surface UUID
-- `CMUX_TAB_ID` - current tab (optional)
+cmux sets `CMUX_WORKSPACE_ID`, `CMUX_SURFACE_ID`, `CMUX_TAB_ID` in managed terminals. Commands default to the caller's workspace/surface when set.
 
-Commands default to the caller's workspace/surface when these are set.
-
-## Workspace Management
+## Workspaces
 
 ```bash
-cmux list-workspaces                    # list all workspaces with refs
-cmux current-workspace                  # show current workspace
-cmux select-workspace --workspace workspace:N  # switch to workspace
-cmux tree --workspace workspace:N       # show pane/surface tree
-cmux new-workspace --name "title" --cwd /path  # create workspace
+cmux list-workspaces
+cmux current-workspace
+cmux select-workspace --workspace workspace:N
+cmux tree --workspace workspace:N          # pane/surface tree
+cmux tree --all
+cmux new-workspace --name "title" --cwd /path
+cmux close-workspace --workspace workspace:N
 ```
 
-## Reading Terminal Output
+## Reading / Sending
 
 ```bash
-# read current screen content (like tmux capture-pane)
 cmux read-screen --workspace workspace:N --surface surface:N --lines 80
-
-# include scrollback buffer
 cmux read-screen --workspace workspace:N --surface surface:N --scrollback --lines 200
-```
-
-This is the primary way to monitor what other agents are doing.
-
-## Sending Input
-
-```bash
-# send text (as if typed) - appends newline
 cmux send --workspace workspace:N --surface surface:N "command here"
-
-# send a key (Enter, Escape, Ctrl+C, etc.)
 cmux send-key --workspace workspace:N --surface surface:N "Enter"
 cmux send-key --workspace workspace:N --surface surface:N "C-c"
 ```
 
-## Pane Management
+## Panes and Surfaces
+
+Panes hold tabs (surfaces). `new-split` creates a pane (visual split); `new-surface` adds a tab.
 
 ```bash
 cmux list-panes --workspace workspace:N
-cmux new-pane --type terminal --direction right --workspace workspace:N
-cmux new-pane --type browser --direction down --workspace workspace:N
 cmux new-split right --workspace workspace:N --surface surface:N
+cmux new-pane --type terminal --direction right --workspace workspace:N
+cmux new-surface --type terminal --pane pane:N --workspace workspace:N
 cmux focus-pane --pane pane:N --workspace workspace:N
+cmux close-surface --surface surface:N --workspace workspace:N
+cmux move-surface --surface surface:N --pane pane:N --workspace workspace:N
 ```
 
-## Browser Automation
+## Browser
 
-cmux has a built-in Playwright-based browser. Commands require `--surface surface:N` pointing to a browser surface.
-
-### Navigation
 ```bash
-cmux browser open "https://example.com"           # open URL in new/reused browser pane
-cmux browser navigate "https://example.com" --surface surface:N
-cmux browser url --surface surface:N               # get current URL
-cmux browser back --surface surface:N
-cmux browser reload --surface surface:N
-cmux browser wait --load-state complete --timeout-ms 10000 --surface surface:N
-```
-
-### Reading Content
-```bash
-# compact DOM snapshot (best for finding elements)
-cmux browser snapshot --surface surface:N --compact
-
-# with depth limit
-cmux browser snapshot --surface surface:N --compact --max-depth 6
-
-# filter to specific element
-cmux browser snapshot --surface surface:N --compact --selector "article"
-
-# take a screenshot (agents can read images)
-cmux browser screenshot --surface surface:N --out /tmp/screenshot.png
-```
-
-### Interaction
-```bash
+cmux browser open "https://example.com"              # new tab
+cmux browser open-split "https://example.com"         # new split
+cmux browser navigate "https://..." --surface surface:N
+cmux browser snapshot --surface surface:N --compact    # DOM snapshot
+cmux browser snapshot --surface surface:N --interactive # with [ref=eN] refs
+cmux browser screenshot --surface surface:N --out /tmp/shot.png
 cmux browser click "[ref=eN]" --surface surface:N
-cmux browser type "[ref=eN]" "text to type" --surface surface:N
+cmux browser type "[ref=eN]" "text" --surface surface:N
 cmux browser fill "[ref=eN]" "text" --surface surface:N
 cmux browser press "Enter" --surface surface:N
+cmux browser scroll --dy 500 --surface surface:N
+cmux browser wait --selector ".results" --surface surface:N
+cmux browser eval "document.title" --surface surface:N
+cmux browser url --surface surface:N
+cmux browser back --surface surface:N
+cmux browser reload --surface surface:N
 ```
 
-Note: `[ref=eN]` references come from `browser snapshot` output.
+`[ref=eN]` refs come from `browser snapshot --interactive`.
 
-### Known Limitations
-- `browser scroll` does not support `--dy` or `--surface` flags directly. Use `browser eval "window.scrollBy(0, 500)"` as workaround, though JS eval can be flaky on some sites.
-- `browser eval` may fail with "js_error" on pages with strict CSP.
-- For scrolling, `browser press PageDown` is another option but also has reliability issues.
-- Auth state (cookies, sessions) persists within the cmux process lifetime.
-
-## Agent Teams
+## Markdown
 
 ```bash
-# start Claude Code with teams enabled
-cmux claude-teams [claude-args...]
-
-# check if teams are enabled
-echo "$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"  # should be "1"
+cmux markdown open plan.md                    # new tab (default)
+cmux markdown open plan.md --direction right  # split instead
 ```
 
-## Notifications
+## Agent Launchers
 
 ```bash
-cmux notify --title "Task done" --body "Details here" --workspace workspace:N
+cmux claude-teams [args...]    # Claude Code with teams
+cmux omx [args...]             # Codex (prefer plain `omx` from agents)
+cmux omo [args...]             # opencode
+cmux hermes [args...]          # Hermes Agent
 ```
 
-## Identifying Surfaces
+## Other
 
 ```bash
-# find which workspace/surface/pane you're in
 cmux identify
-cmux identify --workspace workspace:N --surface surface:N
+cmux notify --title "Done" --body "Details" --workspace workspace:N
+cmux wait-for "build-done" --timeout 30
+cmux ssh user@host --name "server"
+cmux set-buffer --name scratch "text"
+cmux paste-buffer --name scratch --surface surface:N
 ```
 
 ## Tips
 
-- Use `cmux tree --workspace workspace:N` first to understand the pane layout before sending input.
-- `read-screen` is your main observability tool for monitoring other agents.
-- Always specify `--workspace` and `--surface` explicitly rather than relying on env vars when targeting other workspaces.
-- Browser surfaces and terminal surfaces have different ref formats. Use `list-pane-surfaces` to see both.
+- `cmux tree` first to understand layout before sending input.
+- `read-screen` is the main tool for monitoring other agents.
+- Always specify `--workspace` and `--surface` explicitly when targeting other workspaces.
