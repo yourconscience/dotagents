@@ -1,39 +1,26 @@
 ---
 name: omx
-description: Delegate a substantial coding, review, or research task to Codex (GPT-5) via oh-my-codex. Codex always runs in a detached omx-* tmux session; use hidden mode (default) for background delegation or interactive mode for a visible cmux surface the user can watch. Use when the user says /omx, asks to "delegate to Codex", "offload to GPT-5", or wants a long-running codex task running alongside Claude.
+description: Delegate a substantial task to Codex (GPT-5) via oh-my-codex. Works from any agent - Claude Code, Hermes, or standalone terminal. Use when the user says /omx, asks to "delegate to Codex", "offload to GPT-5", or wants a cross-model perspective.
 ---
 
 # omx
 
-Hand off a well-defined task to Codex running alongside Claude. Codex always runs inside a detached `omx-*` tmux session regardless of mode. The only question is whether to attach a visible viewer.
+Hand off a well-defined task to Codex (GPT-5) via oh-my-codex. Works from any agent that can run shell commands.
 
 ## When to use
 
-- Substantial task worth GPT-5's longer reasoning or a second-model perspective: refactor, review pass, multi-file change, long-running test/debug loop, deep-research report.
-- Bad fits: tiny edits, sub-2-minute tasks, work tightly coupled to Claude's current context.
+- Substantial task worth GPT-5's reasoning or a second-model perspective: refactor, review, multi-file change, deep research.
+- Bad fits: tiny edits, sub-2-minute tasks, work tightly coupled to the caller's current context.
 
 ## Mental model
 
-- **Source of truth**: the `omx-*` tmux session spawned by every `omx` launch.
-  `omx` sees `$TMUX` (Claude runs inside the outer `cc` tmux session) and puts codex in its own detached sub-session. Claude's Bash tool returns immediately; codex keeps running there until done.
-- **Viewer (optional)**: a cmux surface tab that runs `tmux attach -t $OMX_TMUX` so the user can watch. Interactive mode adds this; hidden mode skips it.
+`omx exec` runs Codex non-interactively with AGENTS.md overlay and MCP servers. It blocks until Codex finishes, then returns. This is the preferred mode for agent-to-agent delegation.
 
-All interaction — send-keys, capture, close — targets the tmux session, never the viewer surface.
-
-## Modes
-
-| Mode | Visible codex UI? | Use when |
-|---|---|---|
-| Hidden (default) | No — Claude polls HUD + transcript + git | Background delegation, user doing other work, task is straightforward |
-| Interactive | Yes — sibling cmux surface runs `tmux attach` | User wants to watch, intervene, or the task is fragile |
-
-Default to hidden unless the user explicitly asks to see codex.
-
-**Interactive mode requires cmux.** In other environments (Claude Desktop, bare terminal, Ghostty, Warp), use hidden mode and have the user `tmux attach -t $OMX_TMUX` from their own terminal when they want to watch.
+`omx` (interactive) spawns Codex in a detached `omx-*` tmux session. Use when the user wants to watch or intervene.
 
 ## Write the prompt
 
-Same for both modes. Self-contained brief, no hidden context:
+Self-contained brief. The callee has no access to your conversation context.
 
 ```bash
 PROMPT_FILE=$(mktemp /tmp/codex-prompt.XXXXXX.md)
@@ -42,46 +29,40 @@ cat > "$PROMPT_FILE" <<'EOF'
 EOF
 ```
 
-Codex commits inherit git identity from `~/.zshrc` (`GIT_AUTHOR_*` / `GIT_COMMITTER_*` are exported globally — same identity used by `cc`, `cx`, `oc`). No per-launch wiring.
-
-## cmux compatibility
-
-Claude Code runs inside cmux which shims `tmux` at `~/.cmuxterm/claude-teams-bin/tmux`. This shim rejects `tmux show-options` which omx calls on interactive startup. Workarounds:
-
-- **`omx exec` works from Claude's Bash tool** - no tmux interaction needed.
-- **Interactive omx, ralph, team**: prepend `PATH="/opt/homebrew/bin:$PATH"` to bypass the shim, or launch from the user's own terminal.
-- When using `omx exec`, no PATH fix is needed.
-
-## Launch
-
-### Non-interactive mode (omx exec) - preferred from Claude Code
+## Non-interactive mode (omx exec) - preferred
 
 ```bash
 cd <repo> && omx exec "$(cat $PROMPT_FILE)"
 ```
 
-`omx exec` runs Codex non-interactively with AGENTS.md overlay and MCP servers. It blocks until Codex finishes, then returns. No tmux session management needed. Best for single-shot implementation tasks delegated from Claude.
+Blocks until done. No tmux session management. Works from any environment.
 
-### Hidden mode (default) - requires PATH fix in cmux
+**From Claude Code:** Use the Bash tool directly. `omx exec` does not need the cmux tmux shim workaround.
 
-```bash
-cd <repo> && PATH="/opt/homebrew/bin:$PATH" omx --yolo --high "$(cat $PROMPT_FILE)"
-OMX_TMUX=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
-echo "codex running detached in $OMX_TMUX"
-```
+**From Hermes:** Use the terminal tool to run the same command. No special setup needed.
 
-Claude's Bash tool runs `omx`, omx detaches codex to its own tmux session, Bash returns. Hold `$OMX_TMUX` in conversation context — that's the session handle for everything below.
+**From standalone terminal:** Run directly.
 
-### Interactive mode
+## Interactive mode
 
-Same launch, plus a sibling cmux surface that attaches the detached session:
+Spawns Codex in a detached tmux session. The user can attach to watch.
 
 ```bash
-# 1. launch (same as hidden)
 cd <repo> && omx --yolo --high "$(cat $PROMPT_FILE)"
 OMX_TMUX=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
+```
 
-# 2. spawn a sibling surface in Claude's pane
+### cmux compatibility (Claude Code only)
+
+cmux shims `tmux` at `~/.cmuxterm/claude-teams-bin/tmux`. This shim rejects `tmux show-options` which omx calls on interactive startup. Workarounds:
+
+- `omx exec` works without any fix.
+- Interactive `omx`: prepend `PATH="/opt/homebrew/bin:$PATH"` to bypass the shim.
+- Never use `cmux omx` - it adds a second shim layer that breaks HUD auto-attach.
+
+### Adding a cmux viewer surface (Claude Code interactive only)
+
+```bash
 CLAUDE_PANE=$(cmux tree | awk -v s="${CMUX_SURFACE_ID}" '
   /pane pane:/ {match($0,/pane:[0-9]+/); p=substr($0,RSTART,RLENGTH)}
   $0 ~ s {print p; exit}')
@@ -89,46 +70,36 @@ CODEX_SURFACE=$(cmux new-surface --pane "$CLAUDE_PANE" --type terminal 2>&1 | aw
 CODEX_WS=$(cmux tree | awk -v s="$CODEX_SURFACE" '
   /workspace workspace:/ {match($0,/workspace:[0-9]+/); w=substr($0,RSTART,RLENGTH)}
   $0 ~ s {print w; exit}')
-
-# 3. attach the detached session inside the new surface
 cmux send --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" "tmux attach -t $OMX_TMUX"
 cmux send-key --workspace "$CODEX_WS" --surface "$CODEX_SURFACE" Enter
 ```
 
-The surface is now a live viewer. Closing it detaches but does NOT stop codex; the `omx-*` session keeps running until codex finishes or is explicitly killed.
+## Poll progress (interactive mode)
 
-## Poll progress
-
-Three complementary views — use whichever Claude needs. Don't poll more than every 60-120s (HUD JSON is ~10-40 KB per read).
+Three complementary views. Don't poll more than every 60-120s.
 
 ```bash
 # structured state
 omx hud --json | jq '{turns: .hudNotify.turn_count, last: .metrics.last_activity, out: (.hudNotify.last_agent_output // "" | .[0:200])}'
 
-# live transcript from the detached session
+# live transcript
 tmux capture-pane -t "$OMX_TMUX" -p 2>&1 | tail -40
 
 # filesystem ground truth
 git -C <repo> status -sb && git -C <repo> diff --stat
 ```
 
-For long-running tasks use Claude's `run_in_background` Bash with a `sleep 90` loop rather than repeated foreground polls.
-
-### Stuck vs. idle post-task
-
-Don't assume codex is stuck when output stops. Check all three columns:
+### Detecting completion
 
 | State | HUD | Transcript tail | Action |
 |---|---|---|---|
-| Working | `turn_count` increasing, `last_activity` within 60s | spinner, streamed text, `• Working (Nm Ns)` | wait |
-| Idle post-task | `turn_count` stable, `last_activity` minutes old | `Stop hook (completed)` recent, `› ...` placeholder, `gpt-5.4 high · N% left` footer | task is done, read transcript, close or resume |
-| Stuck | `turn_count` stable, `last_activity` minutes old | spinner never advances, half-printed `• Ran ...`, or waiting on y/n prompt | answer the prompt via `tmux send-keys`, or ^C twice and retry |
+| Working | `turn_count` increasing, `last_activity` < 60s | spinner, streamed text | wait |
+| Done | `turn_count` stable, `last_activity` minutes old | `Stop hook (completed)`, idle prompt | read results, close |
+| Stuck | `turn_count` stable, `last_activity` minutes old | spinner frozen or y/n prompt | answer prompt or ^C twice |
 
-The `› Summarize recent commits` line is codex's idle-prompt placeholder, NOT a running task. If you see it, codex is done.
+## Resume
 
-## Resume (send another turn)
-
-If `$OMX_TMUX` is still listed and codex is idle post-task:
+If the tmux session is still alive and codex is idle:
 
 ```bash
 FOLLOWUP=$(mktemp /tmp/codex-followup.XXXXXX.md)
@@ -141,29 +112,22 @@ tmux send-keys -t "$OMX_TMUX" Enter
 tmux delete-buffer -b omxfu
 ```
 
-If `$OMX_TMUX` is gone, relaunch with `omx resume "$(cat $FOLLOWUP)"` to pick a prior session id — same launch pattern as above, new `$OMX_TMUX` handle.
-
 ## Close and cleanup
 
 ```bash
-# 1. quit codex in the detached session (this ends the omx-* tmux session)
+# quit codex
 tmux send-keys -t "$OMX_TMUX" C-c
 tmux send-keys -t "$OMX_TMUX" C-c
 
-# 2. interactive mode only: close the viewer surface
-[ -n "${CODEX_SURFACE:-}" ] && cmux close-surface --workspace "$CODEX_WS" --surface "$CODEX_SURFACE"
-
-# 3. cleanup orphaned MCP processes and stale /tmp dirs
+# cleanup orphaned MCP processes and stale /tmp dirs
 omx cleanup 2>/dev/null
 ```
 
-`^C` to the viewer surface does NOT reach codex — it just detaches the viewer. Always target `$OMX_TMUX` directly.
+Always run `omx cleanup` after closing a session.
 
-Always run `omx cleanup` after closing a session. Over many delegated tasks, orphaned MCP server processes and stale `/tmp/omx-*` directories accumulate. The cleanup command is safe and idempotent.
+## Flags reference
 
-## Caveats
-
-- **Never use `cmux omx`**, always plain `omx`. The `cmux omx` wrapper adds an extra tmux compat shim that makes HUD auto-attach leak into Claude's pane (shrinking it) and breaks `omx team` workers (shim missing `show-options`). Plain `omx` uses the real outer tmux cleanly.
-- **`omx --madmax` is actually dangerous** — bypasses both approvals AND the sandbox. Never use on prompts whose contents Claude has not fully vetted, and never in the user's real home directory without explicit opt-in.
-- **First run touches `~/.codex/`**: `omx setup` merges into `~/.codex/config.toml` (adds MCP servers, notify hook, developer_instructions, feature flags). Hand-tuned settings are preserved, but review the diff after first setup.
-- **Default to `--high` reasoning**. Escalate to `--xhigh` for ambiguous design/debug work. `omx --help` lists the rest of the flags.
+- `--high` (default recommended): standard reasoning depth
+- `--xhigh`: deeper reasoning for ambiguous design/debug
+- `--yolo`: skip approval prompts
+- `--madmax`: bypasses sandbox - dangerous, never use on unvetted prompts
