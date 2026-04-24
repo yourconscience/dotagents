@@ -20,6 +20,8 @@ type mcpServerConfig struct {
 	Agents  []string          `yaml:"agents"`
 }
 
+const yamlMapTag = "!!map"
+
 func desiredMCPServersForAgent(cfg config, agentName string) []mcpServerConfig {
 	var servers []mcpServerConfig
 	for _, server := range cfg.MCPServers {
@@ -534,7 +536,7 @@ func upsertHermesMCPNode(doc *yaml.Node, server mcpServerConfig) error {
 		return fmt.Errorf("unexpected YAML root kind %d", root.Kind)
 	}
 	if len(root.Content) == 0 {
-		root.Content = []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}
+		root.Content = []*yaml.Node{{Kind: yaml.MappingNode, Tag: yamlMapTag}}
 	}
 	mapping := root.Content[0]
 	if mapping.Kind != yaml.MappingNode {
@@ -568,7 +570,7 @@ func marshalYAMLNode(doc *yaml.Node) ([]byte, error) {
 func ensureMappingValue(mapping *yaml.Node, key string) *yaml.Node {
 	if mapping.Kind != yaml.MappingNode {
 		mapping.Kind = yaml.MappingNode
-		mapping.Tag = "!!map"
+		mapping.Tag = yamlMapTag
 		mapping.Content = nil
 	}
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
@@ -577,13 +579,13 @@ func ensureMappingValue(mapping *yaml.Node, key string) *yaml.Node {
 			valueNode := mapping.Content[i+1]
 			if valueNode.Kind == 0 {
 				valueNode.Kind = yaml.MappingNode
-				valueNode.Tag = "!!map"
+				valueNode.Tag = yamlMapTag
 			}
 			return valueNode
 		}
 	}
 	keyNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
-	valueNode := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	valueNode := &yaml.Node{Kind: yaml.MappingNode, Tag: yamlMapTag}
 	mapping.Content = append(mapping.Content, keyNode, valueNode)
 	return valueNode
 }
@@ -591,7 +593,7 @@ func ensureMappingValue(mapping *yaml.Node, key string) *yaml.Node {
 func setMappingString(mapping *yaml.Node, key string, value string) {
 	if mapping.Kind != yaml.MappingNode {
 		mapping.Kind = yaml.MappingNode
-		mapping.Tag = "!!map"
+		mapping.Tag = yamlMapTag
 		mapping.Content = nil
 	}
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
@@ -617,7 +619,7 @@ func setMappingStringSlice(mapping *yaml.Node, key string, values []string) {
 func setMappingStringMap(mapping *yaml.Node, values map[string]string) {
 	if mapping.Kind != yaml.MappingNode {
 		mapping.Kind = yaml.MappingNode
-		mapping.Tag = "!!map"
+		mapping.Tag = yamlMapTag
 		mapping.Content = nil
 	}
 	keys := make([]string, 0, len(values))
@@ -633,7 +635,7 @@ func setMappingStringMap(mapping *yaml.Node, values map[string]string) {
 func setMappingNode(mapping *yaml.Node, key string, value *yaml.Node) {
 	if mapping.Kind != yaml.MappingNode {
 		mapping.Kind = yaml.MappingNode
-		mapping.Tag = "!!map"
+		mapping.Tag = yamlMapTag
 		mapping.Content = nil
 	}
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
