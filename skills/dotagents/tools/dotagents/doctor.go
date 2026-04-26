@@ -30,6 +30,7 @@ func runDoctor(opts runOptions) error {
 	var results []checkResult
 
 	results = append(results, checkSkillFrontmatter(repoRoot))
+	results = append(results, checkAgentRoles(repoRoot))
 	results = append(results, checkSkillNameCollisions(repoRoot, home, cfg))
 	results = append(results, checkAgentsMDSize(repoRoot))
 	results = append(results, checkREADMESkillList(repoRoot))
@@ -60,6 +61,17 @@ func runDoctor(opts runOptions) error {
 
 	fmt.Printf("\n%d passed, %d warning, %d failed\n", passed, warned, failed)
 	return nil
+}
+
+func checkAgentRoles(repoRoot string) checkResult {
+	roles, err := loadAgentRoles(repoRoot)
+	if err != nil {
+		return checkResult{"agent roles", "fail", err.Error()}
+	}
+	if len(roles) == 0 {
+		return checkResult{"agent roles", "warn", "no agents/*.yaml roles found"}
+	}
+	return checkResult{"agent roles", "pass", fmt.Sprintf("%d roles valid", len(roles))}
 }
 
 type skillFrontmatter struct {

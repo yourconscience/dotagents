@@ -94,6 +94,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	report := agentReport{
 		Name:      agent.Name,
 		SkillRoot: agent.SkillRoot,
+		AgentRoot: agent.AgentRoot,
 		Detected:  isDetected(agent),
 	}
 	if !report.Detected {
@@ -183,9 +184,12 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
 		return agentReport{}, err
 	}
+	if err := inspectAgentRoles(&report, repoRoot, agent); err != nil {
+		return agentReport{}, err
+	}
 
 	sortReportLists(&report)
-	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0
+	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0 && len(report.MissingAgent) == 0 && len(report.DriftedAgent) == 0
 	return report, nil
 }
 
@@ -193,6 +197,7 @@ func inspectHermesAgent(agent agentConfig, agentsSkillRoot string, cfg config, h
 	report := agentReport{
 		Name:      agent.Name,
 		SkillRoot: agent.SkillRoot,
+		AgentRoot: agent.AgentRoot,
 		Detected:  isDetected(agent),
 	}
 	if !report.Detected {

@@ -18,6 +18,7 @@ type agentConfig struct {
 	Name      string `yaml:"name"`
 	Enabled   bool   `yaml:"enabled"`
 	SkillRoot string `yaml:"skill_root"`
+	AgentRoot string `yaml:"agent_root"`
 	Detect    string `yaml:"detect"`
 }
 
@@ -31,19 +32,25 @@ type repoLinkReport struct {
 type agentReport struct {
 	Name         string
 	SkillRoot    string
+	AgentRoot    string
 	Detected     bool
 	Managed      []string
+	ManagedAgent []string
 	ManagedMCP   []string
 	Drifted      []string
+	DriftedAgent []string
 	DriftedMCP   []string
 	Missing      []string
+	MissingAgent []string
 	MissingMCP   []string
 	Conflicts    []string
 	StaleManaged []string
 	External     []string
 	Adds         []string
+	AddsAgent    []string
 	AddsMCP      []string
 	Updates      []string
+	UpdatesAgent []string
 	UpdatesMCP   []string
 	Removes      []string
 	Synced       bool

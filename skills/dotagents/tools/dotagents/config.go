@@ -62,6 +62,7 @@ func loadConfig(skillRoot string, home string, overridePath string) (config, err
 	for i := range cfg.Agents {
 		cfg.Agents[i].Name = normalizeAgentName(cfg.Agents[i].Name)
 		cfg.Agents[i].SkillRoot = expandPath(cfg.Agents[i].SkillRoot, home)
+		cfg.Agents[i].AgentRoot = expandPath(cfg.Agents[i].AgentRoot, home)
 		if cfg.Agents[i].Name == "" {
 			return config{}, errors.New("config agent name cannot be empty")
 		}
