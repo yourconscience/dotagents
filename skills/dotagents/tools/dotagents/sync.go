@@ -83,6 +83,9 @@ func runSync(opts runOptions) error {
 	if err := applyAgentSync(reports, expected); err != nil {
 		return err
 	}
+	if err := applyAgentRoleSync(reports, selected, repoRoot); err != nil {
+		return err
+	}
 	if err := applyAgentMCPSync(reports, cfg, home); err != nil {
 		return err
 	}

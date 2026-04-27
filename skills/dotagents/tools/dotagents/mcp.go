@@ -86,9 +86,9 @@ func applyAgentMCPSync(reports []agentReport, cfg config, home string) error {
 
 func inspectMCPServer(agentName string, server mcpServerConfig, home string) (string, error) {
 	switch agentName {
-	case "claude-code":
+	case agentClaudeCode:
 		return inspectClaudeMCPServer(server, home)
-	case "codex":
+	case agentCodex:
 		return inspectCodexMCPServer(server, home)
 	case agentHermes:
 		return inspectHermesMCPServer(server, home)
@@ -99,9 +99,9 @@ func inspectMCPServer(agentName string, server mcpServerConfig, home string) (st
 
 func patchMCPServer(agentName string, server mcpServerConfig, home string) error {
 	switch agentName {
-	case "claude-code":
+	case agentClaudeCode:
 		return patchClaudeMCPServer(server, home)
-	case "codex":
+	case agentCodex:
 		return patchCodexMCPServer(server, home)
 	case agentHermes:
 		return patchHermesMCPServer(server, home)

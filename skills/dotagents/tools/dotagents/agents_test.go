@@ -1,0 +1,133 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestRenderClaudeAgentRoleQuotesFrontmatter(t *testing.T) {
+	role := agentRole{
+		Name:         "reviewer",
+		Description:  "Reviews code: safely",
+		Model:        "sonnet",
+		Effort:       "high",
+		Tools:        []string{"Read", "Grep"},
+		Color:        "purple",
+		Instructions: "Review the change.",
+	}
+
+	got := renderClaudeAgentRole(role)
+	for _, want := range []string{
+		`name: "reviewer"`,
+		`description: "Reviews code: safely"`,
+		`model: "sonnet"`,
+		`effort: "high"`,
+		`color: "purple"`,
+		generatedAgentMarker,
+		"Review the change.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("rendered Claude role missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
+	role := agentRole{
+		Name:         "researcher",
+		Description:  `Find "facts"`,
+		Model:        "sonnet",
+		Effort:       "high",
+		Instructions: "Line one\nLine two\tTabbed\rReturn",
+		Codex: codexRoleOptions{
+			Model:                "gpt-5.4-mini",
+			ModelReasoningEffort: "medium",
+		},
+	}
+
+	got := renderCodexAgentRole(role)
+	for _, want := range []string{
+		`name = "researcher"`,
+		`description = "Find \"facts\""`,
+		`model = "gpt-5.4-mini"`,
+		`model_reasoning_effort = "medium"`,
+		`developer_instructions = "Line one\nLine two\tTabbed\rReturn"`,
+		generatedAgentMarker,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("rendered Codex role missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestCodexModelFor(t *testing.T) {
+	tests := map[string]string{
+		"":           "gpt-5.4",
+		"sonnet":     "gpt-5.4",
+		"opus":       "gpt-5.4",
+		"haiku":      "gpt-5.4-mini",
+		"gpt-custom": "gpt-custom",
+	}
+
+	for input, want := range tests {
+		if got := codexModelFor(input); got != want {
+			t.Fatalf("codexModelFor(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestLoadAgentRoles(t *testing.T) {
+	repoRoot := t.TempDir()
+	agentsDir := filepath.Join(repoRoot, "agents")
+	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte(`name: reviewer
+description: Reviews changes
+model: sonnet
+effort: high
+tools: [Read, Grep]
+color: purple
+instructions: |-
+  Review the change.
+`)
+	if err := os.WriteFile(filepath.Join(agentsDir, "reviewer.yaml"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	roles, err := loadAgentRoles(repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roles) != 1 {
+		t.Fatalf("loaded %d roles, want 1", len(roles))
+	}
+	role := roles[0]
+	if role.Name != "reviewer" || role.Description != "Reviews changes" || role.Instructions != "Review the change." {
+		t.Fatalf("unexpected role: %#v", role)
+	}
+	if len(role.Tools) != 2 || role.Tools[0] != "Read" || role.Tools[1] != "Grep" {
+		t.Fatalf("unexpected tools: %#v", role.Tools)
+	}
+}
+
+func TestIsManagedAgentFile(t *testing.T) {
+	repoRoot := t.TempDir()
+	managed := filepath.Join(repoRoot, "managed.toml")
+	if err := os.WriteFile(managed, []byte("# "+generatedAgentMarker+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !isManagedAgentFile(managed, []byte("# "+generatedAgentMarker+"\n"), repoRoot) {
+		t.Fatal("generated marker should be managed")
+	}
+
+	unmanaged := filepath.Join(repoRoot, "unmanaged.toml")
+	if err := os.WriteFile(unmanaged, []byte("name = \"local\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if isManagedAgentFile(unmanaged, []byte("name = \"local\"\n"), repoRoot) {
+		t.Fatal("unmarked real file should not be managed")
+	}
+}

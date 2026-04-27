@@ -6,14 +6,17 @@ This repo is under active development and currently holds shared rules, cross-to
 
 ## Agents
 
-Reusable agent role definitions for Claude Code teams and subagents. Symlinked to `~/.claude/agents/` so they're available in all projects.
+Reusable agent role definitions for agent-native subagents. Canonical roles live in `agents/*.yaml`; `dotagents sync` renders them to each configured native format:
+
+- Claude Code: `~/.claude/agents/<name>.md`
+- Codex: `~/.codex/agents/<name>.toml`
 
 - `architect` - designs system architecture, telemetry schemas, and technical plans. Sonnet, read + write.
 - `builder` - implements code changes following specs or architect designs. Sonnet, read + write.
 - `researcher` - investigates codebases, APIs, repos, and web sources. Sonnet, read + write + web.
 - `reviewer` - reviews code against specs, finds bugs and security issues. Sonnet, read-only.
 
-Reference these from TeamCreate teammates or as subagent types. See `skills/spawn/SKILL.md` for usage patterns.
+Reference these from TeamCreate teammates, Claude Code subagent types, or Codex native subagent roles. See `skills/spawn/SKILL.md` for usage patterns.
 
 ## Skills
 
