@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -116,9 +117,9 @@ func loadAgentRoles(repoRoot string) ([]agentRole, error) {
 
 func renderAgentRole(role agentRole, agent agentConfig) (string, string, bool) {
 	switch agent.Name {
-	case "claude-code":
+	case agentClaudeCode:
 		return filepath.Join(agent.AgentRoot, role.Name+".md"), renderClaudeAgentRole(role), true
-	case "codex":
+	case agentCodex:
 		return filepath.Join(agent.AgentRoot, role.Name+".toml"), renderCodexAgentRole(role), true
 	default:
 		return "", "", false
@@ -180,7 +181,7 @@ func writeYAMLScalar(b *strings.Builder, key string, value string) {
 	}
 	b.WriteString(key)
 	b.WriteString(": ")
-	b.WriteString(value)
+	b.WriteString(strconv.Quote(value))
 	b.WriteString("\n")
 }
 
@@ -203,8 +204,7 @@ func writeTOMLMultiline(b *strings.Builder, key string, value string) {
 }
 
 func tomlQuote(value string) string {
-	escaped := strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "\n", "\\n").Replace(value)
-	return `"` + escaped + `"`
+	return strconv.Quote(value)
 }
 
 func codexModelFor(model string) string {

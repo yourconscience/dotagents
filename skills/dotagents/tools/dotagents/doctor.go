@@ -10,7 +10,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const agentHermes = "hermes"
+const (
+	agentClaudeCode = "claude-code"
+	agentCodex      = "codex"
+	agentHermes     = "hermes"
+)
 
 type checkResult struct {
 	name   string
