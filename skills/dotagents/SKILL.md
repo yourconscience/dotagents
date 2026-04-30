@@ -89,6 +89,17 @@ For the full promotion workflow (evaluation, pr-triage, merge), use the `skill-p
 - Reports non-repo skills already present in agent skill roots as `external` and leaves them untouched.
 - Stops on conflicts when a managed skill path exists as a real file or directory instead of a symlink.
 
+## Root instruction shims and local agent state
+
+For cross-agent repo instructions, keep `AGENTS.md` canonical and add a small root `CLAUDE.md` shim that points agents to `AGENTS.md`. Do not expect `dotagents sync` to separately install or mirror root files: root files are available to tools through the `~/.agents -> repo` symlink. Verify with:
+
+```bash
+readlink ~/.agents
+cmp -s CLAUDE.md ~/.agents/CLAUDE.md && echo "CLAUDE.md visible via ~/.agents"
+```
+
+When cleaning committed Claude Code runtime artifacts, ignore `.claude/` wholesale unless there is a deliberate shared Claude project config to track. `.claude/worktrees/*` can be committed accidentally as gitlinks, and `.claude/settings.local.json` is local runtime state. If shared Claude config is needed later, use explicit negation patterns in `.gitignore` rather than narrowly ignoring only known generated files.
+
 ## MCP support
 
 `dotagents` can also manage selected MCP server parity across agents without symlinking whole config files.
