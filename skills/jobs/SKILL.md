@@ -9,7 +9,7 @@ Single skill for job search tracking and fit analysis.
 
 ## Modes
 
-- **`/jobs`** (default): Pull evidence from Gmail/LinkedIn, update tracker, rewrite status dashboard, report changes and next actions.
+- **`/jobs`** (default): Pull evidence from Gmail/LinkedIn, update tracker, report changes and next actions.
 - **`/jobs check <url>`**: Fit-gap analysis against a specific posting. Generates quiz, grades answers, updates tracker.
 - **`/jobs scan`**: Run portal scanner to discover new roles at tracked companies via ATS APIs (zero tokens).
 - **`/jobs status`**: Show current pipeline state from tracker without pulling new evidence.
@@ -18,9 +18,9 @@ Single skill for job search tracking and fit analysis.
 
 All paths are relative to the skill root (`skills/jobs/`).
 
-- Tracker: `data/opportunities.yaml` (canonical)
-- Dashboard: `data/status.md` (derived, rewritten on demand)
+- Tracker: `data/opportunities.yaml` (canonical, single source of truth)
 - CV/Resume: `data/cv/`
+- Interview prep: `data/interview-prep/` (per-company prep guides, JDs, study notes)
 - Prompts: `prompts/` (tracked, reusable voice mode interview prompts)
 - LinkedIn exports: `data/linkedin-exports/`
 - Company research: `data/company-research/`
@@ -65,8 +65,7 @@ Rules:
 1. Read `opportunities.yaml`.
 2. Pull evidence from Gmail (`google-workspace`, using the `gws` CLI where relevant) and LinkedIn MCP.
 3. Update tracker conservatively from concrete evidence only.
-4. Rewrite `status.md`.
-5. Report: what changed, what needs action, what is stale.
+4. Report: what changed, what needs action, what is stale.
 
 ### Gmail
 
@@ -165,7 +164,7 @@ Read `opportunities.yaml`, render a concise pipeline view. Answer:
 - What is stale?
 - What is most promising (role, location, comp, relocation fit)?
 
-Do not pull new evidence. Do not rewrite `status.md` unless asked.
+Do not pull new evidence.
 
 ## User Context
 
