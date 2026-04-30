@@ -17,7 +17,13 @@ DATA = Path(__file__).resolve().parent.parent / "data" / "opportunities.yaml"
 OUT = Path("/tmp/pipeline.md")
 
 
+def md_cell(value):
+    return str(value).replace("|", "\\|")
+
+
 def render():
+    if not DATA.exists():
+        return ""
     entries = yaml.safe_load(DATA.read_text()) or []
 
     needs_action = [e for e in entries if e.get("stage") == "needs-action"]
@@ -61,10 +67,10 @@ def render():
         p("| Company | Role | Location | Next Step |")
         p("|---|---|---|---|")
         for e in new:
-            company = e.get("company", "?")
-            role = (e.get("role") or "TBD")[:45]
-            loc = e.get("location") or ("Remote" if e.get("remote") else "?")
-            na = (e.get("next_action") or "")[:70]
+            company = md_cell(e.get("company", "?"))
+            role = md_cell((e.get("role") or "TBD")[:45])
+            loc = md_cell(e.get("location") or ("Remote" if e.get("remote") else "?"))
+            na = md_cell((e.get("next_action") or "")[:70])
             p(f"| {company} | {role} | {loc} | {na} |")
         p("")
 
@@ -115,6 +121,6 @@ if __name__ == "__main__":
     md = render()
     if "--open" in sys.argv:
         OUT.write_text(md)
-        subprocess.run(["cmux", "markdown", "open", str(OUT)])
+        subprocess.run(["cmux", "markdown", "open", str(OUT)], check=True)
     else:
         print(md)

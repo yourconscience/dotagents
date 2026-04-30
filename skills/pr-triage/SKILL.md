@@ -67,9 +67,13 @@ BASE=$(gh pr view "$PR" --json baseRefName --jq '.baseRefName')
 git fetch origin "$BASE"
 BEHIND=$(git rev-list --count HEAD..origin/$BASE)
 if [ "$BEHIND" -gt 0 ]; then
-  git rebase origin/$BASE || (git rebase --abort && git merge origin/$BASE --no-edit)
-  git push --force-with-lease
-  # The push triggers a new review round - apply the full wait-for-reviews step before inspecting
+  if git rebase origin/$BASE || (git rebase --abort && git merge origin/$BASE --no-edit); then
+    git push --force-with-lease
+    # The push triggers a new review round - apply the full wait-for-reviews step before inspecting
+  else
+    echo "Sync failed: conflicts detected. Please resolve manually."
+    exit 1
+  fi
 fi
 ```
 
@@ -99,6 +103,23 @@ gh api graphql \
     | select(.isResolved==false and .isOutdated==false)
     | {path, line, author: .comments.nodes[0].author.login, url: .comments.nodes[0].url, body: .comments.nodes[0].body}'
 ```
+
+5) PR description quality. If the body is empty, stale, or does not explain what changed and how it was verified, update it before final status:
+```bash
+gh pr view "$PR" --json body --jq .body
+cat > /tmp/pr-body.md <<'EOF'
+## Summary
+
+- ...
+
+## Verification
+
+- `...`
+EOF
+gh pr edit "$PR" --body-file /tmp/pr-body.md
+```
+
+After editing a PR body at the user's request, re-inspect merge state, checks, and unresolved threads. A body-only edit normally does not trigger CI, but it can coincide with bot review activity.
 
 ## Review policy
 
