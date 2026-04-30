@@ -4,6 +4,10 @@ Private repo for my shared authored `~/.agents` layer.
 
 This repo is under active development and currently holds shared rules, cross-tool skills, and small agent-native config parity such as managed MCP entries for Claude Code, Codex, Hermes Agent, and OpenClaw.
 
+## Agent instructions
+
+`AGENTS.md` is the canonical instruction file. `CLAUDE.md` is only a compatibility shim for agents that look for Claude-style project memory.
+
 ## Agents
 
 Reusable agent role definitions for agent-native subagents. Canonical roles live in `agents/*.yaml`; `dotagents sync` renders them to each configured native format:
