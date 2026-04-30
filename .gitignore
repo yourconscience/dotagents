@@ -3,8 +3,7 @@ tmp/
 
 # Local agent runtime state
 .omx/
-.claude/settings.local.json
-.claude/worktrees/
+.claude/
 
 # Local binaries and generated data
 /dotagents
