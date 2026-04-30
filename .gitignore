@@ -1,6 +1,11 @@
-.omx
 .DS_Store
 tmp/
+
+# Local agent runtime state
+.omx/
+.claude/
+
+# Local binaries and generated data
 /dotagents
 memsearch.conf
 bin/memsearch/backfill/
@@ -8,4 +13,3 @@ bin/memsearch/apply-local.sh
 skills/jobs/data/
 skills/jobs/portals-scan
 skills/jobs/tools/portals-scan/portals-scan
-.omx/

@@ -58,6 +58,25 @@ git stash pop 2>/dev/null || true
 
 Do not skip this step. A PR with conflicts cannot be merged regardless of review or CI status.
 
+## Sync from base branch
+
+After resolving any conflicts (or if the PR was already clean), ensure the branch is up to date with the base branch before inspecting. A stale branch means reviewers see diffs that base already fixed, and merge conflicts at merge time.
+
+```bash
+BASE=$(gh pr view "$PR" --json baseRefName --jq '.baseRefName')
+git fetch origin "$BASE"
+BEHIND=$(git rev-list --count HEAD..origin/$BASE)
+if [ "$BEHIND" -gt 0 ]; then
+  if git rebase origin/$BASE || (git rebase --abort && git merge origin/$BASE --no-edit); then
+    git push --force-with-lease
+    # The push triggers a new review round - apply the full wait-for-reviews step before inspecting
+  else
+    echo "Sync failed: conflicts detected. Please resolve manually."
+    exit 1
+  fi
+fi
+```
+
 ## Inspect
 
 1) All checks:
@@ -85,6 +104,23 @@ gh api graphql \
     | {path, line, author: .comments.nodes[0].author.login, url: .comments.nodes[0].url, body: .comments.nodes[0].body}'
 ```
 
+5) PR description quality. If the body is empty, stale, or does not explain what changed and how it was verified, update it before final status:
+```bash
+gh pr view "$PR" --json body --jq .body
+cat > /tmp/pr-body.md <<'EOF'
+## Summary
+
+- ...
+
+## Verification
+
+- `...`
+EOF
+gh pr edit "$PR" --body-file /tmp/pr-body.md
+```
+
+After editing a PR body at the user's request, re-inspect merge state, checks, and unresolved threads. A body-only edit normally does not trigger CI, but it can coincide with bot review activity.
+
 ## Review policy
 
 Bot families (auto-resolvable): `gemini*`, `copilot*`, `cursor*`, `claude*`, `codex*`, `coderabbitai*`.
@@ -92,6 +128,18 @@ Bot families (auto-resolvable): `gemini*`, `copilot*`, `cursor*`, `claude*`, `co
 **Bot comments**: think first - bots are frequently wrong. Valid and fixed: reply "Fixed", resolve. Wrong/low-value: resolve silently.
 
 **Human comments**: **NEVER** resolve, reply to, or comment on human threads. Fix the code silently, leave the thread for the human to verify.
+
+To resolve a single thread programmatically (use the `id` field from the inspect query above):
+```bash
+gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "THREAD_ID"}) { thread { isResolved } } }'
+```
+
+To batch-resolve multiple threads:
+```bash
+for tid in $THREAD_IDS; do
+  gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "'"$tid"'"}) { thread { isResolved } } }'
+done
+```
 
 Filters:
 ```bash
@@ -116,16 +164,25 @@ git commit -m "fix: address PR review feedback"
 ```bash
 git push
 ```
-5) Wait for new bot reviews to arrive. A push triggers fresh review rounds from CodeRabbit, Gemini, etc. that take 30-90 seconds. Poll until review comment count stabilizes:
+5) Wait for new bot reviews to arrive. A push triggers fresh review rounds from CodeRabbit, Gemini, etc. that take 30-90 seconds. Enforce a minimum 60s wait, then poll until the comment count is stable for 2 consecutive polls, or 3 minutes max:
 ```bash
-PREV_COUNT=0
-for i in 1 2 3 4 5; do
-  sleep 30
+sleep 30  # first mandatory 30s
+PREV_COUNT=$(gh api repos/$OWNER/$REPO/pulls/$PR/comments --jq 'length')
+sleep 30  # second mandatory 30s (total >= 60s minimum)
+STABLE=0
+for i in 1 2 3 4; do
   COUNT=$(gh api repos/$OWNER/$REPO/pulls/$PR/comments --jq 'length')
-  if [ "$COUNT" = "$PREV_COUNT" ] && [ "$i" -gt 1 ]; then break; fi
+  if [ "$COUNT" = "$PREV_COUNT" ]; then
+    STABLE=$((STABLE + 1))
+    if [ "$STABLE" -ge 2 ]; then break; fi
+  else
+    STABLE=0
+  fi
   PREV_COUNT=$COUNT
+  [ "$i" -lt 4 ] && sleep 30
 done
 ```
+This applies after the initial push AND after every fix-push cycle.
 6) Re-run the full inspect step (checks + threads). Triage any new bot threads the same way. Repeat fix-push-wait-inspect if new valid issues are found, up to 3 cycles max to avoid infinite loops.
 
 ## Summary output
