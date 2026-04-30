@@ -6,7 +6,7 @@ This repo is under active development and currently holds shared rules, cross-to
 
 ## Agent instructions
 
-`AGENTS.md` is the canonical instruction file. `CLAUDE.md` is only a compatibility shim for agents that look for Claude-style project memory.
+[`AGENTS.md`](./AGENTS.md) is the canonical instruction file. [`CLAUDE.md`](./CLAUDE.md) is only a compatibility shim for agents that look for Claude-style project memory.
 
 ## Agents
 
