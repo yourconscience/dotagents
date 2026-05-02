@@ -77,6 +77,14 @@ Requires `gh` CLI authenticated with push access to the repo.
 
 For the full promotion workflow (evaluation, pr-triage, merge), use the `skill-promote` Hermes skill.
 
+### dogfood
+
+End-to-end self-test: runs sync, then status, then doctor. Fails on any drift, conflict, or doctor warning. Use after making changes to skills or config to verify the full pipeline.
+
+```bash
+go run ./skills/dotagents/tools/dotagents dogfood
+```
+
 ## What it manages
 
 - Fixes `~/.agents` if it should point at the repo root and is missing or drifted.
