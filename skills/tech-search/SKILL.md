@@ -33,12 +33,22 @@ Fallback: `site:x.com <topic>` via WebSearch if x-cli auth is broken.
 
 ### 2. Hacker News
 
-Use Algolia API:
+Algolia API. **Critical: do NOT use `search_by_date`** — it returns only zero-comment noise. Use the hybrid approach instead: `search` endpoint (popularity-ranked) with a date filter.
+
+**Primary query (last month, high signal):**
 ```
-https://hn.algolia.com/api/v1/search?query=<topic>&tags=story&hitsPerPage=10
+https://hn.algolia.com/api/v1/search?query=<topic>&tags=story&hitsPerPage=10&numericFilters=created_at_i>TIMESTAMP
 ```
 
-For recency: use `search_by_date` instead. Read threads at `https://news.ycombinator.com/item?id=<objectID>`.
+Generate timestamp before querying:
+- macOS: `date -v-1m +%s`
+- Linux: `date -d '1 month ago' +%s`
+
+For fast-moving topics (last week): `date -v-1w +%s` (macOS) or `date -d '1 week ago' +%s` (Linux).
+
+Read threads at `https://news.ycombinator.com/item?id=<objectID>`.
+
+**Pitfall:** The bare `search` endpoint (no `numericFilters`) returns all-time popular stories, often months old. `search_by_date` returns only fresh posts with no votes/comments. Only the hybrid query gives recent + high-signal results.
 
 ### 3. Reddit
 
@@ -47,8 +57,10 @@ For recency: use `search_by_date` instead. Read threads at `https://news.ycombin
 Global search (preferred - catches cross-subreddit discussion):
 ```bash
 curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-  "https://www.reddit.com/search.json?q=<topic>&sort=relevance&t=year&limit=10"
+  "https://www.reddit.com/search.json?q=<topic>&sort=relevance&t=month&limit=10"
 ```
+
+For broader/deeper dives use `t=year`. For breaking news use `t=week`.
 
 Subreddit-scoped search (when topic maps to a known community):
 ```bash

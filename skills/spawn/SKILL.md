@@ -111,9 +111,51 @@ Store in `~/.claude/agents/*.md` with YAML frontmatter (name, model, tools, desc
 
 ## Hermes execution
 
-Hermes uses `delegate_task` for in-process subagents. No teams primitive.
+Hermes is an orchestrator first. Default to delegating substantial coding work rather than doing it yourself.
 
-### Subagents (delegate_task)
+### Delegation routing
+
+| Task type | Delegate to | How |
+|---|---|---|
+| Coding (features, refactors, fixes) | Claude Code | `claude -p "..."` via terminal |
+| Cross-model perspective, large codegen | Codex (GPT-5) | `omx exec "..."` via terminal |
+| Parallel coding on same repo | Hermes worktree | `hermes -w -p "..."` via terminal |
+| In-process research, analysis, small tasks | Hermes subagent | `delegate_task(...)` |
+| Conversation, planning, Q&A | Do it yourself | Direct response |
+
+### When to delegate vs do it yourself
+
+Delegate when:
+- Task involves >5 min of coding tool calls
+- Task benefits from a stronger model (Claude Opus/Sonnet, GPT-5)
+- Multiple independent coding tasks can run in parallel
+
+Do it yourself when:
+- Quick lookups, single-file reads, simple questions
+- Research using your own skills (web, tech-search, memory)
+- Planning and conversation
+- The overhead of delegation exceeds the task itself
+
+Always state why you are delegating or doing it yourself.
+
+### Cross-agent delegation (from Hermes terminal)
+
+```bash
+# Claude Code - non-interactive, blocks until done
+claude -p "self-contained task prompt" --allowedTools "Edit,Read,Write,Bash"
+
+# Codex via omx - non-interactive, blocks until done
+cd /path/to/repo && omx exec "self-contained task prompt"
+
+# Hermes worktree - parallel isolated instance
+hermes -w -p "self-contained task prompt"
+```
+
+Write self-contained prompts. Delegates have no access to your conversation context. After delegation completes, verify the result before reporting success.
+
+### In-process subagents (delegate_task)
+
+For lighter tasks that don't need a different model or repo isolation:
 
 ```python
 # single
@@ -131,17 +173,6 @@ Constraints:
 - Max concurrency: 3 parallel subagents
 - Blocked toolsets for subagents: `delegation`, `clarify`, `memory`, `send_message`
 - Subagents start fresh, no parent context
-
-### Large tasks from Hermes
-
-For tasks beyond delegate_task's scope (> 30 min, needs different model, multi-file):
-
-```bash
-# shell out to omx exec from Hermes terminal tool
-omx exec "self-contained task prompt here"
-```
-
-This runs Codex non-interactively. See `/omx` skill for prompt writing and polling.
 
 ### Subagent model override
 
