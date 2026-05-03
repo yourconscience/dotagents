@@ -142,7 +142,7 @@ Always state why you are delegating or doing it yourself.
 
 ```bash
 # Claude Code - non-interactive, blocks until done
-claude -p "self-contained task prompt" --allowedTools "Edit,Read,Write,Bash"
+claude -p "self-contained task prompt" --allow-tools "Edit,Read,Write,Bash"
 
 # Codex via omx - non-interactive, blocks until done
 cd /path/to/repo && omx exec "self-contained task prompt"
