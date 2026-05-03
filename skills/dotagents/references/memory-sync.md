@@ -67,7 +67,9 @@ for f in new_facts:
 
 After any change, reindexes memsearch via `memsearch index`.
 
-The `vault-to-memory` direction only imports bullets starting with `- ` that are >15 chars and not already present in Hermes memory (case-insensitive whitespace-normalized comparison).
+The `profile/USER.md` `## Hermes Memory Sync` section should be treated as a managed mirror of Hermes `USER.md`, not an incremental append log. Rewriting the whole section makes `memory-to-vault` idempotent and prevents oscillation where each run alternates which subset of consolidated facts appears.
+
+The `vault-to-memory` direction only imports bullets starting with `- ` that are >15 chars and not already present in Hermes memory. Dedup must handle consolidated Hermes entries: exact normalized equality is not enough. Use rendered-size accounting for `\n§\n` separators when enforcing the 1,375 char USER.md limit, and skip profile bullets that are substring/token-overlap duplicates of existing consolidated entries.
 
 ## Hook verification
 
@@ -99,5 +101,12 @@ Important distinction:
 Preferred repair when a TTY is available:
 1. Make the sync wrapper capture `sync.py` logs to stderr or a log file and print one JSON object to stdout, e.g. `{"action":"continue","message":"memory sync complete"}`.
 2. Run `hermes hooks revoke <command>` if doctor reports modified-since-approval.
-3. Trigger or test hooks from a TTY and approve.
+3. Trigger or test hooks from a TTY and approve, or update the allowlist deliberately only when the command/path is unchanged and the user has explicitly asked for that local repair.
 4. Verify `hermes hooks doctor` is fully green.
+
+Known-good wrapper shape:
+- `set -u`, not `set -eu`, so the wrapper can serialize a non-zero child exit into JSON before exiting with that status.
+- Capture `python3 ~/.agents/bin/memsearch/sync.py <direction>` stdout+stderr to a temp file.
+- Echo captured logs to stderr for debugging.
+- Print exactly one JSON object to stdout: `{"action":"continue","message":"...","exit_code":0}`.
+- Exit with the child status.
