@@ -125,7 +125,7 @@ After editing a PR body at the user's request, re-inspect merge state, checks, a
 
 Bot families (auto-resolvable): `gemini*`, `copilot*`, `cursor*`, `claude*`, `codex*`, `coderabbitai*`.
 
-**Bot comments**: think first - bots are frequently wrong. Valid and fixed: reply "Fixed", resolve. Wrong/low-value: resolve silently.
+**Bot comments**: think first - bots are frequently wrong. Fix the code if valid, then resolve the thread silently. Never reply to bot comments - no "Fixed", no explanations, just resolve. Wrong/low-value: resolve silently without fixing.
 
 **Human comments**: **NEVER** resolve, reply to, or comment on human threads. Fix the code silently, leave the thread for the human to verify.
 
