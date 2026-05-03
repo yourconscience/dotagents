@@ -53,6 +53,9 @@ Never post GitHub issue or PR comments directly via `gh` by default (exception: 
 # Generated artifacts
 When generating markdown files (research reports, specs, plans), open them in the cmux markdown viewer so the user can read formatted output immediately: `cmux markdown open /path/to/file.md --direction right`. Skip if cmux is not available.
 
+# Delegation
+Prefer delegating coding to specialized agents (spawn skill or omx) over implementing directly. Research and conversation stay with the primary agent.
+
 # Destructive actions
 When modifying config files, use targeted edits or patches.
 Pause before destructive or hard-to-reverse operations (`rm -rf`, force push, `git reset --hard`, dropping DB tables, modifying shared configs).
