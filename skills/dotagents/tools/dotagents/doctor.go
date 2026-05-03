@@ -64,6 +64,12 @@ func runDoctor(opts runOptions) error {
 	}
 
 	fmt.Printf("\n%d passed, %d warning, %d failed\n", passed, warned, failed)
+	if failed > 0 {
+		return fmt.Errorf("%d check(s) failed", failed)
+	}
+	if warned > 0 {
+		return fmt.Errorf("%d warning(s)", warned)
+	}
 	return nil
 }
 
