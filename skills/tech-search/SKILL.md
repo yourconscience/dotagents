@@ -1,6 +1,6 @@
 ---
 name: tech-search
-description: Search web, specifically Hacker News, X.com, and Reddit from top tech bloggers and communities about a given topic. Use when user says /tech-search or wants curated tech opinions on a topic.
+description: Search web, specifically Hacker News, X.com, Reddit, and Discord from top tech bloggers and communities about a given topic. Use when user says /tech-search or wants curated tech opinions on a topic.
 ---
 
 # tech-search
@@ -82,7 +82,39 @@ Pick 2-3 relevant to the topic. Add context keywords for ambiguous terms (e.g. "
 
 Fallback: Pullpush API for historical posts (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
 
-### 4. Tech blogs (optional)
+### 4. Discord
+
+Search Discord servers via the user search API. Requires `$DISCORD_TOKEN` env var.
+
+**Known servers:**
+
+| Name | Guild ID |
+|---|---|
+| NousResearch | 1053877538025386074 |
+| Anthropic/Claude | 1456350064065904867 |
+
+Only search Discord when the topic is relevant to these communities (ML, LLMs, Claude, agents, evals, fine-tuning, etc). Skip for generic/unrelated topics.
+
+**Query:**
+```bash
+curl -s \
+  -H "Authorization: $DISCORD_TOKEN" \
+  -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.309 Chrome/124.0.6367.243 Electron/30.4.0 Safari/537.36" \
+  "https://discord.com/api/v9/guilds/<GUILD_ID>/messages/search?content=<QUERY>&limit=10&sort_by=timestamp&sort_order=desc"
+```
+
+Use `rtk proxy curl` to bypass token filtering. URL-encode the query string.
+
+**Response parsing:** `messages` is a nested array. Each inner array is a context group; the message with `"hit": true` is the actual match. Extract hits with jq:
+```bash
+| jq '[.messages[][] | select(.hit == true) | {author: .author.username, content: .content[0:200], timestamp: .timestamp, channel_id: .channel_id}]'
+```
+
+**If HTTP 202:** index not ready. Retry after `retry_after` seconds (usually 2s).
+
+**Rate limits:** conservative - one search per server per invocation. No pagination unless explicitly needed.
+
+### 5. Tech blogs (optional)
 
 For authoritative sources: `site:simonwillison.net`, `site:jvns.ca`, `site:danluu.com` via WebSearch.
 
@@ -99,6 +131,9 @@ For authoritative sources: `site:simonwillison.net`, `site:jvns.ca`, `site:danlu
 
 ### Reddit
 - **r/subreddit - Title** (N upvotes) - key takeaway (link)
+
+### Discord
+- **#channel @author** (server, date): "quote" - key takeaway
 
 ### Summary
 2-3 sentence synthesis. Key recommendations if any.

@@ -134,11 +134,16 @@ README quality, dependencies, red flags, concern-specific findings.
 Worth adopting / Proceed with caution / Avoid. One paragraph explaining why.
 ```
 
+### 5. Offer setup
+
+After presenting the verdict and the user indicates which repo they want, **ask whether they want you to set it up**. The evaluation was read-only; now the user needs the tool running. Do not wait for them to ask — they often assume setup follows evaluation.
+
 ## Rules
 
 - Always include direct links. Never fabricate quotes or links.
 - Run `gh api` calls in parallel where possible.
 - Clone to ~/Public, not to the current working directory.
-- Never install or execute code from evaluated repos.
+- **During evaluation (steps 1-4):** Never install or execute code from evaluated repos. Analysis is read-only.
+- **After the user picks a winner (step 5):** Offer to install, configure, and launch the recommended tool. At that point, following the repo's own setup instructions is expected and safe.
 - If `x-cli` auth is broken, fall back to WebSearch for X.com signal.
 - For find mode, cap at 15 candidates for search, 5 for sentiment, 3 suggested for deep eval.
