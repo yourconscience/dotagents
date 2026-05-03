@@ -112,26 +112,30 @@ When cleaning committed Claude Code runtime artifacts, ignore `.claude/` wholesa
 
 The dotagents repo also owns the Hermes memory ↔ knowledge vault sync pipeline at `~/.agents/bin/memsearch/`. This is separate from skill/MCP sync but lives in the same repo.
 
-Two scripts:
+Runtime scripts:
 
 - `finalize.sh` → `finalize.py`: Appends a session digest to `~/Workspace/knowledge/ai/YYYY-MM-DD.md` and reindexes memsearch. Fires on `on_session_finalize`.
-- `sync.sh` → `sync.py`: Bidirectional sync between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`~/Workspace/knowledge/`). Three modes: `memory-to-vault`, `vault-to-memory`, `both`.
+- `sync.py`: Bidirectional sync implementation between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`~/Workspace/knowledge/`). Modes: `memory-to-vault`, `vault-to-memory`, `both`.
+- `sync-memory-to-vault.sh`: JSON-stdout wrapper for `sync.py memory-to-vault`. Fires on `on_session_finalize`.
+- `sync-vault-to-memory.sh`: JSON-stdout wrapper for `sync.py vault-to-memory`. Fires on `on_session_start`.
+- `sync.sh`: helper/backcompat entrypoint; do not prefer it for Hermes hooks when separate JSON wrappers are available.
 
-The typical Hermes hook pipeline:
+The current Hermes hook pipeline should use separate wrappers with no args:
 
 ```yaml
 on_session_finalize:
   - command: ~/.agents/bin/memsearch/finalize.sh
     timeout: 30
-  - command: ~/.agents/bin/memsearch/sync.sh
-    args:
-    - memory-to-vault
+  - command: ~/.agents/bin/memsearch/sync-memory-to-vault.sh
+    timeout: 15
+on_session_start:
+  - command: ~/.agents/bin/memsearch/sync-vault-to-memory.sh
     timeout: 15
 ```
 
-Hook approval: first-use consent requires a TTY prompt. Scripts modified after approval require revoke + re-approve via `hermes hooks revoke <command>` then approve at the next session-end TTY prompt. Cannot be automated from CLI.
+Hook approval: first-use consent normally requires a TTY prompt. Scripts modified after approval require either revoke + re-approve via `hermes hooks revoke <command>` from a TTY, or a deliberate allowlist approval metadata update only when the command/path is unchanged and the user explicitly asked for that local repair.
 
-Hook health pitfall: `hermes hooks doctor` requires hook stdout to be valid JSON. Plain-text sync wrapper output can be allowlisted/executable but still fail doctor with `stdout was not valid JSON`; fix the wrapper contract only when ready to re-approve the modified script in a TTY.
+Hook health pitfall: `hermes hooks doctor` requires hook stdout to be valid JSON. Plain-text sync wrapper output can be allowlisted/executable but still fail doctor with `stdout was not valid JSON`; the wrapper contract is: human logs to stderr, exactly one JSON object to stdout, and exit with the child status.
 
 For detailed pitfalls (char limits, silent sync failures, hook debugging, JSON stdout requirements, and re-approval after wrapper changes), see `references/memory-sync.md`.
 

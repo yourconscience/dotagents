@@ -13,10 +13,11 @@ If no PR exists yet, create it first, then inspect it before any merge decision.
 
 Use this flow when the user wants to publish changes through a PR, not just fix an existing one.
 
-1) If the current branch does not have a PR yet, create one first, for example with `gh pr create --fill`.
-2) After PR creation, immediately run the full inspect step.
-3) Never merge immediately after opening a PR.
-4) If there are unresolved bot threads, triage them first:
+1) Check whether the current branch already has a PR with `gh pr view --json number,url,state,baseRefName,headRefName`. If it exists, use that PR instead of creating a duplicate.
+2) If the current branch does not have a PR yet, create one first, for example with `gh pr create --fill`.
+3) After PR creation or after pushing new commits to an existing PR, immediately run the full inspect step.
+4) Never merge immediately after opening a PR or immediately after pushing new commits.
+5) If there are unresolved bot threads, triage them first:
    - valid: fix, push, reply, resolve
    - wrong or low-value: resolve silently
    - ambiguous: ask the user before merging
@@ -104,7 +105,7 @@ gh api graphql \
     | {path, line, author: .comments.nodes[0].author.login, url: .comments.nodes[0].url, body: .comments.nodes[0].body}'
 ```
 
-5) PR description quality. If the body is empty, stale, or does not explain what changed and how it was verified, update it before final status:
+5) PR description quality. If the body is empty, stale, or does not explain what changed and how it was verified, update it before final status. Treat a branch that already had a PR before this session as likely stale after new commits: update the body to include the newly pushed commits and the actual verification performed.
 ```bash
 gh pr view "$PR" --json body --jq .body
 cat > /tmp/pr-body.md <<'EOF'
