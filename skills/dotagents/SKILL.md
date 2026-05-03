@@ -131,7 +131,9 @@ on_session_finalize:
 
 Hook approval: first-use consent requires a TTY prompt. Scripts modified after approval require revoke + re-approve via `hermes hooks revoke <command>` then approve at the next session-end TTY prompt. Cannot be automated from CLI.
 
-For detailed pitfalls (char limits, silent sync failures, hook debugging), see `references/memory-sync.md`.
+Hook health pitfall: `hermes hooks doctor` requires hook stdout to be valid JSON. Plain-text sync wrapper output can be allowlisted/executable but still fail doctor with `stdout was not valid JSON`; fix the wrapper contract only when ready to re-approve the modified script in a TTY.
+
+For detailed pitfalls (char limits, silent sync failures, hook debugging, JSON stdout requirements, and re-approval after wrapper changes), see `references/memory-sync.md`.
 
 ## MCP support
 
