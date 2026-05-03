@@ -75,6 +75,11 @@ cmux markdown open plan.md                    # new tab (default)
 cmux markdown open plan.md --direction right  # split instead
 ```
 
+When an agent generates a markdown file (research reports, specs, plans), open it in the viewer so the user can read the formatted output immediately:
+```bash
+cmux markdown open /path/to/generated.md --direction right
+```
+
 ## Agent Launchers
 
 ```bash

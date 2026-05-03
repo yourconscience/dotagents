@@ -1,6 +1,6 @@
 ---
 name: tech-search
-description: Search web, specifically Hacker News, X.com, and Reddit from top tech bloggers and communities about a given topic. Use when user says /tech-search or wants curated tech opinions on a topic.
+description: Search web, specifically Hacker News, X.com, Reddit, and Discord from top tech bloggers and communities about a given topic. Use when user says /tech-search or wants curated tech opinions on a topic.
 ---
 
 # tech-search
@@ -33,12 +33,22 @@ Fallback: `site:x.com <topic>` via WebSearch if x-cli auth is broken.
 
 ### 2. Hacker News
 
-Use Algolia API:
+Algolia API. **Critical: do NOT use `search_by_date`** — it returns only zero-comment noise. Use the hybrid approach instead: `search` endpoint (popularity-ranked) with a date filter.
+
+**Primary query (last month, high signal):**
 ```
-https://hn.algolia.com/api/v1/search?query=<topic>&tags=story&hitsPerPage=10
+https://hn.algolia.com/api/v1/search?query=<topic>&tags=story&hitsPerPage=10&numericFilters=created_at_i>TIMESTAMP
 ```
 
-For recency: use `search_by_date` instead. Read threads at `https://news.ycombinator.com/item?id=<objectID>`.
+Generate timestamp before querying:
+- macOS: `date -v-1m +%s`
+- Linux: `date -d '1 month ago' +%s`
+
+For fast-moving topics (last week): `date -v-1w +%s` (macOS) or `date -d '1 week ago' +%s` (Linux).
+
+Read threads at `https://news.ycombinator.com/item?id=<objectID>`.
+
+**Pitfall:** The bare `search` endpoint (no `numericFilters`) returns all-time popular stories, often months old. `search_by_date` returns only fresh posts with no votes/comments. Only the hybrid query gives recent + high-signal results.
 
 ### 3. Reddit
 
@@ -47,8 +57,10 @@ For recency: use `search_by_date` instead. Read threads at `https://news.ycombin
 Global search (preferred - catches cross-subreddit discussion):
 ```bash
 curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-  "https://www.reddit.com/search.json?q=<topic>&sort=relevance&t=year&limit=10"
+  "https://www.reddit.com/search.json?q=<topic>&sort=relevance&t=month&limit=10"
 ```
+
+For broader/deeper dives use `t=year`. For breaking news use `t=week`.
 
 Subreddit-scoped search (when topic maps to a known community):
 ```bash
@@ -70,7 +82,39 @@ Pick 2-3 relevant to the topic. Add context keywords for ambiguous terms (e.g. "
 
 Fallback: Pullpush API for historical posts (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
 
-### 4. Tech blogs (optional)
+### 4. Discord
+
+Search Discord servers via the user search API. Requires `$DISCORD_TOKEN` env var.
+
+**Known servers:**
+
+| Name | Guild ID |
+|---|---|
+| NousResearch | 1053877538025386074 |
+| Anthropic/Claude | 1456350064065904867 |
+
+Only search Discord when the topic is relevant to these communities (ML, LLMs, Claude, agents, evals, fine-tuning, etc). Skip for generic/unrelated topics.
+
+**Query:**
+```bash
+curl -s \
+  -H "Authorization: $DISCORD_TOKEN" \
+  -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.309 Chrome/124.0.6367.243 Electron/30.4.0 Safari/537.36" \
+  "https://discord.com/api/v9/guilds/<GUILD_ID>/messages/search?content=<QUERY>&limit=10&sort_by=timestamp&sort_order=desc"
+```
+
+Use `rtk proxy curl` to bypass token filtering. URL-encode the query string.
+
+**Response parsing:** `messages` is a nested array. Each inner array is a context group; the message with `"hit": true` is the actual match. Extract hits with jq:
+```bash
+| jq '[.messages[][] | select(.hit == true) | {author: .author.username, content: .content[0:200], timestamp: .timestamp, channel_id: .channel_id}]'
+```
+
+**If HTTP 202:** index not ready. Retry after `retry_after` seconds (usually 2s).
+
+**Rate limits:** conservative - one search per server per invocation. No pagination unless explicitly needed.
+
+### 5. Tech blogs (optional)
 
 For authoritative sources: `site:simonwillison.net`, `site:jvns.ca`, `site:danluu.com` via WebSearch.
 
@@ -87,6 +131,9 @@ For authoritative sources: `site:simonwillison.net`, `site:jvns.ca`, `site:danlu
 
 ### Reddit
 - **r/subreddit - Title** (N upvotes) - key takeaway (link)
+
+### Discord
+- **#channel @author** (server, date): "quote" - key takeaway
 
 ### Summary
 2-3 sentence synthesis. Key recommendations if any.

@@ -77,6 +77,14 @@ Requires `gh` CLI authenticated with push access to the repo.
 
 For the full promotion workflow (evaluation, pr-triage, merge), use the `skill-promote` Hermes skill.
 
+### dogfood
+
+End-to-end self-test: runs sync, then status, then doctor. Fails on any drift, conflict, or doctor warning. Use after making changes to skills or config to verify the full pipeline.
+
+```bash
+go run ./skills/dotagents/tools/dotagents dogfood
+```
+
 ## What it manages
 
 - Fixes `~/.agents` if it should point at the repo root and is missing or drifted.
@@ -99,6 +107,33 @@ cmp -s CLAUDE.md ~/.agents/CLAUDE.md && echo "CLAUDE.md visible via ~/.agents"
 ```
 
 When cleaning committed Claude Code runtime artifacts, ignore `.claude/` wholesale unless there is a deliberate shared Claude project config to track. `.claude/worktrees/*` can be committed accidentally as gitlinks, and `.claude/settings.local.json` is local runtime state. If shared Claude config is needed later, use explicit negation patterns in `.gitignore` rather than narrowly ignoring only known generated files.
+
+## Memory sync
+
+The dotagents repo also owns the Hermes memory ↔ knowledge vault sync pipeline at `~/.agents/bin/memsearch/`. This is separate from skill/MCP sync but lives in the same repo.
+
+Two scripts:
+
+- `finalize.sh` → `finalize.py`: Appends a session digest to `~/Workspace/knowledge/ai/YYYY-MM-DD.md` and reindexes memsearch. Fires on `on_session_finalize`.
+- `sync.sh` → `sync.py`: Bidirectional sync between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`~/Workspace/knowledge/`). Three modes: `memory-to-vault`, `vault-to-memory`, `both`.
+
+The typical Hermes hook pipeline:
+
+```yaml
+on_session_finalize:
+  - command: ~/.agents/bin/memsearch/finalize.sh
+    timeout: 30
+  - command: ~/.agents/bin/memsearch/sync.sh
+    args:
+    - memory-to-vault
+    timeout: 15
+```
+
+Hook approval: first-use consent requires a TTY prompt. Scripts modified after approval require revoke + re-approve via `hermes hooks revoke <command>` then approve at the next session-end TTY prompt. Cannot be automated from CLI.
+
+Hook health pitfall: `hermes hooks doctor` requires hook stdout to be valid JSON. Plain-text sync wrapper output can be allowlisted/executable but still fail doctor with `stdout was not valid JSON`; fix the wrapper contract only when ready to re-approve the modified script in a TTY.
+
+For detailed pitfalls (char limits, silent sync failures, hook debugging, JSON stdout requirements, and re-approval after wrapper changes), see `references/memory-sync.md`.
 
 ## MCP support
 
