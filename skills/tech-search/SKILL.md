@@ -23,7 +23,6 @@ Reference: `references/reddit-discord-cli-eval.md` records the repo evaluation b
 
 Use `x-cli` for X.com searches. Check auth with `x-cli auth status`.
 
-**Output pitfall:** prefer normal `x-cli search` text output for quotes and links. `--json` can dump raw GraphQL timelines with huge nested payloads and truncated text; use it only when you need IDs or structured parsing, and post-process aggressively.
 
 **Power users:** @karpathy, @fchollet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
 
