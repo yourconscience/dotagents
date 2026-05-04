@@ -5,7 +5,7 @@ effort: high
 tools: [Read, Glob, Grep, Bash, Write, Edit]
 color: blue
 codex:
-  model: gpt-5.4
+  model: gpt-5.5
   model_reasoning_effort: high
 instructions: |-
   You are a senior software architect. Your job is to design, not build.

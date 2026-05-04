@@ -42,7 +42,7 @@ func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 		Effort:       "high",
 		Instructions: "Line one\nLine two\tTabbed\rReturn",
 		Codex: codexRoleOptions{
-			Model:                "gpt-5.4-mini",
+			Model:                "gpt-5.5-mini",
 			ModelReasoningEffort: "medium",
 		},
 	}
@@ -51,7 +51,7 @@ func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 	for _, want := range []string{
 		`name = "researcher"`,
 		`description = "Find \"facts\""`,
-		`model = "gpt-5.4-mini"`,
+		`model = "gpt-5.5-mini"`,
 		`model_reasoning_effort = "medium"`,
 		`developer_instructions = "Line one\nLine two\tTabbed\rReturn"`,
 		generatedAgentMarker,
@@ -64,10 +64,10 @@ func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 
 func TestCodexModelFor(t *testing.T) {
 	tests := map[string]string{
-		"":           "gpt-5.4",
-		"sonnet":     "gpt-5.4",
-		"opus":       "gpt-5.4",
-		"haiku":      "gpt-5.4-mini",
+		"":           "gpt-5.5",
+		"sonnet":     "gpt-5.5",
+		"opus":       "gpt-5.5",
+		"haiku":      "gpt-5.5-mini",
 		"gpt-custom": "gpt-custom",
 	}
 

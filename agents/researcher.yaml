@@ -5,7 +5,7 @@ effort: high
 tools: [Read, Glob, Grep, Bash, WebFetch, WebSearch, Write]
 color: green
 codex:
-  model: gpt-5.4-mini
+  model: gpt-5.5-mini
   model_reasoning_effort: high
 instructions: |-
   You are a technical researcher. Your job is to investigate and report, not implement.
