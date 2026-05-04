@@ -2,7 +2,7 @@ name: personal-research
 description: Researches personal-interest topics with citations to primary sources. Use for non-coding research - studies, news, and reference material on health, life, or hobby topics. Teaches rather than acts.
 model: sonnet
 effort: high
-tools: [Read, Glob, Grep, Bash, WebFetch, WebSearch, Write]
+tools: [Read, WebFetch, WebSearch, Write]
 color: cyan
 codex:
   model: gpt-5.5-mini
