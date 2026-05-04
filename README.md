@@ -15,10 +15,13 @@ Reusable agent role definitions for agent-native subagents. Canonical roles live
 - Claude Code: `~/.claude/agents/<name>.md`
 - Codex: `~/.codex/agents/<name>.toml`
 
-- `architect` - designs system architecture, telemetry schemas, and technical plans. Sonnet, read + write.
-- `builder` - implements code changes following specs or architect designs. Sonnet, read + write.
-- `researcher` - investigates codebases, APIs, repos, and web sources. Sonnet, read + write + web.
-- `reviewer` - reviews code against specs, finds bugs and security issues. Sonnet, read-only.
+Default model is `gpt-5.5` via Codex (`gpt-5.5-mini` for research roles). Sonnet is the Claude Code fallback only - rendered into the Claude Code subagent file so the role still works there, but Codex/GPT-5.5 is the primary execution path.
+
+- `architect` - designs system architecture, telemetry schemas, and technical plans. Read + write.
+- `builder` - implements code changes following specs or architect designs. Read + write.
+- `researcher` - investigates codebases, APIs, repos, and web sources. Read + write + web. (`gpt-5.5-mini`)
+- `reviewer` - reviews code against specs, finds bugs and security issues. Read-only.
+- `personal-research` - non-coding research with citations to primary sources. Web + write. (`gpt-5.5-mini`)
 
 Reference these from TeamCreate teammates, Claude Code subagent types, or Codex native subagent roles. See `skills/spawn/SKILL.md` for usage patterns.
 
@@ -29,7 +32,6 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
 - `google-workspace` (`gws`) - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex/OpenClaw and CLI helpers.
 - `jobs` - track job search pipeline, analyze fit for postings, generate interview quizzes, grade answers.
-- `mobile-access` - access coding agents from iOS/Android. Claude Code remote-control, Hermes Telegram gateway, Moshi, web UIs, takopi.
 - `omx` - spawn oh-my-codex in a detached tmux session and delegate a substantial task to it.
 - `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
 - `repo-eval` - find, triage, and deep-evaluate GitHub repos for a given need.

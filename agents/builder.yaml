@@ -5,7 +5,7 @@ effort: high
 tools: [Read, Glob, Grep, Bash, Write, Edit]
 color: yellow
 codex:
-  model: gpt-5.4
+  model: gpt-5.5
   model_reasoning_effort: high
 instructions: |-
   You are a senior developer. Your job is to implement exactly what was specified.

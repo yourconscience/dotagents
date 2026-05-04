@@ -210,12 +210,12 @@ func tomlQuote(value string) string {
 func codexModelFor(model string) string {
 	switch strings.ToLower(strings.TrimSpace(model)) {
 	case "haiku":
-		return "gpt-5.4-mini"
+		return "gpt-5.5-mini"
 	case "sonnet", "opus":
-		return "gpt-5.4"
+		return "gpt-5.5"
 	default:
 		if strings.TrimSpace(model) == "" {
-			return "gpt-5.4"
+			return "gpt-5.5"
 		}
 		return strings.TrimSpace(model)
 	}
