@@ -17,9 +17,12 @@ Search for opinions and discussions from high-signal tech sources about a given 
 
 Search all sources in parallel.
 
+Reference: `references/reddit-discord-cli-eval.md` records the repo evaluation behind the `rdt-cli` and `discord-cli` recommendations.
+
 ### 1. X.com
 
 Use `x-cli` for X.com searches. Check auth with `x-cli auth status`.
+
 
 **Power users:** @karpathy, @fchollet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
 
@@ -78,13 +81,33 @@ curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" 
 
 Pick 2-3 relevant to the topic. Add context keywords for ambiguous terms (e.g. "warp terminal coding" not just "warp").
 
-**Optional CLI**: `rdt-cli` (`uv tool install rdt-cli`) provides structured output with anti-detection. Same author ecosystem as x-cli. Use `rdt search "<topic>" --compact --json` if installed.
+**Preferred CLI when installed**: `rdt-cli` (`uv tool install rdt-cli`) provides structured output, compact agent-friendly results, browser-cookie auth when needed, and anti-detection/backoff. It is a good replacement for raw Reddit JSON in `/tech-search` because it handles subreddit search, global search, compact output, and post/comment reads consistently.
 
-Fallback: Pullpush API for historical posts (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
+Use:
+```bash
+rdt search "<topic>" -s relevance -t month -n 10 --compact --json
+rdt search "<topic>" -r <subreddit> -s top -t year -n 10 --compact --json
+rdt read <post_id> -n 20 --json
+```
+
+If `rdt` is not installed or fails, fall back to direct Reddit JSON with browser User-Agent. On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat. For historical posts or VPS fallback, use Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
 
 ### 4. Discord
 
 Search Discord servers via the user search API. Requires `$DISCORD_TOKEN` env var.
+
+**Preferred CLI for repeated/community monitoring**: `discord-cli` (`uv tool install kabi-discord-cli`) can sync accessible Discord channels into local SQLite, then search/export them with structured YAML/JSON. Use it only for accounts the user controls: it uses a Discord user token and may violate Discord ToS or trigger account restrictions. Do not ask the user to paste raw tokens into chat logs.
+
+Good fit:
+```bash
+discord status --yaml
+discord dc guilds --yaml
+discord dc channels <guild_id> --yaml
+discord dc search <guild_id> "<topic>" -n 10 --json      # native Discord search
+discord search "<topic>" -n 20 --json                    # local SQLite after sync
+```
+
+For one-off searches, keep the raw Discord API path below because it is simpler and avoids requiring a local SQLite sync first.
 
 **Known servers:**
 
