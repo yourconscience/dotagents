@@ -15,11 +15,11 @@ Reusable agent role definitions for agent-native subagents. Canonical roles live
 - Claude Code: `~/.claude/agents/<name>.md`
 - Codex: `~/.codex/agents/<name>.toml`
 
-Default model is `gpt-5.5` via Codex (`gpt-5.5-mini` for research roles). Sonnet is the Claude Code fallback only - rendered into the Claude Code subagent file so the role still works there, but Codex/GPT-5.5 is the primary execution path.
+Default model is `gpt-5.5` via Codex (personal-research uses `gpt-5.5-mini`). Sonnet is the Claude Code fallback only - rendered into the Claude Code subagent file so the role still works there, but Codex/GPT-5.5 is the primary execution path.
 
 - `architect` - designs system architecture, telemetry schemas, and technical plans. Read + write.
 - `builder` - implements code changes following specs or architect designs. Read + write.
-- `researcher` - investigates codebases, APIs, repos, and web sources. Read + write + web. (`gpt-5.5-mini`)
+- `researcher` - investigates codebases, APIs, repos, and web sources. Read + write + web.
 - `reviewer` - reviews code against specs, finds bugs and security issues. Read-only.
 - `personal-research` - non-coding research with citations to primary sources. Web + write. (`gpt-5.5-mini`)
 
