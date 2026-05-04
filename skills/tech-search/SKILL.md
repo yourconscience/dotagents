@@ -90,7 +90,7 @@ rdt search "<topic>" -r <subreddit> -s top -t year -n 10 --compact --json
 rdt read <post_id> -n 20 --json
 ```
 
-If `rdt` is not installed or fails, fall back to direct Reddit JSON with browser User-Agent. For historical posts, fallback to Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
+If `rdt` is not installed or fails, fall back to direct Reddit JSON with browser User-Agent. On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat. For historical posts or VPS fallback, use Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
 
 ### 4. Discord
 

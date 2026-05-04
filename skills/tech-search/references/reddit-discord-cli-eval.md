@@ -33,7 +33,8 @@ rdt read <post_id> -n 20 --json
 Pitfalls:
 
 - If auth/cookies fail, fall back to Reddit JSON with a browser User-Agent.
-- For historical Reddit search, Pullpush remains a fallback.
+- On VPS/headless hosts, Reddit may still return `forbidden` without browser cookies; do not copy cookie secrets into chat.
+- For historical Reddit search or VPS fallback, Pullpush remains a fallback.
 
 ## `jackwener/discord-cli`
 
