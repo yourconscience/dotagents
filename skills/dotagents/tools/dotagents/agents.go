@@ -49,6 +49,8 @@ var droidToolMapping = map[string][]string{
 	"write":     {"Create", "Edit"},
 }
 
+var droidFallbackTools = []string{"Read", "LS", "Grep", "Glob"}
+
 type renderedAgentRole struct {
 	Name    string
 	Source  string
@@ -316,6 +318,9 @@ func droidToolsFor(tools []string) []string {
 			seen[mapped] = struct{}{}
 			out = append(out, mapped)
 		}
+	}
+	if len(tools) > 0 && len(out) == 0 {
+		return append([]string(nil), droidFallbackTools...)
 	}
 	return out
 }

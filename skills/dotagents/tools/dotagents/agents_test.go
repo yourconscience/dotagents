@@ -140,6 +140,19 @@ func TestDroidToolsForMapsWriteToCreateAndEdit(t *testing.T) {
 	}
 }
 
+func TestDroidToolsForFallsBackToReadOnlyWhenNoToolsMap(t *testing.T) {
+	got := droidToolsFor([]string{"NotebookEdit"})
+	want := []string{"Read", "LS", "Grep", "Glob"}
+	if len(got) != len(want) {
+		t.Fatalf("droidToolsFor(unmapped) = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("droidToolsFor(unmapped) = %#v, want %#v", got, want)
+		}
+	}
+}
+
 func TestLoadAgentRoles(t *testing.T) {
 	repoRoot := t.TempDir()
 	agentsDir := filepath.Join(repoRoot, "agents")
