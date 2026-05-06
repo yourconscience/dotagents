@@ -831,6 +831,9 @@ func mcpServerFromMap(name string, entry map[string]interface{}) (mcpServerConfi
 func validateNativeDefaults(target mcpTarget, entry map[string]interface{}) error {
 	for key, expected := range target.defaults {
 		actual, ok := entry[key]
+		if !ok && key == "disabled" && expected == false {
+			continue
+		}
 		if !ok || actual != expected {
 			return fmt.Errorf("MCP server is not supported stdio shape: %s must be %v", key, expected)
 		}
