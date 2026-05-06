@@ -292,11 +292,11 @@ func droidModelFor(model string) string {
 	model = strings.TrimSpace(model)
 	switch strings.ToLower(model) {
 	case "haiku":
-		return "custom:VP:-GPT-5.5-(Low)-8"
+		return "custom:gpt-5.5(low)"
 	case "sonnet":
-		return "custom:VP:-GPT-5.5-(Medium)-9"
+		return "custom:gpt-5.5(medium)"
 	case "opus":
-		return "custom:VP:-GPT-5.5-(High)-1"
+		return "custom:gpt-5.5(high)"
 	default:
 		if model == "" {
 			return "inherit"
