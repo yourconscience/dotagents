@@ -76,7 +76,7 @@ func TestRenderDroidAgentRoleMapsModelAndTools(t *testing.T) {
 	for _, want := range []string{
 		`name: "builder"`,
 		`description: "Builds features"`,
-		`model: "gpt-5.5"`,
+		`model: "custom:VP:-GPT-5.5-(Medium)-9"`,
 		`reasoningEffort: "high"`,
 		`- "Read"`,
 		`- "Glob"`,
@@ -114,9 +114,9 @@ func TestCodexModelFor(t *testing.T) {
 func TestDroidModelFor(t *testing.T) {
 	tests := map[string]string{
 		"":           "inherit",
-		"sonnet":     "gpt-5.5",
-		"opus":       "gpt-5.5-pro",
-		"haiku":      "gpt-5.4-mini",
+		"sonnet":     "custom:VP:-GPT-5.5-(Medium)-9",
+		"opus":       "custom:VP:-GPT-5.5-(High)-1",
+		"haiku":      "custom:VP:-GPT-5.5-(Low)-8",
 		"gpt-custom": "gpt-custom",
 	}
 
