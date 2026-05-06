@@ -80,6 +80,10 @@ When an agent generates a markdown file (research reports, specs, plans), open i
 cmux markdown open /path/to/generated.md --direction right
 ```
 
+## Visible delegation workflow
+
+When the user asks for visible delegation, prefer a dedicated cmux workspace, surface, or tab for the delegated agent instead of shrinking the user's main TUI. Check that `cmux` is available before relying on it; if unavailable, give Warp or regular-terminal instructions instead of assuming cmux.
+
 ## Agent Launchers
 
 ```bash
