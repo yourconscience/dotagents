@@ -13,6 +13,7 @@ import (
 const (
 	agentClaudeCode = "claude-code"
 	agentCodex      = "codex"
+	agentDroid      = "droid"
 	agentHermes     = "hermes"
 )
 
