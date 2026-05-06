@@ -292,11 +292,11 @@ func droidModelFor(model string) string {
 	model = strings.TrimSpace(model)
 	switch strings.ToLower(model) {
 	case "haiku":
-		return "claude-haiku-4-5-20251001"
+		return "gpt-5.4-mini"
 	case "sonnet":
-		return "claude-sonnet-4-6"
+		return "gpt-5.5"
 	case "opus":
-		return "claude-opus-4-7"
+		return "gpt-5.5-pro"
 	default:
 		if model == "" {
 			return "inherit"
