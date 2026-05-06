@@ -24,11 +24,18 @@ type agentRole struct {
 	Color        string           `yaml:"color"`
 	Instructions string           `yaml:"instructions"`
 	Codex        codexRoleOptions `yaml:"codex"`
+	Droid        droidRoleOptions `yaml:"droid"`
 }
 
 type codexRoleOptions struct {
 	Model                string `yaml:"model"`
 	ModelReasoningEffort string `yaml:"model_reasoning_effort"`
+}
+
+type droidRoleOptions struct {
+	Model           string   `yaml:"model"`
+	ReasoningEffort string   `yaml:"reasoning_effort"`
+	Tools           []string `yaml:"tools"`
 }
 
 type renderedAgentRole struct {
@@ -121,6 +128,8 @@ func renderAgentRole(role agentRole, agent agentConfig) (string, string, bool) {
 		return filepath.Join(agent.AgentRoot, role.Name+".md"), renderClaudeAgentRole(role), true
 	case agentCodex:
 		return filepath.Join(agent.AgentRoot, role.Name+".toml"), renderCodexAgentRole(role), true
+	case agentDroid:
+		return filepath.Join(agent.AgentRoot, role.Name+".md"), renderDroidAgentRole(role), true
 	default:
 		return "", "", false
 	}
@@ -174,6 +183,43 @@ func renderCodexAgentRole(role agentRole) string {
 	return b.String()
 }
 
+func renderDroidAgentRole(role agentRole) string {
+	model := strings.TrimSpace(role.Droid.Model)
+	if model == "" {
+		model = droidModelFor(role.Model)
+	}
+	effort := strings.TrimSpace(role.Droid.ReasoningEffort)
+	if effort == "" {
+		effort = strings.TrimSpace(role.Effort)
+	}
+	tools := role.Droid.Tools
+	if len(tools) == 0 {
+		tools = droidToolsFor(role.Tools)
+	}
+
+	var b strings.Builder
+	b.WriteString("---\n")
+	writeYAMLScalar(&b, "name", role.Name)
+	writeYAMLScalar(&b, "description", role.Description)
+	writeYAMLScalar(&b, "model", model)
+	writeYAMLScalar(&b, "reasoningEffort", effort)
+	if len(tools) > 0 {
+		b.WriteString("tools:\n")
+		for _, tool := range tools {
+			writeYAMLListItem(&b, tool)
+		}
+	}
+	b.WriteString("---\n\n")
+	b.WriteString("<!-- ")
+	b.WriteString(generatedAgentMarker)
+	b.WriteString(" from agents/")
+	b.WriteString(role.Name)
+	b.WriteString(".yaml; do not edit directly. -->\n\n")
+	b.WriteString(role.Instructions)
+	b.WriteString("\n")
+	return b.String()
+}
+
 func writeYAMLScalar(b *strings.Builder, key string, value string) {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -181,6 +227,16 @@ func writeYAMLScalar(b *strings.Builder, key string, value string) {
 	}
 	b.WriteString(key)
 	b.WriteString(": ")
+	b.WriteString(strconv.Quote(value))
+	b.WriteString("\n")
+}
+
+func writeYAMLListItem(b *strings.Builder, value string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	b.WriteString("  - ")
 	b.WriteString(strconv.Quote(value))
 	b.WriteString("\n")
 }
@@ -219,6 +275,47 @@ func codexModelFor(model string) string {
 		}
 		return strings.TrimSpace(model)
 	}
+}
+
+func droidModelFor(model string) string {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "haiku":
+		return "claude-haiku-4-5-20251001"
+	case "sonnet":
+		return "claude-sonnet-4-6"
+	case "opus":
+		return "claude-opus-4-7"
+	default:
+		if strings.TrimSpace(model) == "" {
+			return "inherit"
+		}
+		return strings.TrimSpace(model)
+	}
+}
+
+func droidToolsFor(tools []string) []string {
+	mapping := map[string][]string{
+		"bash":      {"Execute"},
+		"edit":      {"Edit"},
+		"glob":      {"Glob"},
+		"grep":      {"Grep"},
+		"read":      {"Read"},
+		"webfetch":  {"FetchUrl"},
+		"websearch": {"WebSearch"},
+		"write":     {"Create"},
+	}
+	var out []string
+	seen := make(map[string]struct{})
+	for _, tool := range tools {
+		for _, mapped := range mapping[strings.ToLower(strings.TrimSpace(tool))] {
+			if _, ok := seen[mapped]; ok {
+				continue
+			}
+			seen[mapped] = struct{}{}
+			out = append(out, mapped)
+		}
+	}
+	return out
 }
 
 func inspectAgentRoles(report *agentReport, repoRoot string, agent agentConfig) error {

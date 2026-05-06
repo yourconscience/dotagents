@@ -62,6 +62,39 @@ func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 	}
 }
 
+func TestRenderDroidAgentRoleMapsModelAndTools(t *testing.T) {
+	role := agentRole{
+		Name:         "builder",
+		Description:  "Builds features",
+		Model:        "sonnet",
+		Effort:       "high",
+		Tools:        []string{"Read", "Glob", "Grep", "Bash", "Write", "Edit", "WebFetch", "WebSearch"},
+		Instructions: "Implement the change.",
+	}
+
+	got := renderDroidAgentRole(role)
+	for _, want := range []string{
+		`name: "builder"`,
+		`description: "Builds features"`,
+		`model: "claude-sonnet-4-6"`,
+		`reasoningEffort: "high"`,
+		`- "Read"`,
+		`- "Glob"`,
+		`- "Grep"`,
+		`- "Execute"`,
+		`- "Create"`,
+		`- "Edit"`,
+		`- "FetchUrl"`,
+		`- "WebSearch"`,
+		generatedAgentMarker,
+		"Implement the change.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("rendered Droid role missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestCodexModelFor(t *testing.T) {
 	tests := map[string]string{
 		"":           "gpt-5.4",
@@ -74,6 +107,22 @@ func TestCodexModelFor(t *testing.T) {
 	for input, want := range tests {
 		if got := codexModelFor(input); got != want {
 			t.Fatalf("codexModelFor(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestDroidModelFor(t *testing.T) {
+	tests := map[string]string{
+		"":           "inherit",
+		"sonnet":     "claude-sonnet-4-6",
+		"opus":       "claude-opus-4-7",
+		"haiku":      "claude-haiku-4-5-20251001",
+		"gpt-custom": "gpt-custom",
+	}
+
+	for input, want := range tests {
+		if got := droidModelFor(input); got != want {
+			t.Fatalf("droidModelFor(%q) = %q, want %q", input, got, want)
 		}
 	}
 }
