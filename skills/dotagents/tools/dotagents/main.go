@@ -18,8 +18,8 @@ type agentConfig struct {
 	Name      string `yaml:"name"`
 	Enabled   bool   `yaml:"enabled"`
 	SkillRoot string `yaml:"skill_root"`
-	AgentRoot string `yaml:"agent_root"`
-	Detect    string `yaml:"detect"`
+	AgentRoot string `yaml:"agent_root,omitempty"`
+	Detect    string `yaml:"detect,omitempty"`
 }
 
 type repoLinkReport struct {
@@ -115,6 +115,8 @@ func run(args []string) error {
 		return runCron(opts)
 	case "memsearch":
 		return runMemsearch(args[1:])
+	case "mcp":
+		return runMCP(args[1:])
 	case "skillify":
 		return runSkillify(args[1:])
 	case "doctor":
@@ -186,6 +188,10 @@ func printUsage() {
 	fmt.Println("  dotagents cron      --remove                 Remove the crontab entry")
 	fmt.Println("  dotagents memsearch setup [--vault ...]      Bootstrap knowledge vault + memsearch config")
 	fmt.Println("  dotagents memsearch status                   Show memsearch configuration")
+	fmt.Println("  dotagents mcp list                           List canonical managed MCP servers")
+	fmt.Println("  dotagents mcp add <name> --command <cmd>     Add/update canonical managed MCP")
+	fmt.Println("  dotagents mcp import <agent> <name>          Import native MCP into canonical config")
+	fmt.Println("  dotagents mcp remove <name>                  Remove canonical managed MCP")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
 	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes")

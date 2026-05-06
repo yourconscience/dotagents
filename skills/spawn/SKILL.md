@@ -1,6 +1,6 @@
 ---
 name: spawn
-description: "Decide how to delegate work to subagents or teams. Agent-agnostic: covers Claude Code, Hermes, and Codex."
+description: "Decide how to delegate work to subagents or teams. Agent-agnostic: covers Droid, Claude Code, Hermes, and Codex."
 ---
 
 # spawn
@@ -31,6 +31,11 @@ Decide how to split work across agents. This skill is about the decision, not th
 - Agents need to challenge each other's findings
 - Parallel work on interrelated parts of the same system
 - Long-running work where the user wants visible panes
+
+### When to use Droid
+
+- Substantial implementation or review work should default to Factory Droid when available, using Task/custom droids for role-specific delegation.
+- Droid and Codex default to OpenAI/GPT through Droid BYOK/VibeProxy. Claude Code remains available, but is not the default unless the user explicitly asks for Claude.
 
 ### When to use omx
 
@@ -72,6 +77,12 @@ Naming: `{phase}_{agent}_{artifact}.{ext}` (e.g., `01_researcher_findings.md`).
 - More than 5 concurrent agents (coordination overhead dominates)
 - Agents without clear file/task boundaries (they step on each other)
 - Not setting model explicitly (inherits expensive parent model)
+
+---
+
+## Factory Droid execution
+
+Use Droid as a first-class target for substantial tasks via the Task tool and synced custom droids such as `architect`, `builder`, `researcher`, and `reviewer`. Keep prompts self-contained and verify results before reporting success. Defaults should route to OpenAI/GPT through Droid BYOK/VibeProxy unless the user requests a different provider.
 
 ---
 

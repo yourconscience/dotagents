@@ -16,7 +16,7 @@ Hand off a well-defined task to Codex (GPT-5) via oh-my-codex. Works from any ag
 
 `omx exec` runs Codex non-interactively with AGENTS.md overlay and MCP servers. It blocks until Codex finishes, then returns. This is the preferred mode for agent-to-agent delegation.
 
-`omx` (interactive) spawns Codex in a detached `omx-*` tmux session. Use when the user wants to watch or intervene.
+`omx` (interactive) spawns Codex in a detached `omx-*` tmux session. Use when the user wants to watch or intervene. Warp is the stable primary terminal surface; cmux is supported for visible panes/workspaces when it is actually available.
 
 ## Write the prompt
 
@@ -45,14 +45,14 @@ Blocks until done. No tmux session management. Works from any environment.
 
 ## Interactive mode
 
-Spawns Codex in a detached tmux session. The user can attach to watch.
+Spawns Codex in a detached tmux session. The user can attach to watch from Warp or any regular terminal. For visible agent workspaces, use a dedicated cmux workspace/surface when `cmux` is available; otherwise stay with Warp or regular terminal instructions.
 
 ```bash
 cd <repo> && omx --yolo --high "$(cat $PROMPT_FILE)"
 OMX_TMUX=$(tmux list-sessions 2>&1 | awk -F: '/^omx-/ {print $1; exit}')
 ```
 
-### cmux compatibility (Claude Code only)
+### cmux compatibility (Claude Code cmux shim contexts only)
 
 cmux shims `tmux` at `~/.cmuxterm/claude-teams-bin/tmux`. This shim rejects `tmux show-options` which omx calls on interactive startup. Workarounds:
 
@@ -60,7 +60,7 @@ cmux shims `tmux` at `~/.cmuxterm/claude-teams-bin/tmux`. This shim rejects `tmu
 - Interactive `omx`: prepend `PATH="/opt/homebrew/bin:$PATH"` to bypass the shim.
 - Never use `cmux omx` - it adds a second shim layer that breaks HUD auto-attach.
 
-### Adding a cmux viewer surface (Claude Code interactive only)
+### Adding a cmux viewer surface (when cmux is available)
 
 ```bash
 CLAUDE_PANE=$(cmux tree | awk -v s="${CMUX_SURFACE_ID}" '
