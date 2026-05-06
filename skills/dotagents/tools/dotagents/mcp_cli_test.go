@@ -10,7 +10,10 @@ import (
 	"testing"
 )
 
-const mcpTestNodeCommand = "node"
+const (
+	mcpTestNodeCommand      = "node"
+	mcpTestTokenPlaceholder = "${TOKEN}"
+)
 
 func writeTestDotagentsConfig(t *testing.T, path string) {
 	t.Helper()
@@ -138,7 +141,7 @@ func TestMCPCLIImport(t *testing.T) {
 	if !stringSlicesEqual(server.Agents, []string{"codex", "hermes"}) {
 		t.Fatalf("agents = %#v", server.Agents)
 	}
-	if server.Env["TOKEN"] != "${TOKEN}" {
+	if server.Env["TOKEN"] != mcpTestTokenPlaceholder {
 		t.Fatalf("env not redacted: %#v", server.Env)
 	}
 	if strings.Contains(server.Env["TOKEN"], "secret") {
@@ -186,7 +189,7 @@ env = {
 	if server.Name != "foo" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"server.js", "--flag", "value#kept"}) {
 		t.Fatalf("unexpected imported server: %#v", server)
 	}
-	if server.Env["TOKEN"] != "${TOKEN}" {
+	if server.Env["TOKEN"] != mcpTestTokenPlaceholder {
 		t.Fatalf("env TOKEN not redacted: %#v", server.Env)
 	}
 	if server.Env["EXISTING"] != "${EXISTING_TOKEN}" {
@@ -232,7 +235,7 @@ env = { TOKEN = 'secret', HASH = 'keep#value' }
 	if server.Name != "foo" || server.Command != "node#bin" || !stringSlicesEqual(server.Args, []string{"server#js", `--literal=\path`}) {
 		t.Fatalf("unexpected imported server: %#v", server)
 	}
-	if server.Env["TOKEN"] != "${TOKEN}" {
+	if server.Env["TOKEN"] != mcpTestTokenPlaceholder {
 		t.Fatalf("env TOKEN not redacted: %#v", server.Env)
 	}
 	if server.Env["HASH"] != "${HASH}" {
