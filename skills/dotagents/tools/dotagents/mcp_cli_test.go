@@ -159,12 +159,14 @@ func TestMCPCLIImportCodexMultiline(t *testing.T) {
 	if err := os.WriteFile(codexPath, []byte(fmt.Sprintf(`[mcp_servers.foo]
 command = %q
 args = [
-  "server.js",
-  "--flag",
+  "server.js", # entry comment
+  "--flag", # flag comment
+  "value#kept", # hash inside quoted strings is not a comment
 ]
 env = {
-  TOKEN = "secret",
-  EXISTING = "${EXISTING_TOKEN}",
+  TOKEN = "secret", # token comment
+  EXISTING = "${EXISTING_TOKEN}", # existing reference comment
+  HASH = "keep#value", # hash inside quoted strings is not a comment
 }
 `, mcpTestNodeCommand)), 0o644); err != nil {
 		t.Fatal(err)
@@ -181,7 +183,7 @@ env = {
 		t.Fatalf("MCP server count = %d, want 1", len(cfg.MCPServers))
 	}
 	server := cfg.MCPServers[0]
-	if server.Name != "foo" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"server.js", "--flag"}) {
+	if server.Name != "foo" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"server.js", "--flag", "value#kept"}) {
 		t.Fatalf("unexpected imported server: %#v", server)
 	}
 	if server.Env["TOKEN"] != "${TOKEN}" {
@@ -189,6 +191,9 @@ env = {
 	}
 	if server.Env["EXISTING"] != "${EXISTING_TOKEN}" {
 		t.Fatalf("env reference not preserved: %#v", server.Env)
+	}
+	if server.Env["HASH"] != "${HASH}" {
+		t.Fatalf("env HASH *** redacted: %#v", server.Env)
 	}
 	if strings.Contains(server.Env["TOKEN"], "secret") {
 		t.Fatalf("env leaked raw secret: %#v", server.Env)
