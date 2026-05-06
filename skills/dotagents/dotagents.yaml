@@ -35,3 +35,4 @@ mcp_servers:
       - claude-code
       - codex
       - hermes
+      - droid

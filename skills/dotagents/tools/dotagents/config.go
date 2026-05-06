@@ -51,26 +51,36 @@ func loadConfig(skillRoot string, home string, overridePath string) (config, err
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return config{}, fmt.Errorf("yaml decode: %w", err)
 	}
+	if err := validateConfig(&cfg, home, true); err != nil {
+		return config{}, err
+	}
+
+	return cfg, nil
+}
+
+func validateConfig(cfg *config, home string, expand bool) error {
 	if cfg.Version == 0 {
 		cfg.Version = 1
 	}
 	if len(cfg.Agents) == 0 {
-		return config{}, errors.New("config has no agents")
+		return errors.New("config has no agents")
 	}
 
 	seen := make(map[string]struct{})
 	for i := range cfg.Agents {
 		cfg.Agents[i].Name = normalizeAgentName(cfg.Agents[i].Name)
-		cfg.Agents[i].SkillRoot = expandPath(cfg.Agents[i].SkillRoot, home)
-		cfg.Agents[i].AgentRoot = expandPath(cfg.Agents[i].AgentRoot, home)
+		if expand {
+			cfg.Agents[i].SkillRoot = expandPath(cfg.Agents[i].SkillRoot, home)
+			cfg.Agents[i].AgentRoot = expandPath(cfg.Agents[i].AgentRoot, home)
+		}
 		if cfg.Agents[i].Name == "" {
-			return config{}, errors.New("config agent name cannot be empty")
+			return errors.New("config agent name cannot be empty")
 		}
 		if cfg.Agents[i].SkillRoot == "" {
-			return config{}, fmt.Errorf("config agent %s is missing skill_root", cfg.Agents[i].Name)
+			return fmt.Errorf("config agent %s is missing skill_root", cfg.Agents[i].Name)
 		}
 		if _, ok := seen[cfg.Agents[i].Name]; ok {
-			return config{}, fmt.Errorf("config agent %s is duplicated", cfg.Agents[i].Name)
+			return fmt.Errorf("config agent %s is duplicated", cfg.Agents[i].Name)
 		}
 		seen[cfg.Agents[i].Name] = struct{}{}
 	}
@@ -79,21 +89,28 @@ func loadConfig(skillRoot string, home string, overridePath string) (config, err
 	for i := range cfg.MCPServers {
 		cfg.MCPServers[i].Name = strings.TrimSpace(cfg.MCPServers[i].Name)
 		if cfg.MCPServers[i].Name == "" {
-			return config{}, errors.New("config MCP server name cannot be empty")
+			return errors.New("config MCP server name cannot be empty")
 		}
-		if cfg.MCPServers[i].Command == "" {
-			return config{}, fmt.Errorf("config MCP server %s is missing command", cfg.MCPServers[i].Name)
+		if strings.TrimSpace(cfg.MCPServers[i].Command) == "" {
+			return fmt.Errorf("config MCP server %s is missing command", cfg.MCPServers[i].Name)
 		}
 		if _, ok := seenMCP[cfg.MCPServers[i].Name]; ok {
-			return config{}, fmt.Errorf("config MCP server %s is duplicated", cfg.MCPServers[i].Name)
+			return fmt.Errorf("config MCP server %s is duplicated", cfg.MCPServers[i].Name)
 		}
 		seenMCP[cfg.MCPServers[i].Name] = struct{}{}
 		for j := range cfg.MCPServers[i].Agents {
 			cfg.MCPServers[i].Agents[j] = normalizeAgentName(cfg.MCPServers[i].Agents[j])
+			agentName := cfg.MCPServers[i].Agents[j]
+			if _, ok := seen[agentName]; !ok {
+				return fmt.Errorf("config MCP server %s targets unknown agent %q", cfg.MCPServers[i].Name, agentName)
+			}
+			if _, ok := mcpTargets[agentName]; !ok {
+				return fmt.Errorf("config MCP server %s targets unsupported agent %q", cfg.MCPServers[i].Name, agentName)
+			}
 		}
 	}
 
-	return cfg, nil
+	return nil
 }
 
 func selectAgents(cfg config, override string) ([]agentConfig, error) {
