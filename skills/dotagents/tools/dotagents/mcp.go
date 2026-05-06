@@ -92,6 +92,8 @@ func inspectMCPServer(agentName string, server mcpServerConfig, home string) (st
 		return inspectCodexMCPServer(server, home)
 	case agentHermes:
 		return inspectHermesMCPServer(server, home)
+	case agentDroid:
+		return inspectDroidMCPServer(server, home)
 	default:
 		return stateMissing, nil
 	}
@@ -105,6 +107,8 @@ func patchMCPServer(agentName string, server mcpServerConfig, home string) error
 		return patchCodexMCPServer(server, home)
 	case agentHermes:
 		return patchHermesMCPServer(server, home)
+	case agentDroid:
+		return patchDroidMCPServer(server, home)
 	default:
 		return nil
 	}
@@ -231,6 +235,81 @@ func patchHermesMCPServer(server mcpServerConfig, home string) error {
 	out, err := marshalYAMLNode(&doc)
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", configPath, err)
+	}
+	if err := os.WriteFile(configPath, out, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", configPath, err)
+	}
+	return nil
+}
+
+func inspectDroidMCPServer(server mcpServerConfig, home string) (string, error) {
+	configPath := filepath.Join(home, ".factory", "mcp.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return stateMissing, nil
+		}
+		return stateMissing, fmt.Errorf("read %s: %w", configPath, err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return stateMissing, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+
+	serversRaw, ok := raw["mcpServers"]
+	if !ok {
+		return stateMissing, nil
+	}
+	serversMap, ok := asMap(serversRaw)
+	if !ok {
+		return stateDrifted, nil
+	}
+	entryRaw, ok := serversMap[server.Name]
+	if !ok {
+		return stateMissing, nil
+	}
+	entry, ok := asMap(entryRaw)
+	if !ok {
+		return stateDrifted, nil
+	}
+	if matchDroidMCPMap(entry, server) {
+		return stateSynced, nil
+	}
+	return stateDrifted, nil
+}
+
+func patchDroidMCPServer(server mcpServerConfig, home string) error {
+	configPath := filepath.Join(home, ".factory", "mcp.json")
+	data, err := os.ReadFile(configPath)
+	raw := map[string]interface{}{}
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("read %s: %w", configPath, err)
+		}
+	} else if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("parse %s: %w", configPath, err)
+	}
+
+	serversMap, _ := asMap(raw["mcpServers"])
+	if serversMap == nil {
+		serversMap = map[string]interface{}{}
+		raw["mcpServers"] = serversMap
+	}
+	entry, _ := asMap(serversMap[server.Name])
+	if entry == nil {
+		entry = map[string]interface{}{}
+	}
+	applyDroidMCPMap(entry, server)
+	serversMap[server.Name] = entry
+
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", configPath, err)
+	}
+	out = append(out, '\n')
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
 	}
 	if err := os.WriteFile(configPath, out, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", configPath, err)
@@ -456,6 +535,24 @@ func matchManagedMCPMap(entry map[string]interface{}, server mcpServerConfig) bo
 		}
 	}
 	return true
+}
+
+func matchDroidMCPMap(entry map[string]interface{}, server mcpServerConfig) bool {
+	serverType, _ := entry["type"].(string)
+	if serverType != "stdio" {
+		return false
+	}
+	disabled, ok := entry["disabled"].(bool)
+	if !ok || disabled {
+		return false
+	}
+	return matchManagedMCPMap(entry, server)
+}
+
+func applyDroidMCPMap(entry map[string]interface{}, server mcpServerConfig) {
+	applyManagedMCPMap(entry, server)
+	entry["type"] = "stdio"
+	entry["disabled"] = false
 }
 
 func applyManagedMCPMap(entry map[string]interface{}, server mcpServerConfig) {

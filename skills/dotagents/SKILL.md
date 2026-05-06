@@ -145,7 +145,7 @@ For detailed pitfalls (char limits, silent sync failures, hook debugging, JSON s
 Current managed MCP set lives in `skills/dotagents/dotagents.yaml` under `mcp_servers:`. Minimal example in this repo:
 
 - `linkedin` -> `uvx linkedin-scraper-mcp@latest`
-- managed for `claude-code`, `codex`, and `hermes`
+- managed for `claude-code`, `codex`, `hermes`, and `droid`
 
 Status and sync rules:
 
@@ -158,8 +158,9 @@ Per-agent targets:
 - Claude Code: `~/.claude/settings.json` -> `mcpServers.<name>`
 - Codex: `~/.codex/config.toml` -> `[mcp_servers.<name>]`
 - Hermes: `~/.hermes/config.yaml` -> `mcp_servers.<name>`
+- Factory Droid: `~/.factory/mcp.json` -> `mcpServers.<name>`
 
-Do not symlink whole agent config files. Use targeted patches only.
+Do not symlink whole agent config files. Use targeted patches only. Droid MCP config is patched in-place at `~/.factory/mcp.json`; it is not symlinked.
 
 ## Config
 
