@@ -38,6 +38,17 @@ type droidRoleOptions struct {
 	Tools           []string `yaml:"tools"`
 }
 
+var droidToolMapping = map[string][]string{
+	"bash":      {"Execute"},
+	"edit":      {"Edit"},
+	"glob":      {"Glob"},
+	"grep":      {"Grep"},
+	"read":      {"Read"},
+	"webfetch":  {"FetchUrl"},
+	"websearch": {"WebSearch"},
+	"write":     {"Create"},
+}
+
 type renderedAgentRole struct {
 	Name    string
 	Source  string
@@ -278,7 +289,8 @@ func codexModelFor(model string) string {
 }
 
 func droidModelFor(model string) string {
-	switch strings.ToLower(strings.TrimSpace(model)) {
+	model = strings.TrimSpace(model)
+	switch strings.ToLower(model) {
 	case "haiku":
 		return "claude-haiku-4-5-20251001"
 	case "sonnet":
@@ -286,28 +298,18 @@ func droidModelFor(model string) string {
 	case "opus":
 		return "claude-opus-4-7"
 	default:
-		if strings.TrimSpace(model) == "" {
+		if model == "" {
 			return "inherit"
 		}
-		return strings.TrimSpace(model)
+		return model
 	}
 }
 
 func droidToolsFor(tools []string) []string {
-	mapping := map[string][]string{
-		"bash":      {"Execute"},
-		"edit":      {"Edit"},
-		"glob":      {"Glob"},
-		"grep":      {"Grep"},
-		"read":      {"Read"},
-		"webfetch":  {"FetchUrl"},
-		"websearch": {"WebSearch"},
-		"write":     {"Create"},
-	}
 	var out []string
 	seen := make(map[string]struct{})
 	for _, tool := range tools {
-		for _, mapped := range mapping[strings.ToLower(strings.TrimSpace(tool))] {
+		for _, mapped := range droidToolMapping[strings.ToLower(strings.TrimSpace(tool))] {
 			if _, ok := seen[mapped]; ok {
 				continue
 			}
