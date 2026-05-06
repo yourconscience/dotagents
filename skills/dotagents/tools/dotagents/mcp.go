@@ -663,7 +663,7 @@ func parseTOMLStringArray(raw string) ([]string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil
 	}
-	trimmed := strings.TrimSpace(raw)
+	trimmed := strings.TrimSpace(stripTOMLInlineComments(raw))
 	if !strings.HasPrefix(trimmed, "[") || !strings.HasSuffix(trimmed, "]") {
 		return nil, fmt.Errorf("expected string array")
 	}
@@ -691,7 +691,7 @@ func parseTOMLEnvInline(raw string) (map[string]string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil
 	}
-	trimmed := strings.TrimSpace(raw)
+	trimmed := strings.TrimSpace(stripTOMLInlineComments(raw))
 	if !strings.HasPrefix(trimmed, "{") || !strings.HasSuffix(trimmed, "}") {
 		return nil, fmt.Errorf("expected inline table")
 	}
@@ -717,6 +717,43 @@ func parseTOMLEnvInline(raw string) (map[string]string, error) {
 		env[key] = value
 	}
 	return env, nil
+}
+
+func stripTOMLInlineComments(raw string) string {
+	var out strings.Builder
+	inString := false
+	escaped := false
+	inComment := false
+	for _, r := range raw {
+		if inComment {
+			if r == '\n' {
+				inComment = false
+				out.WriteRune(r)
+			}
+			continue
+		}
+		if escaped {
+			out.WriteRune(r)
+			escaped = false
+			continue
+		}
+		if r == '\\' && inString {
+			out.WriteRune(r)
+			escaped = true
+			continue
+		}
+		if r == '"' {
+			inString = !inString
+			out.WriteRune(r)
+			continue
+		}
+		if r == '#' && !inString {
+			inComment = true
+			continue
+		}
+		out.WriteRune(r)
+	}
+	return out.String()
 }
 
 func splitCommaSeparated(raw string) []string {
