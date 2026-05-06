@@ -504,22 +504,26 @@ func tomlValueComplete(raw string) bool {
 
 func balancedTOMLDelimiters(raw string, open rune, close rune) bool {
 	depth := 0
-	inString := false
+	var quote rune
 	escaped := false
 	for _, r := range raw {
 		if escaped {
 			escaped = false
 			continue
 		}
-		if r == '\\' && inString {
+		if r == '\\' && quote == '"' {
 			escaped = true
 			continue
 		}
-		if r == '"' {
-			inString = !inString
+		if (r == '"' || r == '\'') && quote == 0 {
+			quote = r
 			continue
 		}
-		if inString {
+		if r == quote {
+			quote = 0
+			continue
+		}
+		if quote != 0 {
 			continue
 		}
 		if r == open {
@@ -653,10 +657,14 @@ func renderTOMLEnvInline(env map[string]string) string {
 }
 
 func parseTOMLString(raw string) (string, error) {
-	if raw == "" {
+	trimmed := strings.TrimSpace(stripTOMLInlineComments(raw))
+	if trimmed == "" {
 		return "", fmt.Errorf("empty string")
 	}
-	return strconv.Unquote(raw)
+	if strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'") {
+		return strings.TrimSuffix(strings.TrimPrefix(trimmed, "'"), "'"), nil
+	}
+	return strconv.Unquote(trimmed)
 }
 
 func parseTOMLStringArray(raw string) ([]string, error) {
@@ -678,7 +686,7 @@ func parseTOMLStringArray(raw string) ([]string, error) {
 		if part == "" {
 			continue
 		}
-		item, err := strconv.Unquote(part)
+		item, err := parseTOMLString(part)
 		if err != nil {
 			return nil, err
 		}
@@ -710,7 +718,7 @@ func parseTOMLEnvInline(raw string) (map[string]string, error) {
 			return nil, fmt.Errorf("expected key = value")
 		}
 		key := strings.TrimSpace(kv[0])
-		value, err := strconv.Unquote(strings.TrimSpace(kv[1]))
+		value, err := parseTOMLString(kv[1])
 		if err != nil {
 			return nil, err
 		}
@@ -721,7 +729,7 @@ func parseTOMLEnvInline(raw string) (map[string]string, error) {
 
 func stripTOMLInlineComments(raw string) string {
 	var out strings.Builder
-	inString := false
+	var quote rune
 	escaped := false
 	inComment := false
 	for _, r := range raw {
@@ -737,17 +745,22 @@ func stripTOMLInlineComments(raw string) string {
 			escaped = false
 			continue
 		}
-		if r == '\\' && inString {
+		if r == '\\' && quote == '"' {
 			out.WriteRune(r)
 			escaped = true
 			continue
 		}
-		if r == '"' {
-			inString = !inString
+		if (r == '"' || r == '\'') && quote == 0 {
+			quote = r
 			out.WriteRune(r)
 			continue
 		}
-		if r == '#' && !inString {
+		if r == quote {
+			quote = 0
+			out.WriteRune(r)
+			continue
+		}
+		if r == '#' && quote == 0 {
 			inComment = true
 			continue
 		}
@@ -759,7 +772,7 @@ func stripTOMLInlineComments(raw string) string {
 func splitCommaSeparated(raw string) []string {
 	var parts []string
 	var current strings.Builder
-	inString := false
+	var quote rune
 	escaped := false
 	for _, r := range raw {
 		if escaped {
@@ -767,17 +780,22 @@ func splitCommaSeparated(raw string) []string {
 			escaped = false
 			continue
 		}
-		if r == '\\' && inString {
+		if r == '\\' && quote == '"' {
 			current.WriteRune(r)
 			escaped = true
 			continue
 		}
-		if r == '"' {
-			inString = !inString
+		if (r == '"' || r == '\'') && quote == 0 {
+			quote = r
 			current.WriteRune(r)
 			continue
 		}
-		if r == ',' && !inString {
+		if r == quote {
+			quote = 0
+			current.WriteRune(r)
+			continue
+		}
+		if r == ',' && quote == 0 {
 			parts = append(parts, strings.TrimSpace(current.String()))
 			current.Reset()
 			continue

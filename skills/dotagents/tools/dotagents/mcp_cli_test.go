@@ -200,6 +200,46 @@ env = {
 	}
 }
 
+func TestMCPCLIImportCodexLiteralStrings(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configPath := filepath.Join(t.TempDir(), "dotagents.yaml")
+	writeTestDotagentsConfig(t, configPath)
+
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(codexPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexPath, []byte(`[mcp_servers.foo]
+command = 'node#bin'
+args = ['server#js', '--literal=\path']
+env = { TOKEN = 'secret', HASH = 'keep#value' }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runMCP([]string{"import", "codex", "foo", "--agents", "claude-code", "--config", configPath}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err := loadEditableMCPConfig(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.MCPServers) != 1 {
+		t.Fatalf("MCP server count = %d, want 1", len(cfg.MCPServers))
+	}
+	server := cfg.MCPServers[0]
+	if server.Name != "foo" || server.Command != "node#bin" || !stringSlicesEqual(server.Args, []string{"server#js", `--literal=\path`}) {
+		t.Fatalf("unexpected imported server: %#v", server)
+	}
+	if server.Env["TOKEN"] != "${TOKEN}" {
+		t.Fatalf("env TOKEN not redacted: %#v", server.Env)
+	}
+	if server.Env["HASH"] != "${HASH}" {
+		t.Fatalf("env HASH not parsed/redacted: %#v", server.Env)
+	}
+}
+
 func TestMCPCLIRejectsUnsupportedAgent(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "dotagents.yaml")
 	writeTestDotagentsConfig(t, configPath)
