@@ -58,6 +58,59 @@ func TestDroidMCPInspectSynced(t *testing.T) {
 	}
 }
 
+func TestDroidMCPReadAllowsMissingDisabled(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".factory", "mcp.json")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte(`{
+  "mcpServers": {
+    "linkedin": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["linkedin-scraper-mcp@latest"],
+      "env": {"UV_HTTP_TIMEOUT": "300"}
+    }
+  }
+}`)
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := readNativeMCPServer(agentDroid, "linkedin", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.Name != "linkedin" || server.Command != "uvx" {
+		t.Fatalf("unexpected server: %#v", server)
+	}
+}
+
+func TestDroidMCPReadRejectsDisabledTrue(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".factory", "mcp.json")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte(`{
+  "mcpServers": {
+    "linkedin": {
+      "type": "stdio",
+      "command": "uvx",
+      "disabled": true
+    }
+  }
+}`)
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := readNativeMCPServer(agentDroid, "linkedin", home); err == nil {
+		t.Fatal("readNativeMCPServer succeeded with disabled true, want error")
+	}
+}
+
 func TestDroidMCPInspectDrifted(t *testing.T) {
 	home := t.TempDir()
 	configPath := filepath.Join(home, ".factory", "mcp.json")
