@@ -46,7 +46,7 @@ var droidToolMapping = map[string][]string{
 	"read":      {"Read"},
 	"webfetch":  {"FetchUrl"},
 	"websearch": {"WebSearch"},
-	"write":     {"Create"},
+	"write":     {"Create", "Edit"},
 }
 
 type renderedAgentRole struct {
