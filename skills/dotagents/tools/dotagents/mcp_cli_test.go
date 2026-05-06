@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+const mcpTestNodeCommand = "node"
 
 func writeTestDotagentsConfig(t *testing.T, path string) {
 	t.Helper()
@@ -114,7 +117,7 @@ func TestMCPCLIImport(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(claudePath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(claudePath, []byte(`{"mcpServers":{"imported":{"command":"node","args":["server.js"],"env":{"TOKEN":"secret"}}}}`), 0o644); err != nil {
+	if err := os.WriteFile(claudePath, []byte(fmt.Sprintf(`{"mcpServers":{"imported":{"command":%q,"args":["server.js"],"env":{"TOKEN":"secret"}}}}`, mcpTestNodeCommand)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -129,7 +132,7 @@ func TestMCPCLIImport(t *testing.T) {
 		t.Fatalf("MCP server count = %d, want 1", len(cfg.MCPServers))
 	}
 	server := cfg.MCPServers[0]
-	if server.Name != "imported" || server.Command != "node" || !stringSlicesEqual(server.Args, []string{"server.js"}) {
+	if server.Name != "imported" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"server.js"}) {
 		t.Fatalf("unexpected imported server: %#v", server)
 	}
 	if !stringSlicesEqual(server.Agents, []string{"codex", "hermes"}) {
@@ -153,8 +156,8 @@ func TestMCPCLIImportCodexMultiline(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(codexPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(codexPath, []byte(`[mcp_servers.foo]
-command = "node"
+	if err := os.WriteFile(codexPath, []byte(fmt.Sprintf(`[mcp_servers.foo]
+command = %q
 args = [
   "server.js",
   "--flag",
@@ -163,7 +166,7 @@ env = {
   TOKEN = "secret",
   EXISTING = "${EXISTING_TOKEN}",
 }
-`), 0o644); err != nil {
+`, mcpTestNodeCommand)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -178,7 +181,7 @@ env = {
 		t.Fatalf("MCP server count = %d, want 1", len(cfg.MCPServers))
 	}
 	server := cfg.MCPServers[0]
-	if server.Name != "foo" || server.Command != "node" || !stringSlicesEqual(server.Args, []string{"server.js", "--flag"}) {
+	if server.Name != "foo" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"server.js", "--flag"}) {
 		t.Fatalf("unexpected imported server: %#v", server)
 	}
 	if server.Env["TOKEN"] != "${TOKEN}" {
