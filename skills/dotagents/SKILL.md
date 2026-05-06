@@ -18,6 +18,10 @@ go run ./skills/dotagents/tools/dotagents sync                 # sync skill syml
 go run ./skills/dotagents/tools/dotagents pull                 # git pull + sync (for cron)
 go run ./skills/dotagents/tools/dotagents cron --interval 30m  # install auto-pull crontab
 go run ./skills/dotagents/tools/dotagents cron --remove        # remove crontab entry
+go run ./skills/dotagents/tools/dotagents mcp list             # list canonical managed MCPs
+go run ./skills/dotagents/tools/dotagents mcp add local --command uvx --arg pkg@latest
+go run ./skills/dotagents/tools/dotagents mcp import claude-code local
+go run ./skills/dotagents/tools/dotagents mcp remove local
 ```
 
 Limit a run to specific agents:
@@ -47,7 +51,15 @@ Reports sync state for each detected agent. Agents whose binary is not on PATH s
 
 Creates, updates, or removes skill symlinks in each detected agent's skill root for agents that use managed mirrors. Non-repo skills are reported as `external` and left untouched. Hermes is special-cased: `sync` verifies the `skills.external_dirs` integration and does not try to mirror repo skills into `~/.hermes/skills`.
 
-For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone.
+For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `skills/dotagents/dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target all configured agents with MCP support (`claude-code`, `codex`, `hermes`, `droid`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
+
+```bash
+go run ./skills/dotagents/tools/dotagents mcp list
+go run ./skills/dotagents/tools/dotagents mcp add local --command uvx --arg pkg@latest --env KEY=value
+go run ./skills/dotagents/tools/dotagents mcp import claude-code local --agents=codex,hermes,droid
+go run ./skills/dotagents/tools/dotagents sync
+go run ./skills/dotagents/tools/dotagents mcp remove local
+```
 
 ### pull
 

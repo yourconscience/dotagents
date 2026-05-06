@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -15,20 +16,75 @@ type mcpServerConfig struct {
 	Name    string            `yaml:"name"`
 	Enabled bool              `yaml:"enabled"`
 	Command string            `yaml:"command"`
-	Args    []string          `yaml:"args"`
-	Env     map[string]string `yaml:"env"`
+	Args    []string          `yaml:"args,omitempty"`
+	Env     map[string]string `yaml:"env,omitempty"`
 	Agents  []string          `yaml:"agents"`
+}
+
+type mcpTarget struct {
+	agentName  string
+	configPath func(home string) string
+	inspect    func(mcpTarget, mcpServerConfig, string) (string, error)
+	patch      func(mcpTarget, mcpServerConfig, string) error
+	read       func(mcpTarget, string, string) (mcpServerConfig, error)
+	rootKey    string
+	defaults   map[string]interface{}
 }
 
 const yamlMapTag = "!!map"
 
+var mcpTargets = map[string]mcpTarget{
+	agentClaudeCode: {
+		agentName:  agentClaudeCode,
+		configPath: func(home string) string { return filepath.Join(home, ".claude", "settings.json") },
+		inspect:    inspectJSONMCPServer,
+		patch:      patchJSONMCPServer,
+		read:       readJSONMCPServer,
+		rootKey:    "mcpServers",
+	},
+	agentDroid: {
+		agentName:  agentDroid,
+		configPath: func(home string) string { return filepath.Join(home, ".factory", "mcp.json") },
+		inspect:    inspectJSONMCPServer,
+		patch:      patchJSONMCPServer,
+		read:       readJSONMCPServer,
+		rootKey:    "mcpServers",
+		defaults: map[string]interface{}{
+			"type":     "stdio",
+			"disabled": false,
+		},
+	},
+	agentHermes: {
+		agentName:  agentHermes,
+		configPath: func(home string) string { return filepath.Join(home, ".hermes", "config.yaml") },
+		inspect:    inspectYAMLMCPServer,
+		patch:      patchYAMLMCPServer,
+		read:       readYAMLMCPServer,
+		rootKey:    "mcp_servers",
+	},
+	agentCodex: {
+		agentName:  agentCodex,
+		configPath: func(home string) string { return filepath.Join(home, ".codex", "config.toml") },
+		inspect:    inspectCodexMCPServer,
+		patch:      patchCodexMCPServer,
+		read:       readCodexMCPServer,
+	},
+}
+
 func desiredMCPServersForAgent(cfg config, agentName string) []mcpServerConfig {
 	var servers []mcpServerConfig
+	agentName = normalizeAgentName(agentName)
 	for _, server := range cfg.MCPServers {
 		if !server.Enabled {
 			continue
 		}
-		if len(server.Agents) == 0 || stringInSlice(agentName, server.Agents) {
+		if len(server.Agents) == 0 {
+			if _, ok := mcpTargets[agentName]; ok {
+				servers = append(servers, server)
+			}
+			continue
+		}
+		if stringInSlice(agentName, server.Agents) {
 			servers = append(servers, server)
 		}
 	}
@@ -85,165 +141,40 @@ func applyAgentMCPSync(reports []agentReport, cfg config, home string) error {
 }
 
 func inspectMCPServer(agentName string, server mcpServerConfig, home string) (string, error) {
-	switch agentName {
-	case agentClaudeCode:
-		return inspectClaudeMCPServer(server, home)
-	case agentCodex:
-		return inspectCodexMCPServer(server, home)
-	case agentHermes:
-		return inspectHermesMCPServer(server, home)
-	case agentDroid:
-		return inspectDroidMCPServer(server, home)
-	default:
-		return stateMissing, nil
+	target, err := mcpTargetForAgent(agentName)
+	if err != nil {
+		return stateMissing, err
 	}
+	return target.inspect(target, server, home)
 }
 
 func patchMCPServer(agentName string, server mcpServerConfig, home string) error {
-	switch agentName {
-	case agentClaudeCode:
-		return patchClaudeMCPServer(server, home)
-	case agentCodex:
-		return patchCodexMCPServer(server, home)
-	case agentHermes:
-		return patchHermesMCPServer(server, home)
-	case agentDroid:
-		return patchDroidMCPServer(server, home)
-	default:
-		return nil
+	target, err := mcpTargetForAgent(agentName)
+	if err != nil {
+		return err
 	}
+	return target.patch(target, server, home)
 }
 
-func inspectClaudeMCPServer(server mcpServerConfig, home string) (string, error) {
-	configPath := filepath.Join(home, ".claude", "settings.json")
-	data, err := os.ReadFile(configPath)
+func readNativeMCPServer(agentName string, name string, home string) (mcpServerConfig, error) {
+	target, err := mcpTargetForAgent(agentName)
 	if err != nil {
-		return stateMissing, fmt.Errorf("read %s: %w", configPath, err)
+		return mcpServerConfig{}, err
 	}
-
-	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return stateMissing, fmt.Errorf("parse %s: %w", configPath, err)
-	}
-
-	serversRaw, ok := raw["mcpServers"]
-	if !ok {
-		return stateMissing, nil
-	}
-	serversMap, ok := asMap(serversRaw)
-	if !ok {
-		return stateDrifted, nil
-	}
-	entryRaw, ok := serversMap[server.Name]
-	if !ok {
-		return stateMissing, nil
-	}
-	entry, ok := asMap(entryRaw)
-	if !ok {
-		return stateDrifted, nil
-	}
-	if matchManagedMCPMap(entry, server) {
-		return stateSynced, nil
-	}
-	return stateDrifted, nil
+	return target.read(target, name, home)
 }
 
-func patchClaudeMCPServer(server mcpServerConfig, home string) error {
-	configPath := filepath.Join(home, ".claude", "settings.json")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", configPath, err)
+func mcpTargetForAgent(agentName string) (mcpTarget, error) {
+	name := normalizeAgentName(agentName)
+	target, ok := mcpTargets[name]
+	if !ok {
+		return mcpTarget{}, fmt.Errorf("unsupported MCP target agent %q", name)
 	}
-
-	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return fmt.Errorf("parse %s: %w", configPath, err)
-	}
-
-	serversMap, _ := asMap(raw["mcpServers"])
-	if serversMap == nil {
-		serversMap = map[string]interface{}{}
-		raw["mcpServers"] = serversMap
-	}
-	entry, _ := asMap(serversMap[server.Name])
-	if entry == nil {
-		entry = map[string]interface{}{}
-	}
-	applyManagedMCPMap(entry, server)
-	serversMap[server.Name] = entry
-
-	out, err := json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal %s: %w", configPath, err)
-	}
-	out = append(out, '\n')
-	if err := os.WriteFile(configPath, out, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", configPath, err)
-	}
-	return nil
+	return target, nil
 }
 
-func inspectHermesMCPServer(server mcpServerConfig, home string) (string, error) {
-	configPath := filepath.Join(home, ".hermes", "config.yaml")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return stateMissing, fmt.Errorf("read %s: %w", configPath, err)
-	}
-
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return stateMissing, fmt.Errorf("parse %s: %w", configPath, err)
-	}
-
-	serversRaw, ok := raw["mcp_servers"]
-	if !ok {
-		return stateMissing, nil
-	}
-	serversMap, ok := asMap(serversRaw)
-	if !ok {
-		return stateDrifted, nil
-	}
-	entryRaw, ok := serversMap[server.Name]
-	if !ok {
-		return stateMissing, nil
-	}
-	entry, ok := asMap(entryRaw)
-	if !ok {
-		return stateDrifted, nil
-	}
-	if matchManagedMCPMap(entry, server) {
-		return stateSynced, nil
-	}
-	return stateDrifted, nil
-}
-
-func patchHermesMCPServer(server mcpServerConfig, home string) error {
-	configPath := filepath.Join(home, ".hermes", "config.yaml")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", configPath, err)
-	}
-
-	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return fmt.Errorf("parse %s: %w", configPath, err)
-	}
-	if err := upsertHermesMCPNode(&doc, server); err != nil {
-		return fmt.Errorf("update %s: %w", configPath, err)
-	}
-
-	out, err := marshalYAMLNode(&doc)
-	if err != nil {
-		return fmt.Errorf("marshal %s: %w", configPath, err)
-	}
-	if err := os.WriteFile(configPath, out, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", configPath, err)
-	}
-	return nil
-}
-
-func inspectDroidMCPServer(server mcpServerConfig, home string) (string, error) {
-	configPath := filepath.Join(home, ".factory", "mcp.json")
+func inspectJSONMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {
+	configPath := target.configPath(home)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -256,31 +187,11 @@ func inspectDroidMCPServer(server mcpServerConfig, home string) (string, error) 
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return stateMissing, fmt.Errorf("parse %s: %w", configPath, err)
 	}
-
-	serversRaw, ok := raw["mcpServers"]
-	if !ok {
-		return stateMissing, nil
-	}
-	serversMap, ok := asMap(serversRaw)
-	if !ok {
-		return stateDrifted, nil
-	}
-	entryRaw, ok := serversMap[server.Name]
-	if !ok {
-		return stateMissing, nil
-	}
-	entry, ok := asMap(entryRaw)
-	if !ok {
-		return stateDrifted, nil
-	}
-	if matchDroidMCPMap(entry, server) {
-		return stateSynced, nil
-	}
-	return stateDrifted, nil
+	return inspectMapMCPServer(raw, target.rootKey, server, target.defaults), nil
 }
 
-func patchDroidMCPServer(server mcpServerConfig, home string) error {
-	configPath := filepath.Join(home, ".factory", "mcp.json")
+func patchJSONMCPServer(target mcpTarget, server mcpServerConfig, home string) error {
+	configPath := target.configPath(home)
 	data, err := os.ReadFile(configPath)
 	raw := map[string]interface{}{}
 	if err != nil {
@@ -290,18 +201,7 @@ func patchDroidMCPServer(server mcpServerConfig, home string) error {
 	} else if err := json.Unmarshal(data, &raw); err != nil {
 		return fmt.Errorf("parse %s: %w", configPath, err)
 	}
-
-	serversMap, _ := asMap(raw["mcpServers"])
-	if serversMap == nil {
-		serversMap = map[string]interface{}{}
-		raw["mcpServers"] = serversMap
-	}
-	entry, _ := asMap(serversMap[server.Name])
-	if entry == nil {
-		entry = map[string]interface{}{}
-	}
-	applyDroidMCPMap(entry, server)
-	serversMap[server.Name] = entry
+	upsertMapMCPServer(raw, target.rootKey, server, target.defaults)
 
 	out, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
@@ -317,13 +217,150 @@ func patchDroidMCPServer(server mcpServerConfig, home string) error {
 	return nil
 }
 
-func inspectCodexMCPServer(server mcpServerConfig, home string) (string, error) {
-	configPath := filepath.Join(home, ".codex", "config.toml")
+func readJSONMCPServer(target mcpTarget, name string, home string) (mcpServerConfig, error) {
+	configPath := target.configPath(home)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
+		return mcpServerConfig{}, fmt.Errorf("read %s: %w", configPath, err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return mcpServerConfig{}, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	entry, ok := mapMCPEntry(raw, target.rootKey, name)
+	if !ok {
+		return mcpServerConfig{}, fmt.Errorf("MCP server %q not found in %s", name, target.agentName)
+	}
+	if err := validateNativeDefaults(target, entry); err != nil {
+		return mcpServerConfig{}, err
+	}
+	return mcpServerFromMap(name, entry)
+}
+
+func inspectYAMLMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {
+	configPath := target.configPath(home)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return stateMissing, nil
+		}
 		return stateMissing, fmt.Errorf("read %s: %w", configPath, err)
 	}
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return stateMissing, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	return inspectMapMCPServer(raw, target.rootKey, server, target.defaults), nil
+}
 
+func patchYAMLMCPServer(target mcpTarget, server mcpServerConfig, home string) error {
+	configPath := target.configPath(home)
+	data, err := os.ReadFile(configPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read %s: %w", configPath, err)
+	}
+	var doc yaml.Node
+	if err == nil {
+		if err := yaml.Unmarshal(data, &doc); err != nil {
+			return fmt.Errorf("parse %s: %w", configPath, err)
+		}
+	}
+	if err := upsertYAMLMCPNode(&doc, target.rootKey, server, target.defaults); err != nil {
+		return fmt.Errorf("update %s: %w", configPath, err)
+	}
+	out, err := marshalYAMLNode(&doc)
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", configPath, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
+	}
+	if err := os.WriteFile(configPath, out, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", configPath, err)
+	}
+	return nil
+}
+
+func readYAMLMCPServer(target mcpTarget, name string, home string) (mcpServerConfig, error) {
+	configPath := target.configPath(home)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return mcpServerConfig{}, fmt.Errorf("read %s: %w", configPath, err)
+	}
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return mcpServerConfig{}, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	entry, ok := mapMCPEntry(raw, target.rootKey, name)
+	if !ok {
+		return mcpServerConfig{}, fmt.Errorf("MCP server %q not found in %s", name, target.agentName)
+	}
+	return mcpServerFromMap(name, entry)
+}
+
+func inspectMapMCPServer(raw map[string]interface{}, rootKey string, server mcpServerConfig, defaults map[string]interface{}) string {
+	serversRaw, ok := raw[rootKey]
+	if !ok {
+		return stateMissing
+	}
+	serversMap, ok := asMap(serversRaw)
+	if !ok {
+		return stateDrifted
+	}
+	entryRaw, ok := serversMap[server.Name]
+	if !ok {
+		return stateMissing
+	}
+	entry, ok := asMap(entryRaw)
+	if !ok {
+		return stateDrifted
+	}
+	if !matchManagedMCPMap(entry, server, defaults) {
+		return stateDrifted
+	}
+	return stateSynced
+}
+
+func mapMCPEntry(raw map[string]interface{}, rootKey string, name string) (map[string]interface{}, bool) {
+	serversRaw, ok := raw[rootKey]
+	if !ok {
+		return nil, false
+	}
+	serversMap, ok := asMap(serversRaw)
+	if !ok {
+		return nil, false
+	}
+	entryRaw, ok := serversMap[name]
+	if !ok {
+		return nil, false
+	}
+	entry, ok := asMap(entryRaw)
+	return entry, ok
+}
+
+func upsertMapMCPServer(raw map[string]interface{}, rootKey string, server mcpServerConfig, defaults map[string]interface{}) {
+	serversMap, _ := asMap(raw[rootKey])
+	if serversMap == nil {
+		serversMap = map[string]interface{}{}
+		raw[rootKey] = serversMap
+	}
+	entry, _ := asMap(serversMap[server.Name])
+	if entry == nil {
+		entry = map[string]interface{}{}
+	}
+	applyManagedMCPMap(entry, server, defaults)
+	serversMap[server.Name] = entry
+}
+
+func inspectCodexMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {
+	configPath := target.configPath(home)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return stateMissing, nil
+		}
+		return stateMissing, fmt.Errorf("read %s: %w", configPath, err)
+	}
 	block, ok := extractTOMLSection(string(data), fmt.Sprintf("[mcp_servers.%s]", server.Name))
 	if !ok {
 		return stateMissing, nil
@@ -334,24 +371,56 @@ func inspectCodexMCPServer(server mcpServerConfig, home string) (string, error) 
 	return stateDrifted, nil
 }
 
-func patchCodexMCPServer(server mcpServerConfig, home string) error {
-	configPath := filepath.Join(home, ".codex", "config.toml")
+func patchCodexMCPServer(target mcpTarget, server mcpServerConfig, home string) error {
+	configPath := target.configPath(home)
 	data, err := os.ReadFile(configPath)
+	content := ""
 	if err != nil {
-		return fmt.Errorf("read %s: %w", configPath, err)
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("read %s: %w", configPath, err)
+		}
+	} else {
+		content = string(data)
 	}
-
-	content := string(data)
 	header := fmt.Sprintf("[mcp_servers.%s]", server.Name)
 	section := renderCodexMCPSection(server)
 	updated := upsertTOMLSection(content, header, section)
 	if updated == content {
 		return nil
 	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
+	}
 	if err := os.WriteFile(configPath, []byte(updated), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", configPath, err)
 	}
 	return nil
+}
+
+func readCodexMCPServer(target mcpTarget, name string, home string) (mcpServerConfig, error) {
+	configPath := target.configPath(home)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return mcpServerConfig{}, fmt.Errorf("read %s: %w", configPath, err)
+	}
+	block, ok := extractTOMLSection(string(data), fmt.Sprintf("[mcp_servers.%s]", name))
+	if !ok {
+		return mcpServerConfig{}, fmt.Errorf("MCP server %q not found in %s", name, target.agentName)
+	}
+	values := parseTOMLBlockValues(block)
+	command, err := parseTOMLString(values["command"])
+	if err != nil || strings.TrimSpace(command) == "" {
+		return mcpServerConfig{}, fmt.Errorf("MCP server %q in %s has no stdio command", name, target.agentName)
+	}
+	args, err := parseTOMLStringArray(values["args"])
+	if err != nil {
+		return mcpServerConfig{}, fmt.Errorf("parse args for %s/%s: %w", target.agentName, name, err)
+	}
+	env, err := parseTOMLEnvInline(values["env"])
+	if err != nil {
+		return mcpServerConfig{}, fmt.Errorf("parse env for %s/%s: %w", target.agentName, name, err)
+	}
+	return mcpServerConfig{Name: name, Enabled: true, Command: command, Args: args, Env: env}, nil
 }
 
 func renderCodexMCPSection(server mcpServerConfig) string {
@@ -366,21 +435,7 @@ func renderCodexMCPSection(server mcpServerConfig) string {
 }
 
 func tomlBlockMatchesManagedMCP(block string, server mcpServerConfig) bool {
-	lines := strings.Split(block, "\n")
-	values := make(map[string]string)
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "[") {
-			continue
-		}
-		parts := strings.SplitN(trimmed, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-		values[key] = value
-	}
+	values := parseTOMLBlockValues(block)
 	if values["command"] != fmt.Sprintf("%q", server.Command) {
 		return false
 	}
@@ -391,6 +446,91 @@ func tomlBlockMatchesManagedMCP(block string, server mcpServerConfig) bool {
 		return false
 	}
 	return true
+}
+
+func parseTOMLBlockValues(block string) map[string]string {
+	values := make(map[string]string)
+	var currentKey string
+	var currentValue strings.Builder
+	for _, line := range strings.Split(block, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "[") {
+			continue
+		}
+		if currentKey != "" {
+			if currentValue.Len() > 0 {
+				currentValue.WriteString("\n")
+			}
+			currentValue.WriteString(trimmed)
+			if tomlValueComplete(currentValue.String()) {
+				values[currentKey] = strings.TrimSpace(currentValue.String())
+				currentKey = ""
+				currentValue.Reset()
+			}
+			continue
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if tomlValueComplete(value) {
+			values[key] = value
+			continue
+		}
+		currentKey = key
+		currentValue.WriteString(value)
+	}
+	if currentKey != "" {
+		values[currentKey] = strings.TrimSpace(currentValue.String())
+	}
+	return values
+}
+
+func tomlValueComplete(raw string) bool {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return true
+	}
+	if strings.HasPrefix(trimmed, "[") && !balancedTOMLDelimiters(trimmed, '[', ']') {
+		return false
+	}
+	if strings.HasPrefix(trimmed, "{") && !balancedTOMLDelimiters(trimmed, '{', '}') {
+		return false
+	}
+	return true
+}
+
+func balancedTOMLDelimiters(raw string, open rune, close rune) bool {
+	depth := 0
+	inString := false
+	escaped := false
+	for _, r := range raw {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if r == '\\' && inString {
+			escaped = true
+			continue
+		}
+		if r == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		if r == open {
+			depth++
+			continue
+		}
+		if r == close {
+			depth--
+		}
+	}
+	return depth <= 0
 }
 
 func extractTOMLSection(content string, header string) (string, bool) {
@@ -512,7 +652,109 @@ func renderTOMLEnvInline(env map[string]string) string {
 	return "{ " + strings.Join(parts, ", ") + " }"
 }
 
-func matchManagedMCPMap(entry map[string]interface{}, server mcpServerConfig) bool {
+func parseTOMLString(raw string) (string, error) {
+	if raw == "" {
+		return "", fmt.Errorf("empty string")
+	}
+	return strconv.Unquote(raw)
+}
+
+func parseTOMLStringArray(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	trimmed := strings.TrimSpace(raw)
+	if !strings.HasPrefix(trimmed, "[") || !strings.HasSuffix(trimmed, "]") {
+		return nil, fmt.Errorf("expected string array")
+	}
+	body := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(trimmed, "["), "]"))
+	if body == "" {
+		return nil, nil
+	}
+	parts := splitCommaSeparated(body)
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		item, err := strconv.Unquote(part)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func parseTOMLEnvInline(raw string) (map[string]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	trimmed := strings.TrimSpace(raw)
+	if !strings.HasPrefix(trimmed, "{") || !strings.HasSuffix(trimmed, "}") {
+		return nil, fmt.Errorf("expected inline table")
+	}
+	body := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(trimmed, "{"), "}"))
+	if body == "" {
+		return nil, nil
+	}
+	env := make(map[string]string)
+	for _, part := range splitCommaSeparated(body) {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			return nil, fmt.Errorf("expected key = value")
+		}
+		key := strings.TrimSpace(kv[0])
+		value, err := strconv.Unquote(strings.TrimSpace(kv[1]))
+		if err != nil {
+			return nil, err
+		}
+		env[key] = value
+	}
+	return env, nil
+}
+
+func splitCommaSeparated(raw string) []string {
+	var parts []string
+	var current strings.Builder
+	inString := false
+	escaped := false
+	for _, r := range raw {
+		if escaped {
+			current.WriteRune(r)
+			escaped = false
+			continue
+		}
+		if r == '\\' && inString {
+			current.WriteRune(r)
+			escaped = true
+			continue
+		}
+		if r == '"' {
+			inString = !inString
+			current.WriteRune(r)
+			continue
+		}
+		if r == ',' && !inString {
+			parts = append(parts, strings.TrimSpace(current.String()))
+			current.Reset()
+			continue
+		}
+		current.WriteRune(r)
+	}
+	parts = append(parts, strings.TrimSpace(current.String()))
+	return parts
+}
+
+func matchManagedMCPMap(entry map[string]interface{}, server mcpServerConfig, defaults map[string]interface{}) bool {
+	if err := validateNativeDefaults(mcpTarget{defaults: defaults}, entry); err != nil {
+		return false
+	}
 	command, _ := entry["command"].(string)
 	if command != server.Command {
 		return false
@@ -537,25 +779,7 @@ func matchManagedMCPMap(entry map[string]interface{}, server mcpServerConfig) bo
 	return true
 }
 
-func matchDroidMCPMap(entry map[string]interface{}, server mcpServerConfig) bool {
-	serverType, _ := entry["type"].(string)
-	if serverType != "stdio" {
-		return false
-	}
-	disabled, ok := entry["disabled"].(bool)
-	if !ok || disabled {
-		return false
-	}
-	return matchManagedMCPMap(entry, server)
-}
-
-func applyDroidMCPMap(entry map[string]interface{}, server mcpServerConfig) {
-	applyManagedMCPMap(entry, server)
-	entry["type"] = "stdio"
-	entry["disabled"] = false
-}
-
-func applyManagedMCPMap(entry map[string]interface{}, server mcpServerConfig) {
+func applyManagedMCPMap(entry map[string]interface{}, server mcpServerConfig, defaults map[string]interface{}) {
 	entry["command"] = server.Command
 	args := make([]interface{}, 0, len(server.Args))
 	for _, arg := range server.Args {
@@ -572,6 +796,46 @@ func applyManagedMCPMap(entry map[string]interface{}, server mcpServerConfig) {
 		}
 		entry["env"] = envMap
 	}
+	for key, value := range defaults {
+		entry[key] = value
+	}
+}
+
+func mcpServerFromMap(name string, entry map[string]interface{}) (mcpServerConfig, error) {
+	command, _ := entry["command"].(string)
+	if strings.TrimSpace(command) == "" {
+		return mcpServerConfig{}, fmt.Errorf("MCP server %q has no stdio command", name)
+	}
+	args, ok := toStringSlice(entry["args"])
+	if !ok {
+		args = nil
+	}
+	env := map[string]string(nil)
+	if envRaw, ok := entry["env"]; ok {
+		envMap, ok := asMap(envRaw)
+		if !ok {
+			return mcpServerConfig{}, fmt.Errorf("MCP server %q env is not a map", name)
+		}
+		env = make(map[string]string, len(envMap))
+		for key, value := range envMap {
+			str, ok := value.(string)
+			if !ok {
+				return mcpServerConfig{}, fmt.Errorf("MCP server %q env %s is not a string", name, key)
+			}
+			env[key] = str
+		}
+	}
+	return mcpServerConfig{Name: name, Enabled: true, Command: command, Args: args, Env: env}, nil
+}
+
+func validateNativeDefaults(target mcpTarget, entry map[string]interface{}) error {
+	for key, expected := range target.defaults {
+		actual, ok := entry[key]
+		if !ok || actual != expected {
+			return fmt.Errorf("MCP server is not supported stdio shape: %s must be %v", key, expected)
+		}
+	}
+	return nil
 }
 
 func asMap(v interface{}) (map[string]interface{}, bool) {
@@ -595,6 +859,8 @@ func asMap(v interface{}) (map[string]interface{}, bool) {
 
 func toStringSlice(v interface{}) ([]string, bool) {
 	switch t := v.(type) {
+	case nil:
+		return nil, true
 	case []string:
 		return append([]string{}, t...), true
 	case []interface{}:
@@ -624,7 +890,7 @@ func stringSlicesEqual(a []string, b []string) bool {
 	return true
 }
 
-func upsertHermesMCPNode(doc *yaml.Node, server mcpServerConfig) error {
+func upsertYAMLMCPNode(doc *yaml.Node, rootKey string, server mcpServerConfig, defaults map[string]interface{}) error {
 	root := doc
 	if root.Kind == 0 {
 		root.Kind = yaml.DocumentNode
@@ -640,13 +906,16 @@ func upsertHermesMCPNode(doc *yaml.Node, server mcpServerConfig) error {
 		return fmt.Errorf("top-level YAML node is not a mapping")
 	}
 
-	serversNode := ensureMappingValue(mapping, "mcp_servers")
+	serversNode := ensureMappingValue(mapping, rootKey)
 	entryNode := ensureMappingValue(serversNode, server.Name)
 	setMappingString(entryNode, "command", server.Command)
 	setMappingStringSlice(entryNode, "args", server.Args)
 	if len(server.Env) > 0 {
 		envNode := ensureMappingValue(entryNode, "env")
 		setMappingStringMap(envNode, server.Env)
+	}
+	for key, value := range defaults {
+		setMappingScalar(entryNode, key, value)
 	}
 	return nil
 }
@@ -688,21 +957,18 @@ func ensureMappingValue(mapping *yaml.Node, key string) *yaml.Node {
 }
 
 func setMappingString(mapping *yaml.Node, key string, value string) {
-	if mapping.Kind != yaml.MappingNode {
-		mapping.Kind = yaml.MappingNode
-		mapping.Tag = yamlMapTag
-		mapping.Content = nil
+	setMappingNode(mapping, key, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value})
+}
+
+func setMappingScalar(mapping *yaml.Node, key string, value interface{}) {
+	switch t := value.(type) {
+	case bool:
+		setMappingNode(mapping, key, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: strconv.FormatBool(t)})
+	case string:
+		setMappingString(mapping, key, t)
+	default:
+		setMappingString(mapping, key, fmt.Sprint(t))
 	}
-	for i := 0; i+1 < len(mapping.Content); i += 2 {
-		if mapping.Content[i].Value == key {
-			mapping.Content[i+1] = &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value}
-			return
-		}
-	}
-	mapping.Content = append(mapping.Content,
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value},
-	)
 }
 
 func setMappingStringSlice(mapping *yaml.Node, key string, values []string) {
