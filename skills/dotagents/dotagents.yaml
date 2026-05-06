@@ -14,6 +14,11 @@ agents:
     enabled: true
     detect: hermes
     skill_root: ~/.hermes/skills
+  - name: droid
+    enabled: true
+    detect: droid
+    skill_root: ~/.factory/skills
+    agent_root: ~/.factory/droids
   - name: openclaw
     enabled: true
     detect: openclaw
