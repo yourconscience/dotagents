@@ -2,7 +2,7 @@
 
 Private repo for my shared authored `~/.agents` layer.
 
-This repo is under active development and currently holds shared rules, cross-tool skills, and small agent-native config parity such as managed MCP entries for Claude Code, Codex, Hermes Agent, and OpenClaw.
+This repo is under active development and currently holds shared rules, cross-tool skills, and small agent-native config parity such as managed MCP entries for Claude Code, Codex, Hermes Agent, Factory Droid, and OpenClaw.
 
 ## Agent instructions
 
@@ -14,6 +14,7 @@ Reusable agent role definitions for agent-native subagents. Canonical roles live
 
 - Claude Code: `~/.claude/agents/<name>.md`
 - Codex: `~/.codex/agents/<name>.toml`
+- Factory Droid: `~/.factory/droids/<name>.md`
 
 - `architect` - designs system architecture, telemetry schemas, and technical plans. Sonnet, read + write.
 - `builder` - implements code changes following specs or architect designs. Sonnet, read + write.

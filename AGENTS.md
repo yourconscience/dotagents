@@ -41,6 +41,7 @@ OpenClaw: ask plain text (no structured question tool).
 Commit messages must be short single lines - no multi-line bodies unless explicitly requested.
 Use the user's configured git identity for all commits and pushes - never override git config, never include "Co-Authored-By" lines in commit messages or PR descriptions.
 For PR work, check the user's existing comments and review state before taking autonomous action on review feedback.
+When pushing branches or changes to the user's repositories, use the `/pr-triage` skill workflow by default: publish through a PR, inspect CI and review threads, fix valid bot feedback, and stop before merge unless explicitly approved.
 Never post GitHub issue or PR comments directly via `gh` by default (exception: replies to bot comments like Gemini / Claude / Copilot can go direct). Write the draft, `pbcopy` it, then `open` the issue/PR URL in the browser - the user reviews and submits from there.
 
 # Canonical stores

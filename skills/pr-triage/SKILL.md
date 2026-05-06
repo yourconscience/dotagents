@@ -164,26 +164,39 @@ git commit -m "fix: address PR review feedback"
 ```bash
 git push
 ```
-5) Wait for new bot reviews to arrive. A push triggers fresh review rounds from CodeRabbit, Gemini, etc. that take 30-90 seconds. Enforce a minimum 60s wait, then poll until the comment count is stable for 2 consecutive polls, or 3 minutes max:
+5) Wait for new bot reviews to fully arrive before inspecting or resolving threads. A push triggers fresh review rounds from CodeRabbit, Gemini, Codex, etc. that take 30-90 seconds. Enforce a minimum 60s wait, then poll a full PR review snapshot until it is stable for 2 consecutive polls, or about 3 minutes total. Do not resolve bot threads until this wait finishes and the full inspect step has run.
 ```bash
 sleep 30  # first mandatory 30s
-PREV_COUNT=$(gh api repos/$OWNER/$REPO/pulls/$PR/comments --jq 'length')
+snapshot_pr_reviews() {
+  gh api graphql \
+    -F owner="$OWNER" -F repo="$REPO" -F number="$PR" \
+    -f query='query($owner:String!, $repo:String!, $number:Int!){ repository(owner:$owner, name:$repo){ pullRequest(number:$number){ reviews(first:100){ totalCount nodes { submittedAt } } reviewThreads(first:100){ totalCount nodes { isResolved isOutdated comments(first:50){ totalCount nodes { createdAt } } } } } } }' \
+    --jq '.data.repository.pullRequest as $pr | {
+      reviews: $pr.reviews.totalCount,
+      latestReview: ([$pr.reviews.nodes[].submittedAt] | sort | last // ""),
+      threads: $pr.reviewThreads.totalCount,
+      threadComments: ([$pr.reviewThreads.nodes[].comments.totalCount] | add // 0),
+      latestThreadComment: ([$pr.reviewThreads.nodes[].comments.nodes[].createdAt] | sort | last // ""),
+      unresolvedActive: ([$pr.reviewThreads.nodes[] | select(.isResolved==false and .isOutdated==false)] | length)
+    } | @json'
+}
+PREV_SNAPSHOT=$(snapshot_pr_reviews)
 sleep 30  # second mandatory 30s (total >= 60s minimum)
 STABLE=0
 for i in 1 2 3 4; do
-  COUNT=$(gh api repos/$OWNER/$REPO/pulls/$PR/comments --jq 'length')
-  if [ "$COUNT" = "$PREV_COUNT" ]; then
+  SNAPSHOT=$(snapshot_pr_reviews)
+  if [ "$SNAPSHOT" = "$PREV_SNAPSHOT" ]; then
     STABLE=$((STABLE + 1))
     if [ "$STABLE" -ge 2 ]; then break; fi
   else
     STABLE=0
   fi
-  PREV_COUNT=$COUNT
+  PREV_SNAPSHOT=$SNAPSHOT
   [ "$i" -lt 4 ] && sleep 30
 done
 ```
 This applies after the initial push AND after every fix-push cycle.
-6) Re-run the full inspect step (checks + threads). Triage any new bot threads the same way. Repeat fix-push-wait-inspect if new valid issues are found, up to 3 cycles max to avoid infinite loops.
+6) Re-run the full inspect step (checks + threads). Triage any new bot threads the same way. After resolving bot threads, run the unresolved review threads query again and confirm no active bot threads remain. Repeat fix-push-wait-inspect if new valid issues are found, up to 3 cycles max to avoid infinite loops.
 
 ## Summary output
 

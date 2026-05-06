@@ -62,6 +62,39 @@ func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 	}
 }
 
+func TestRenderDroidAgentRoleMapsModelAndTools(t *testing.T) {
+	role := agentRole{
+		Name:         "builder",
+		Description:  "Builds features",
+		Model:        "sonnet",
+		Effort:       "high",
+		Tools:        []string{"Read", "Glob", "Grep", "Bash", "Write", "Edit", "WebFetch", "WebSearch"},
+		Instructions: "Implement the change.",
+	}
+
+	got := renderDroidAgentRole(role)
+	for _, want := range []string{
+		`name: "builder"`,
+		`description: "Builds features"`,
+		`model: "custom:gpt-5.5(medium)"`,
+		`reasoningEffort: "high"`,
+		`- "Read"`,
+		`- "Glob"`,
+		`- "Grep"`,
+		`- "Execute"`,
+		`- "Create"`,
+		`- "Edit"`,
+		`- "FetchUrl"`,
+		`- "WebSearch"`,
+		generatedAgentMarker,
+		"Implement the change.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("rendered Droid role missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestCodexModelFor(t *testing.T) {
 	tests := map[string]string{
 		"":           "gpt-5.4",
@@ -74,6 +107,48 @@ func TestCodexModelFor(t *testing.T) {
 	for input, want := range tests {
 		if got := codexModelFor(input); got != want {
 			t.Fatalf("codexModelFor(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestDroidModelFor(t *testing.T) {
+	tests := map[string]string{
+		"":           "inherit",
+		"sonnet":     "custom:gpt-5.5(medium)",
+		"opus":       "custom:gpt-5.5(high)",
+		"haiku":      "custom:gpt-5.5(low)",
+		"gpt-custom": "gpt-custom",
+	}
+
+	for input, want := range tests {
+		if got := droidModelFor(input); got != want {
+			t.Fatalf("droidModelFor(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestDroidToolsForMapsWriteToCreateAndEdit(t *testing.T) {
+	got := droidToolsFor([]string{"Write"})
+	want := []string{"Create", "Edit"}
+	if len(got) != len(want) {
+		t.Fatalf("droidToolsFor(Write) = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("droidToolsFor(Write) = %#v, want %#v", got, want)
+		}
+	}
+}
+
+func TestDroidToolsForFallsBackToReadOnlyWhenNoToolsMap(t *testing.T) {
+	got := droidToolsFor([]string{"NotebookEdit"})
+	want := []string{"Read", "LS", "Grep", "Glob"}
+	if len(got) != len(want) {
+		t.Fatalf("droidToolsFor(unmapped) = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("droidToolsFor(unmapped) = %#v, want %#v", got, want)
 		}
 	}
 }
