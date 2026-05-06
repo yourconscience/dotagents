@@ -127,6 +127,19 @@ func TestDroidModelFor(t *testing.T) {
 	}
 }
 
+func TestDroidToolsForMapsWriteToCreateAndEdit(t *testing.T) {
+	got := droidToolsFor([]string{"Write"})
+	want := []string{"Create", "Edit"}
+	if len(got) != len(want) {
+		t.Fatalf("droidToolsFor(Write) = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("droidToolsFor(Write) = %#v, want %#v", got, want)
+		}
+	}
+}
+
 func TestLoadAgentRoles(t *testing.T) {
 	repoRoot := t.TempDir()
 	agentsDir := filepath.Join(repoRoot, "agents")
