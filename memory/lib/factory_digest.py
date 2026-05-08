@@ -4,7 +4,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -32,7 +32,7 @@ def parse_timestamp(value: Optional[str]) -> datetime:
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             pass
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def content_to_text(content) -> str:
@@ -179,12 +179,14 @@ def ai_index_paths(ai_dir: Path):
 
 def reindex(notes_dir: str, profile_dir: str, ai_dir: Path, collection: str):
     paths = [notes_dir, profile_dir, *ai_index_paths(ai_dir)]
-    subprocess.run(
+    result = subprocess.run(
         ["memsearch", "index", *paths, "--collection", collection],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
         check=False,
     )
+    if result.returncode != 0:
+        print(f"memsearch reindex warning: {result.stderr.strip()}", file=sys.stderr)
 
 
 def main():
