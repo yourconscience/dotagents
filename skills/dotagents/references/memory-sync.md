@@ -49,15 +49,15 @@ for f in new_facts:
 
 ## Hook approval loop
 
-- Hook scripts at `~/.agents/bin/memsearch/` require first-use TTY approval.
+- Hook scripts at `~/.agents/memory/hooks/` require first-use TTY approval.
 - `hermes hooks doctor` reports `script modified since approval` when mtime drifts — requires `hermes hooks revoke <command>`, then re-approve at next session-end TTY prompt.
 - `--accept-hooks` flag applies only to the current `hermes hooks test` invocation, does NOT persist approval.
 - Hook approval is stored in `~/.hermes/shell-hooks-allowlist.json`.
-- The allowlist matches the **exact command string** from `config.yaml`. If the config says `finalize.sh` but the allowlist has `hermes-finalize.sh`, the hook won't fire even if `hermes-finalize.sh` is a wrapper that calls `finalize.sh`.
+- The allowlist matches the **exact command string** from `config.yaml`.
 
 ## sync.py architecture
 
-`~/.agents/bin/memsearch/sync.py` does bidirectional sync:
+`~/.agents/memory/lib/sync.py` does bidirectional sync:
 
 | Direction | Source → Target | What moves |
 |-----------|----------------|------------|
@@ -106,7 +106,7 @@ Preferred repair when a TTY is available:
 
 Known-good wrapper shape:
 - `set -u`, not `set -eu`, so the wrapper can serialize a non-zero child exit into JSON before exiting with that status.
-- Capture `python3 ~/.agents/bin/memsearch/sync.py <direction>` stdout+stderr to a temp file.
+- Capture `python3 ~/.agents/memory/lib/sync.py <direction>` stdout+stderr to a temp file.
 - Echo captured logs to stderr for debugging.
 - Print exactly one JSON object to stdout: `{"action":"continue","message":"...","exit_code":0}`.
 - Exit with the child status.

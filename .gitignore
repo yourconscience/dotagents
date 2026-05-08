@@ -4,12 +4,14 @@ tmp/
 # Local agent runtime state
 .omx/
 .claude/
+.skill-lock.json
+__pycache__/
 
 # Local binaries and generated data
 /dotagents
 memsearch.conf
-bin/memsearch/backfill/
-bin/memsearch/apply-local.sh
+memory/local/
+memory/apply-local.sh
 skills/jobs/data/
 skills/jobs/portals-scan
 skills/jobs/tools/portals-scan/portals-scan
