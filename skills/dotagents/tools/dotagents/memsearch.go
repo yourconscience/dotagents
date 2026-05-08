@@ -127,7 +127,7 @@ MEMSEARCH_COLLECTION="ai"
 		fmt.Printf("memory hooks: %s\n", filepath.Dir(hookSrc))
 	}
 
-	migrated, err := migrateLegacyMemoryHookPaths(home)
+	migrated, err := migrateLegacyMemoryHookPaths(home, repoRoot)
 	if err != nil {
 		return fmt.Errorf("migrate legacy hook paths: %w", err)
 	}
@@ -139,7 +139,7 @@ MEMSEARCH_COLLECTION="ai"
 	return nil
 }
 
-func migrateLegacyMemoryHookPaths(home string) (int, error) {
+func migrateLegacyMemoryHookPaths(home string, roots ...string) (int, error) {
 	homeAgents := filepath.Join(home, ".agents")
 	replacements := map[string]string{
 		"~/.agents/bin/memsearch/hook.sh session-start":                             "~/.agents/memory/hooks/session-start.sh",
@@ -164,6 +164,17 @@ func migrateLegacyMemoryHookPaths(home string) (int, error) {
 		filepath.Join(home, ".claude", "settings.json"),
 		filepath.Join(home, ".factory", "settings.json"),
 		filepath.Join(home, ".hermes", "config.yaml"),
+	}
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		paths = append(paths,
+			filepath.Join(root, ".claude", "settings.json"),
+			filepath.Join(root, ".claude", "settings.local.json"),
+			filepath.Join(root, ".factory", "settings.json"),
+			filepath.Join(root, ".factory", "settings.local.json"),
+		)
 	}
 	migrated := 0
 	for _, path := range paths {

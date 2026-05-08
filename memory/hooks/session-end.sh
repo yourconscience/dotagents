@@ -16,6 +16,7 @@ trap 'rm -f "$payload"' EXIT
 cat >"$payload"
 
 kind="$(python3 - "$payload" <<'PY'
+import os
 import json
 import sys
 from pathlib import Path
@@ -26,8 +27,8 @@ except Exception:
     print("unknown")
     raise SystemExit
 
-transcript = str(data.get("transcript_path") or "")
-if transcript and "/.factory/sessions/" in transcript and Path(transcript).suffix == ".jsonl":
+transcript = os.path.expanduser(str(data.get("transcript_path") or ""))
+if transcript and "/.factory/" in transcript and Path(transcript).suffix == ".jsonl":
     print("factory-jsonl")
 elif data.get("session_id") and not transcript:
     print("hermes-json")
