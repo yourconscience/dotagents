@@ -123,14 +123,21 @@ def update_daily_file(ai_dir: Path, data):
     return target
 
 
-def reindex(notes_dir: str, profile_dir: str, ai_dir: str, collection: str):
+def ai_index_paths(ai_dir: Path):
+    paths = []
+    for pattern in ("*.md", "*.markdown"):
+        paths.extend(str(p) for p in sorted(ai_dir.glob(pattern)) if p.is_file())
+    return paths
+
+
+def reindex(notes_dir: str, profile_dir: str, ai_dir: Path, collection: str):
     subprocess.run(
         [
             "memsearch",
             "index",
             notes_dir,
             profile_dir,
-            ai_dir,
+            *ai_index_paths(ai_dir),
             "--collection",
             collection,
         ],
@@ -163,7 +170,7 @@ def main():
     notes_dir = os.path.expanduser(os.environ.get("MEMSEARCH_NOTES_DIR", "~/Workspace/knowledge/notes"))
     profile_dir = os.path.expanduser(os.environ.get("MEMSEARCH_PROFILE_DIR", "~/Workspace/knowledge/profile"))
     collection = os.environ.get("MEMSEARCH_COLLECTION", "ai")
-    reindex(notes_dir, profile_dir, str(ai_dir), collection)
+    reindex(notes_dir, profile_dir, ai_dir, collection)
 
     print(json.dumps({
         "action": "continue",

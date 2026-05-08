@@ -98,7 +98,7 @@ func runMemsearchSetup(opts memsearchOptions) error {
 
 	// 4. Write config
 	conf := fmt.Sprintf(`# memsearch configuration (written by dotagents memsearch setup)
-# Source this file from hook.sh to get portable paths.
+# Source this file from memory hooks to get portable paths.
 MEMSEARCH_VAULT_DIR="%s"
 MEMSEARCH_AI_DIR="%s"
 MEMSEARCH_NOTES_DIR="%s"
@@ -115,20 +115,90 @@ MEMSEARCH_COLLECTION="ai"
 	}
 	fmt.Printf("config: %s\n", confPath)
 
-	// 5. Install hook.sh
+	// 5. Report hook path
 	repoRoot, _, _, _, err := loadContext(runOptions{})
 	if err != nil {
 		return fmt.Errorf("load context: %w", err)
 	}
-	hookSrc := filepath.Join(repoRoot, "bin", "memsearch", "hook.sh")
+	hookSrc := filepath.Join(repoRoot, "memory", "hooks", "session-end.sh")
 	if !hasFile(hookSrc) {
-		fmt.Printf("hook.sh: not found at %s (skipping)\n", hookSrc)
+		fmt.Printf("memory hooks: not found at %s (skipping)\n", hookSrc)
 	} else {
-		fmt.Printf("hook.sh: %s\n", hookSrc)
+		fmt.Printf("memory hooks: %s\n", filepath.Dir(hookSrc))
 	}
 
-	fmt.Println("\ndone. Claude Code hooks will read config from ~/.agents/memsearch.conf")
+	migrated, err := migrateLegacyMemoryHookPaths(home, repoRoot)
+	if err != nil {
+		return fmt.Errorf("migrate legacy hook paths: %w", err)
+	}
+	if migrated > 0 {
+		fmt.Printf("legacy hook paths: migrated %d config file(s)\n", migrated)
+	}
+
+	fmt.Println("\ndone. Memory hooks will read config from ~/.agents/memsearch.conf")
 	return nil
+}
+
+func migrateLegacyMemoryHookPaths(home string, roots ...string) (int, error) {
+	homeAgents := filepath.Join(home, ".agents")
+	replacements := map[string]string{
+		"~/.agents/bin/memsearch/hook.sh session-start":                             "~/.agents/memory/hooks/session-start.sh",
+		"~/.agents/bin/memsearch/hook.sh stop":                                      "~/.agents/memory/hooks/stop.sh",
+		"~/.agents/bin/memsearch/hook.sh session-end":                               "~/.agents/memory/hooks/session-end.sh",
+		filepath.Join(homeAgents, "bin", "memsearch", "hook.sh") + " session-start": filepath.Join(homeAgents, "memory", "hooks", "session-start.sh"),
+		filepath.Join(homeAgents, "bin", "memsearch", "hook.sh") + " stop":          filepath.Join(homeAgents, "memory", "hooks", "stop.sh"),
+		filepath.Join(homeAgents, "bin", "memsearch", "hook.sh") + " session-end":   filepath.Join(homeAgents, "memory", "hooks", "session-end.sh"),
+		"~/.agents/bin/memsearch/finalize.sh":                                       "~/.agents/memory/hooks/session-end.sh",
+		"~/.agents/bin/memsearch/hermes-finalize.sh":                                "~/.agents/memory/hooks/session-end.sh",
+		"~/.agents/bin/memsearch/sync.sh":                                           "~/.agents/memory/hooks/sync.sh",
+		"~/.agents/bin/memsearch/sync-memory-to-vault.sh":                           "~/.agents/memory/hooks/sync-memory-to-vault.sh",
+		"~/.agents/bin/memsearch/sync-vault-to-memory.sh":                           "~/.agents/memory/hooks/sync-vault-to-memory.sh",
+		filepath.Join(homeAgents, "bin", "memsearch", "finalize.sh"):                filepath.Join(homeAgents, "memory", "hooks", "session-end.sh"),
+		filepath.Join(homeAgents, "bin", "memsearch", "hermes-finalize.sh"):         filepath.Join(homeAgents, "memory", "hooks", "session-end.sh"),
+		filepath.Join(homeAgents, "bin", "memsearch", "sync.sh"):                    filepath.Join(homeAgents, "memory", "hooks", "sync.sh"),
+		filepath.Join(homeAgents, "bin", "memsearch", "sync-memory-to-vault.sh"):    filepath.Join(homeAgents, "memory", "hooks", "sync-memory-to-vault.sh"),
+		filepath.Join(homeAgents, "bin", "memsearch", "sync-vault-to-memory.sh"):    filepath.Join(homeAgents, "memory", "hooks", "sync-vault-to-memory.sh"),
+	}
+
+	paths := []string{
+		filepath.Join(home, ".claude", "settings.json"),
+		filepath.Join(home, ".factory", "settings.json"),
+		filepath.Join(home, ".hermes", "config.yaml"),
+	}
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		paths = append(paths,
+			filepath.Join(root, ".claude", "settings.json"),
+			filepath.Join(root, ".claude", "settings.local.json"),
+			filepath.Join(root, ".factory", "settings.json"),
+			filepath.Join(root, ".factory", "settings.local.json"),
+		)
+	}
+	migrated := 0
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return migrated, fmt.Errorf("read %s: %w", path, err)
+		}
+		text := string(data)
+		updated := text
+		for old, replacement := range replacements {
+			updated = strings.ReplaceAll(updated, old, replacement)
+		}
+		if updated == text {
+			continue
+		}
+		if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+			return migrated, fmt.Errorf("write %s: %w", path, err)
+		}
+		migrated++
+	}
+	return migrated, nil
 }
 
 func runMemsearchStatus() error {

@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 set -u
 
-CONF="${MEMSEARCH_CONF:-$HOME/.agents/memsearch.conf}"
-if [ -f "$CONF" ]; then
-  # shellcheck source=/dev/null
-  . "$CONF"
-fi
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/common.sh"
+load_memory_config
 
 TMP="$(mktemp)"
-python3 "$HOME/.agents/bin/memsearch/sync.py" vault-to-memory >"$TMP" 2>&1
+python3 "$MEMORY_DIR/lib/sync.py" memory-to-vault >"$TMP" 2>&1
 STATUS=$?
 OUTPUT="$(cat "$TMP")"
 rm -f "$TMP"
@@ -26,7 +23,7 @@ if len(message) > 500:
     message = message[:497] + "..."
 print(json.dumps({
     "action": "continue",
-    "message": message or "vault-to-memory sync completed",
+    "message": message or "memory-to-vault sync completed",
     "exit_code": status,
 }, ensure_ascii=False))
 PY
