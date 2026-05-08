@@ -8,10 +8,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-SESSION_MARKER_RE = re.compile(
-    r"<!-- droid-session:(?P<sid>[^:]+):start -->.*?<!-- droid-session:(?P=sid):end -->\n?",
-    re.DOTALL,
-)
 PATH_RE = re.compile(r"(?:~?/[^\s`'\"\\]+|/Users/[^\s`'\"\\]+|\./[^\s`'\"\\]+)")
 SECRET_RE = re.compile(
     r"(?i)\b((?:api[_-]?key|secret|token|password|authorization)\s*[:=]\s*)([^\s`'\"\\]{8,})"
@@ -162,9 +158,14 @@ def build_block(payload, transcript_path: Path, session, messages):
 
 def update_daily_file(ai_dir: Path, payload, transcript_path: Path, session, messages):
     block, started = build_block(payload, transcript_path, session, messages)
+    session_id = payload.get("session_id") or session.get("id") or transcript_path.stem
     target = ai_dir / f"{started.strftime('%Y-%m-%d')}.md"
     existing = target.read_text(encoding="utf-8") if target.exists() else ""
-    existing = SESSION_MARKER_RE.sub("", existing).rstrip()
+    marker_re = re.compile(
+        rf"<!-- droid-session:{re.escape(session_id)}:start -->.*?<!-- droid-session:{re.escape(session_id)}:end -->\n?",
+        re.DOTALL,
+    )
+    existing = marker_re.sub("", existing).rstrip()
     block = block.rstrip() + "\n"
     target.write_text((existing + "\n\n" + block if existing else block), encoding="utf-8")
     return target
