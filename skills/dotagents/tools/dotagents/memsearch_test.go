@@ -9,6 +9,7 @@ import (
 
 func TestMigrateLegacyMemoryHookPaths(t *testing.T) {
 	home := t.TempDir()
+	repo := t.TempDir()
 	agents := filepath.Join(home, ".agents")
 	files := map[string]string{
 		filepath.Join(home, ".claude", "settings.json"): `{
@@ -30,6 +31,16 @@ func TestMigrateLegacyMemoryHookPaths(t *testing.T) {
   on_session_start:
   - command: ~/.agents/bin/memsearch/sync-vault-to-memory.sh
 `,
+		filepath.Join(repo, ".claude", "settings.local.json"): `{
+  "hooks": {
+    "SessionEnd": [{"hooks": [{"command": "bash ` + filepath.Join(agents, "bin", "memsearch", "hook.sh") + ` session-end"}]}]
+  }
+}`,
+		filepath.Join(repo, ".factory", "settings.local.json"): `{
+  "hooks": {
+    "SessionEnd": [{"hooks": [{"command": "` + filepath.Join(agents, "bin", "memsearch", "finalize.sh") + `"}]}]
+  }
+}`,
 	}
 	for path, content := range files {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -40,12 +51,12 @@ func TestMigrateLegacyMemoryHookPaths(t *testing.T) {
 		}
 	}
 
-	migrated, err := migrateLegacyMemoryHookPaths(home)
+	migrated, err := migrateLegacyMemoryHookPaths(home, repo)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if migrated != 3 {
-		t.Fatalf("migrated = %d, want 3", migrated)
+	if migrated != 5 {
+		t.Fatalf("migrated = %d, want 5", migrated)
 	}
 
 	for path := range files {

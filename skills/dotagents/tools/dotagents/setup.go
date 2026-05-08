@@ -53,7 +53,7 @@ func runSetup(opts runOptions) error {
 	}
 	fmt.Println()
 
-	migrated, err := migrateLegacyMemoryHookPaths(home)
+	migrated, err := migrateLegacyMemoryHookPaths(home, repoRoot)
 	if err != nil {
 		fmt.Printf("memory hooks: legacy path migration failed: %v\n", err)
 	} else if migrated > 0 {
