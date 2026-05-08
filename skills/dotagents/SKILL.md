@@ -125,20 +125,20 @@ When cleaning committed Claude Code runtime artifacts, ignore `.claude/` wholesa
 
 ## Memory sync
 
-The dotagents repo also owns the Hermes memory ↔ knowledge vault sync pipeline at `~/.agents/bin/memsearch/`. This is separate from skill/MCP sync but lives in the same repo.
+The dotagents repo also owns the agent memory ↔ knowledge vault sync pipeline at `~/.agents/memory/`. This is separate from skill/MCP sync but lives in the same repo.
 
 Two scripts:
 
-- `finalize.sh` → `finalize.py`: Appends a session digest to `~/Workspace/knowledge/ai/YYYY-MM-DD.md` and reindexes memsearch. Fires on `on_session_finalize`.
-- `sync.sh` → `sync.py`: Bidirectional sync between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`~/Workspace/knowledge/`). Three modes: `memory-to-vault`, `vault-to-memory`, `both`.
+- `hooks/session-end.sh`: Appends a session digest to `~/Workspace/knowledge/ai/YYYY-MM-DD.md` and reindexes memsearch. Dispatches on hook payload shape for Claude Code, Droid, and Hermes.
+- `hooks/sync.sh` → `lib/sync.py`: Bidirectional sync between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`~/Workspace/knowledge/`). Three modes: `memory-to-vault`, `vault-to-memory`, `both`.
 
 The typical Hermes hook pipeline:
 
 ```yaml
 on_session_finalize:
-  - command: ~/.agents/bin/memsearch/finalize.sh
+  - command: ~/.agents/memory/hooks/session-end.sh
     timeout: 30
-  - command: ~/.agents/bin/memsearch/sync.sh
+  - command: ~/.agents/memory/hooks/sync.sh
     args:
     - memory-to-vault
     timeout: 15
