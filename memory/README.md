@@ -1,9 +1,15 @@
 # memory
 
-Agent-agnostic session memory hooks and vault sync. The durable abstraction is
-`memory/`; `memsearch` is the current indexing provider and remains an
-implementation detail behind `~/.agents/memsearch.conf` and the `memsearch`
-CLI.
+Agent-agnostic session memory for dotagents.
+
+This directory is designed to make AI session context durable across tools
+without tying the repo layout to any one agent or memory provider. Hook
+entrypoints capture compact session digests, sync selected memory facts into the
+knowledge vault, and keep the derived search index current.
+
+`memory/` is the stable abstraction. `memsearch` is the current indexing
+provider and should remain an implementation detail behind configuration and
+library code.
 
 ## Setup
 
@@ -12,76 +18,29 @@ uv tool install memsearch
 dotagents memsearch setup --vault ~/Workspace/knowledge
 ```
 
-This creates the vault directory structure, initializes git, and writes `~/.agents/memsearch.conf`.
+This creates the vault directories, initializes the vault as a git repo if
+needed, and writes the local memory-search configuration.
 
-## Hooks
+## Design
 
-Hook entrypoints live under `~/.agents/memory/hooks/`:
+- Keep lifecycle concepts generic: `session-start`, `stop`, `session-end`, and
+  sync.
+- Avoid per-agent directories unless an integration boundary forces them.
+- Prefer payload dispatch and small parser modules over duplicated hook
+  implementations.
+- Index durable summaries and curated vault content, not raw full transcripts.
+- Treat the search index as derived state; Markdown in the knowledge vault is
+  canonical.
 
-- `session-start.sh`
-- `stop.sh`
-- `session-end.sh`
-- `sync-memory-to-vault.sh`
-- `sync-vault-to-memory.sh`
+## Layout
 
-`session-end.sh` dispatches on hook payload shape for Claude Code, Droid, and
-Hermes instead of keeping separate per-agent hook directories.
+- `hooks/`: executable lifecycle hook entrypoints.
+- `lib/`: transcript digest, vault sync, and indexing helpers.
+- `AGENTS.md`: local rules for keeping this area agent-agnostic.
 
-## Hermes
+## Hook registration
 
-Configure in `~/.hermes/config.yaml`:
-```yaml
-hooks:
-  on_session_finalize:
-    - command: ~/.agents/memory/hooks/session-end.sh
-      timeout: 30
-    - command: ~/.agents/memory/hooks/sync-memory-to-vault.sh
-      timeout: 15
-  on_session_start:
-    - command: ~/.agents/memory/hooks/sync-vault-to-memory.sh
-      timeout: 15
-```
-
-First use requires normal Hermes shell-hook consent. `hermes hooks list` and `hermes hooks doctor` inspect the registration state.
-
-Configure in Claude Code settings:
-```json
-{
-  "hooks": {
-    "SessionStart": [{"command": "bash ~/.agents/memory/hooks/session-start.sh"}],
-    "Stop": [{"command": "bash ~/.agents/memory/hooks/stop.sh"}],
-    "SessionEnd": [{"command": "bash ~/.agents/memory/hooks/session-end.sh"}]
-  }
-}
-```
-
-Configure in Droid settings:
-```json
-{
-  "hooks": {
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/conscience/Workspace/dotagents/memory/hooks/session-end.sh",
-            "timeout": 60
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-## Config format
-
-`~/.agents/memsearch.conf` (shell-sourceable):
-```bash
-MEMSEARCH_VAULT_DIR="$HOME/Workspace/knowledge"
-MEMSEARCH_AI_DIR="$HOME/Workspace/knowledge/ai"
-MEMSEARCH_NOTES_DIR="$HOME/Workspace/knowledge/notes"
-MEMSEARCH_PROFILE_DIR="$HOME/Workspace/knowledge/profile"
-MEMSEARCH_STATE_DIR="$HOME/.memsearch/state"
-MEMSEARCH_COLLECTION="ai"
-```
+Agent config patching and migration should live in the dotagents CLI, not in
+copy-pasted README snippets. Use `dotagents memsearch setup` for local
+configuration and keep manual hook details in the dedicated troubleshooting
+reference under `skills/dotagents/references/`.
