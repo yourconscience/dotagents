@@ -27,15 +27,19 @@ from pathlib import Path
 # ── Paths ─────────────────────────────────────────────────────────────
 def resolve():
     home = Path(os.path.expanduser("~"))
+    vault_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_VAULT_DIR", "~/Workspace/knowledge")))
+    ai_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_AI_DIR", str(vault_dir / "ai"))))
+    notes_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_NOTES_DIR", str(vault_dir / "notes"))))
+    profile_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_PROFILE_DIR", str(vault_dir / "profile"))))
     return {
         "hermes_memory": home / ".hermes" / "memories" / "MEMORY.md",
         "hermes_user": home / ".hermes" / "memories" / "USER.md",
-        "vault_profile": home / "Workspace" / "knowledge" / "profile" / "USER.md",
-        "vault_knowledge": home / "Workspace" / "knowledge" / "ai" / "knowledge.md",
-        "vault_ai_dir": home / "Workspace" / "knowledge" / "ai",
-        "vault_notes_dir": home / "Workspace" / "knowledge" / "notes",
-        "vault_profile_dir": home / "Workspace" / "knowledge" / "profile",
-        "collection": "ai",
+        "vault_profile": profile_dir / "USER.md",
+        "vault_knowledge": ai_dir / "knowledge.md",
+        "vault_ai_dir": ai_dir,
+        "vault_notes_dir": notes_dir,
+        "vault_profile_dir": profile_dir,
+        "collection": os.environ.get("MEMSEARCH_COLLECTION", "ai"),
     }
 
 
@@ -220,11 +224,14 @@ def vault_to_memory(paths: dict):
 def reindex_memsearch(paths: dict):
     """Reindex the memsearch collection after changes."""
     import subprocess
+    ai_paths = []
+    for pattern in ("*.md", "*.markdown"):
+        ai_paths.extend(str(p) for p in sorted(paths["vault_ai_dir"].glob(pattern)) if p.is_file())
     cmd = [
         "memsearch", "index",
         str(paths["vault_notes_dir"]),
         str(paths["vault_profile_dir"]),
-        str(paths["vault_ai_dir"]),
+        *ai_paths,
         "--collection", paths["collection"],
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)

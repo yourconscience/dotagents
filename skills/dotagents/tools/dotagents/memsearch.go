@@ -98,7 +98,7 @@ func runMemsearchSetup(opts memsearchOptions) error {
 
 	// 4. Write config
 	conf := fmt.Sprintf(`# memsearch configuration (written by dotagents memsearch setup)
-# Source this file from hook.sh to get portable paths.
+# Source this file from memory hooks to get portable paths.
 MEMSEARCH_VAULT_DIR="%s"
 MEMSEARCH_AI_DIR="%s"
 MEMSEARCH_NOTES_DIR="%s"
@@ -115,19 +115,19 @@ MEMSEARCH_COLLECTION="ai"
 	}
 	fmt.Printf("config: %s\n", confPath)
 
-	// 5. Install hook.sh
+	// 5. Report hook path
 	repoRoot, _, _, _, err := loadContext(runOptions{})
 	if err != nil {
 		return fmt.Errorf("load context: %w", err)
 	}
-	hookSrc := filepath.Join(repoRoot, "bin", "memsearch", "hook.sh")
+	hookSrc := filepath.Join(repoRoot, "memory", "hooks", "session-end.sh")
 	if !hasFile(hookSrc) {
-		fmt.Printf("hook.sh: not found at %s (skipping)\n", hookSrc)
+		fmt.Printf("memory hooks: not found at %s (skipping)\n", hookSrc)
 	} else {
-		fmt.Printf("hook.sh: %s\n", hookSrc)
+		fmt.Printf("memory hooks: %s\n", filepath.Dir(hookSrc))
 	}
 
-	fmt.Println("\ndone. Claude Code hooks will read config from ~/.agents/memsearch.conf")
+	fmt.Println("\ndone. Memory hooks will read config from ~/.agents/memsearch.conf")
 	return nil
 }
 
