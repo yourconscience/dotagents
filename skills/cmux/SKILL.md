@@ -1,9 +1,11 @@
 ---
 name: cmux
-description: cmux CLI reference. Workspaces, panes, terminals, browser, markdown, agent launchers.
+description: cmux-specific CLI reference. Prefer the tmux skill for generic pane/workspace operations; use this for cmux-only browser, markdown, notification, and launcher features.
 ---
 
 # cmux
+
+Prefer the `tmux` skill for generic terminal multiplexer operations. It routes to cmux when `CMUX_WORKSPACE_ID`/`CMUX_SURFACE_ID` are set and to tmux otherwise. Use this skill directly when you need cmux-specific browser surfaces, markdown viewer, notifications, or agent launchers.
 
 ## Environment
 
