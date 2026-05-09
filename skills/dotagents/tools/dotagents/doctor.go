@@ -273,13 +273,13 @@ func checkREADMESkillList(repoRoot string) checkResult {
 
 func checkMemsearchIndex(home string) checkResult {
 	if _, err := exec.LookPath("memsearch"); err == nil {
-		out, err := exec.Command("memsearch", "stats").CombinedOutput()
+		out, err := exec.Command("memsearch", "stats", "--collection", "ai").CombinedOutput()
 		if err == nil {
 			if chunks, ok := parseMemsearchChunks(string(out)); ok {
 				if chunks == 0 {
-					return checkResult{"memsearch index", "warn", "indexed chunks = 0"}
+					return checkResult{"memsearch index", "warn", "collection ai has 0 chunks"}
 				}
-				return checkResult{"memsearch index", "pass", fmt.Sprintf("indexed chunks = %d", chunks)}
+				return checkResult{"memsearch index", "pass", fmt.Sprintf("collection ai has %d chunks", chunks)}
 			}
 		}
 	}
@@ -302,7 +302,7 @@ func checkMemsearchIndex(home string) checkResult {
 }
 
 func parseMemsearchChunks(statsOutput string) (int, bool) {
-	re := regexp.MustCompile(`(?m)Total indexed chunks:\s*([0-9]+)\s*$`)
+	re := regexp.MustCompile(`(?m)Total indexed chunks:\s*([0-9]+)[.,]?\s*$`)
 	match := re.FindStringSubmatch(statsOutput)
 	if len(match) != 2 {
 		return 0, false
