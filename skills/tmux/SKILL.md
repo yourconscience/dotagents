@@ -207,7 +207,7 @@ peek
 peek ~/some-project
 ```
 
-`peek` is a local machine setup, not a portable cmux command. It should only use a loopback `code-server` URL when authentication is disabled. If it opens the wrong folder, verify `cmux sidebar-state` reports the expected `cwd` for the active workspace.
+`peek` is a local machine setup, not a portable cmux command. It must only use a loopback `code-server` URL when authentication is disabled. If it opens the wrong folder, verify `cmux sidebar-state` reports the expected `cwd` for the active workspace; if incorrect, the workspace may need to be recreated with the correct `--cwd`.
 
 ## cmux-only Features
 
