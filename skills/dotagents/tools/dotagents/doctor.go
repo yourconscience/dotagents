@@ -278,7 +278,8 @@ func checkMemsearchIndex(home string) checkResult {
 		}
 		fields := strings.Fields(string(out))
 		if len(fields) > 0 {
-			if count, err := strconv.Atoi(fields[len(fields)-1]); err == nil {
+			value := strings.TrimRight(fields[len(fields)-1], ".,")
+			if count, err := strconv.Atoi(value); err == nil {
 				if count == 0 {
 					return checkResult{"memsearch index", "warn", "collection ai has 0 chunks"}
 				}
