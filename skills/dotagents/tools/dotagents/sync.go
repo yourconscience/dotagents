@@ -119,20 +119,17 @@ func applyAgentRootInstructionSync(reports []agentReport) error {
 			if err := os.MkdirAll(filepath.Dir(report.RootPath), 0o755); err != nil {
 				return fmt.Errorf("create %s: %w", filepath.Dir(report.RootPath), err)
 			}
-			if err := os.Symlink(report.RootExpected, report.RootPath); err != nil {
-				return fmt.Errorf("symlink %s -> %s: %w", report.RootPath, report.RootExpected, err)
-			}
 		case stateDrifted:
 			if err := os.Remove(report.RootPath); err != nil {
 				return fmt.Errorf("remove %s before relink: %w", report.RootPath, err)
-			}
-			if err := os.Symlink(report.RootExpected, report.RootPath); err != nil {
-				return fmt.Errorf("symlink %s -> %s: %w", report.RootPath, report.RootExpected, err)
 			}
 		case stateConflict:
 			return fmt.Errorf("%s is not a symlink", report.RootPath)
 		default:
 			return fmt.Errorf("unsupported root instruction state %q for %s", report.RootState, report.Name)
+		}
+		if err := os.Symlink(report.RootExpected, report.RootPath); err != nil {
+			return fmt.Errorf("symlink %s -> %s: %w", report.RootPath, report.RootExpected, err)
 		}
 	}
 	return nil
