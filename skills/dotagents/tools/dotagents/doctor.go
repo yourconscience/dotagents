@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -273,20 +274,14 @@ func checkREADMESkillList(repoRoot string) checkResult {
 func checkMemsearchIndex(home string) checkResult {
 	if _, err := exec.LookPath("memsearch"); err == nil {
 		out, err := exec.Command("memsearch", "stats", "--collection", "ai").CombinedOutput()
-		if err != nil {
-			return checkResult{"memsearch index", "warn", "memsearch stats failed"}
-		}
-		fields := strings.Fields(string(out))
-		if len(fields) > 0 {
-			value := strings.TrimRight(fields[len(fields)-1], ".,")
-			if count, err := strconv.Atoi(value); err == nil {
-				if count == 0 {
+		if err == nil {
+			if chunks, ok := parseMemsearchChunks(string(out)); ok {
+				if chunks == 0 {
 					return checkResult{"memsearch index", "warn", "collection ai has 0 chunks"}
 				}
-				return checkResult{"memsearch index", "pass", fmt.Sprintf("collection ai has %d chunks", count)}
+				return checkResult{"memsearch index", "pass", fmt.Sprintf("collection ai has %d chunks", chunks)}
 			}
 		}
-		return checkResult{"memsearch index", "warn", "could not parse memsearch stats"}
 	}
 
 	stateDir := filepath.Join(home, ".memsearch", "state")
@@ -304,6 +299,19 @@ func checkMemsearchIndex(home string) checkResult {
 		return checkResult{"memsearch index", "warn", "state dir empty, index never built"}
 	}
 	return checkResult{"memsearch index", "pass", fmt.Sprintf("state dir has %d files", count)}
+}
+
+func parseMemsearchChunks(statsOutput string) (int, bool) {
+	re := regexp.MustCompile(`(?m)Total indexed chunks:\s*([0-9]+)[.,]?\s*$`)
+	match := re.FindStringSubmatch(statsOutput)
+	if len(match) != 2 {
+		return 0, false
+	}
+	n, err := strconv.Atoi(match[1])
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }
 
 func checkHermesHooks(home string, cfg config) checkResult {
