@@ -120,7 +120,7 @@ readlink ~/.agents
 cmp -s CLAUDE.md ~/.agents/CLAUDE.md && echo "CLAUDE.md visible via ~/.agents"
 ```
 
-Factory Droid reads `AGENTS.md` from the current repo and personal `~/.factory/AGENTS.md`, but it does not treat `~/.agents/AGENTS.md` as a global instruction source when working in unrelated repos. `dotagents sync --agents=droid` therefore manages `~/.factory/AGENTS.md` as a symlink to `~/.agents/AGENTS.md`, making the repo-owned global instructions Droid's personal override too.
+Factory Droid reads `AGENTS.md` from the current repo and personal `~/.factory/AGENTS.md`, but it does not treat `~/.agents/AGENTS.md` as a global instruction source when working in unrelated repos. Removing `~/.factory/AGENTS.md` would only remove Droid's personal override; it would not make Droid fall through to `~/.agents/AGENTS.md`. `dotagents sync --agents=droid` therefore manages `~/.factory/AGENTS.md` as a symlink to `~/.agents/AGENTS.md`, making the repo-owned global instructions Droid's personal override too.
 
 When cleaning committed Claude Code runtime artifacts, ignore `.claude/` wholesale unless there is a deliberate shared Claude project config to track. `.claude/worktrees/*` can be committed accidentally as gitlinks, and `.claude/settings.local.json` is local runtime state. If shared Claude config is needed later, use explicit negation patterns in `.gitignore` rather than narrowly ignoring only known generated files.
 
