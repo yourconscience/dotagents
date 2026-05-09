@@ -100,6 +100,7 @@ go run ./skills/dotagents/tools/dotagents dogfood
 ## What it manages
 
 - Fixes `~/.agents` if it should point at the repo root and is missing or drifted.
+- Links Factory Droid's personal `~/.factory/AGENTS.md` to `~/.agents/AGENTS.md`, so Droid consumes the repo-owned global instructions by default. A real file at `~/.factory/AGENTS.md` is treated as a conflict and is not overwritten silently.
 - Detects agents by checking if their binary is on PATH (`detect` field in config).
 - Treats repo skills under `skills/` as the managed set for each detected agent.
 - Renders canonical repo roles under `agents/*.yaml` to each detected agent's native `agent_root` format where supported:
@@ -112,14 +113,14 @@ go run ./skills/dotagents/tools/dotagents dogfood
 
 ## Root instruction shims and local agent state
 
-For cross-agent repo instructions, keep `AGENTS.md` canonical and add a small root `CLAUDE.md` shim that points agents to `AGENTS.md`. Do not expect `dotagents sync` to separately install or mirror root files: root files are available to tools through the `~/.agents -> repo` symlink. Verify with:
+For cross-agent repo instructions, keep `AGENTS.md` canonical and add a small root `CLAUDE.md` shim that points agents to `AGENTS.md`. Root files are available to tools through the `~/.agents -> repo` symlink, and Droid also gets `~/.factory/AGENTS.md -> ~/.agents/AGENTS.md` via sync. Verify with:
 
 ```bash
 readlink ~/.agents
 cmp -s CLAUDE.md ~/.agents/CLAUDE.md && echo "CLAUDE.md visible via ~/.agents"
 ```
 
-Factory Droid reads `AGENTS.md` from the current repo and personal `~/.factory/AGENTS.md`, but it does not treat `~/.agents/AGENTS.md` as a global instruction source when working in unrelated repos. Keep durable, cross-agent rules in repo `AGENTS.md`; use `~/.factory/AGENTS.md` only for Droid-specific personal overrides if needed.
+Factory Droid reads `AGENTS.md` from the current repo and personal `~/.factory/AGENTS.md`, but it does not treat `~/.agents/AGENTS.md` as a global instruction source when working in unrelated repos. `dotagents sync --agents=droid` therefore manages `~/.factory/AGENTS.md` as a symlink to `~/.agents/AGENTS.md`, making the repo-owned global instructions Droid's personal override too.
 
 When cleaning committed Claude Code runtime artifacts, ignore `.claude/` wholesale unless there is a deliberate shared Claude project config to track. `.claude/worktrees/*` can be committed accidentally as gitlinks, and `.claude/settings.local.json` is local runtime state. If shared Claude config is needed later, use explicit negation patterns in `.gitignore` rather than narrowly ignoring only known generated files.
 
