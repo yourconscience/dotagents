@@ -3,5 +3,6 @@ go 1.24.0
 use (
 	./skills/dotagents/tools/dotagents
 	./skills/gws
+	./skills/handoff/tools/handoff-bridge
 	./skills/jobs/tools/portals-scan
 )
