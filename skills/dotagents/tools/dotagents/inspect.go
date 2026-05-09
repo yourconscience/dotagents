@@ -194,8 +194,18 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	}
 
 	sortReportLists(&report)
-	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0 && len(report.MissingAgent) == 0 && len(report.DriftedAgent) == 0 && (report.RootState == "" || report.RootState == stateSynced)
+	report.Synced = isReportSynced(report)
 	return report, nil
+}
+
+func isReportSynced(report agentReport) bool {
+	if len(report.Missing) > 0 || len(report.Drifted) > 0 || len(report.Conflicts) > 0 || len(report.StaleManaged) > 0 {
+		return false
+	}
+	if len(report.MissingMCP) > 0 || len(report.DriftedMCP) > 0 || len(report.MissingAgent) > 0 || len(report.DriftedAgent) > 0 {
+		return false
+	}
+	return report.RootState == "" || report.RootState == stateSynced
 }
 
 func inspectDroidRootInstructions(report *agentReport, home string) error {
