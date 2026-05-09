@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -269,6 +271,23 @@ func checkREADMESkillList(repoRoot string) checkResult {
 }
 
 func checkMemsearchIndex(home string) checkResult {
+	if _, err := exec.LookPath("memsearch"); err == nil {
+		out, err := exec.Command("memsearch", "stats", "--collection", "ai").CombinedOutput()
+		if err != nil {
+			return checkResult{"memsearch index", "warn", "memsearch stats failed"}
+		}
+		fields := strings.Fields(string(out))
+		if len(fields) > 0 {
+			if count, err := strconv.Atoi(fields[len(fields)-1]); err == nil {
+				if count == 0 {
+					return checkResult{"memsearch index", "warn", "collection ai has 0 chunks"}
+				}
+				return checkResult{"memsearch index", "pass", fmt.Sprintf("collection ai has %d chunks", count)}
+			}
+		}
+		return checkResult{"memsearch index", "warn", "could not parse memsearch stats"}
+	}
+
 	stateDir := filepath.Join(home, ".memsearch", "state")
 	entries, err := os.ReadDir(stateDir)
 	if err != nil {
