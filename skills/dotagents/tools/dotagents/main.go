@@ -34,6 +34,10 @@ type agentReport struct {
 	SkillRoot    string
 	AgentRoot    string
 	Detected     bool
+	RootPath     string
+	RootExpected string
+	RootActual   string
+	RootState    string
 	Managed      []string
 	ManagedAgent []string
 	ManagedMCP   []string

@@ -36,6 +36,18 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		if report.Name == agentHermes {
 			fmt.Println("  integration: config-driven via ~/.hermes/config.yaml -> skills.external_dirs")
 		}
+		if report.RootPath != "" {
+			fmt.Printf("  root instructions: %s", report.RootState)
+			if report.RootState == stateSynced {
+				fmt.Printf(" -> %s\n", report.RootExpected)
+			} else {
+				fmt.Printf(" (expected %s", report.RootExpected)
+				if report.RootActual != "" {
+					fmt.Printf(", actual %s", report.RootActual)
+				}
+				fmt.Printf(")\n")
+			}
+		}
 		if report.Synced {
 			fmt.Println("  sync: synced")
 		} else {

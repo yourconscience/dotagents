@@ -187,10 +187,60 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if err := inspectAgentRoles(&report, repoRoot, agent); err != nil {
 		return agentReport{}, err
 	}
+	if agent.Name == agentDroid {
+		if err := inspectDroidRootInstructions(&report, home); err != nil {
+			return agentReport{}, err
+		}
+	}
 
 	sortReportLists(&report)
-	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0 && len(report.MissingAgent) == 0 && len(report.DriftedAgent) == 0
+	report.Synced = isReportSynced(report)
 	return report, nil
+}
+
+func isReportSynced(report agentReport) bool {
+	if len(report.Missing) > 0 || len(report.Drifted) > 0 || len(report.Conflicts) > 0 || len(report.StaleManaged) > 0 {
+		return false
+	}
+	if len(report.MissingMCP) > 0 || len(report.DriftedMCP) > 0 || len(report.MissingAgent) > 0 || len(report.DriftedAgent) > 0 {
+		return false
+	}
+	return report.RootState == "" || report.RootState == stateSynced
+}
+
+func inspectDroidRootInstructions(report *agentReport, home string) error {
+	linkPath := filepath.Join(home, ".factory", "AGENTS.md")
+	expectedTarget := filepath.Join(home, ".agents", "AGENTS.md")
+	report.RootPath = linkPath
+	report.RootExpected = expectedTarget
+	report.RootState = stateMissing
+
+	info, err := os.Lstat(linkPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", linkPath, err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		report.RootState = stateConflict
+		report.RootActual = "non-symlink path exists"
+		report.Conflicts = append(report.Conflicts, fmt.Sprintf("%s exists but is not a symlink", linkPath))
+		return nil
+	}
+
+	rawTarget, err := os.Readlink(linkPath)
+	if err != nil {
+		return fmt.Errorf("readlink %s: %w", linkPath, err)
+	}
+	report.RootActual = rawTarget
+	if linkMatches(linkPath, rawTarget, expectedTarget) {
+		report.RootState = stateSynced
+		return nil
+	}
+
+	report.RootState = stateDrifted
+	return nil
 }
 
 func inspectHermesAgent(agent agentConfig, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
