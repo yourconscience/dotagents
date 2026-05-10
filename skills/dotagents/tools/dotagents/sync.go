@@ -89,6 +89,9 @@ func runSync(opts runOptions) error {
 	if err := applyAgentMCPSync(reports, cfg, home); err != nil {
 		return err
 	}
+	if err := applyAgentRootInstructionSync(reports); err != nil {
+		return err
+	}
 
 	repoReport, err = inspectRepoLink(repoRoot, home)
 	if err != nil {
@@ -101,6 +104,34 @@ func runSync(opts runOptions) error {
 	restoreSyncActions(reports, preflight)
 
 	printReport("sync", repoRoot, repoReport, reports)
+	return nil
+}
+
+func applyAgentRootInstructionSync(reports []agentReport) error {
+	for _, report := range reports {
+		if !report.Detected || report.RootPath == "" {
+			continue
+		}
+		switch report.RootState {
+		case stateSynced:
+			continue
+		case stateMissing:
+			if err := os.MkdirAll(filepath.Dir(report.RootPath), 0o755); err != nil {
+				return fmt.Errorf("create %s: %w", filepath.Dir(report.RootPath), err)
+			}
+		case stateDrifted:
+			if err := os.Remove(report.RootPath); err != nil {
+				return fmt.Errorf("remove %s before relink: %w", report.RootPath, err)
+			}
+		case stateConflict:
+			return fmt.Errorf("%s is not a symlink", report.RootPath)
+		default:
+			return fmt.Errorf("unsupported root instruction state %q for %s", report.RootState, report.Name)
+		}
+		if err := os.Symlink(report.RootExpected, report.RootPath); err != nil {
+			return fmt.Errorf("symlink %s -> %s: %w", report.RootPath, report.RootExpected, err)
+		}
+	}
 	return nil
 }
 

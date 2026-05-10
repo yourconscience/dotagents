@@ -100,6 +100,7 @@ go run ./skills/dotagents/tools/dotagents dogfood
 ## What it manages
 
 - Fixes `~/.agents` if it should point at the repo root and is missing or drifted.
+- Links Droid global instructions: `~/.factory/AGENTS.md -> ~/.agents/AGENTS.md` (real files conflict).
 - Detects agents by checking if their binary is on PATH (`detect` field in config).
 - Treats repo skills under `skills/` as the managed set for each detected agent.
 - Renders canonical repo roles under `agents/*.yaml` to each detected agent's native `agent_root` format where supported:
@@ -110,18 +111,14 @@ go run ./skills/dotagents/tools/dotagents dogfood
 - Reports non-repo skills already present in agent skill roots as `external` and leaves them untouched.
 - Stops on conflicts when a managed skill path exists as a real file or directory instead of a symlink.
 
-## Root instruction shims and local agent state
+## Root instruction shims
 
-For cross-agent repo instructions, keep `AGENTS.md` canonical and add a small root `CLAUDE.md` shim that points agents to `AGENTS.md`. Do not expect `dotagents sync` to separately install or mirror root files: root files are available to tools through the `~/.agents -> repo` symlink. Verify with:
+Keep `AGENTS.md` canonical. `CLAUDE.md` points agents to it. Droid uses the same canonical file through `~/.factory/AGENTS.md -> ~/.agents/AGENTS.md`; deleting `~/.factory/AGENTS.md` does not make Droid discover `~/.agents/AGENTS.md`.
 
 ```bash
 readlink ~/.agents
 cmp -s CLAUDE.md ~/.agents/CLAUDE.md && echo "CLAUDE.md visible via ~/.agents"
 ```
-
-Factory Droid reads `AGENTS.md` from the current repo and personal `~/.factory/AGENTS.md`, but it does not treat `~/.agents/AGENTS.md` as a global instruction source when working in unrelated repos. Keep durable, cross-agent rules in repo `AGENTS.md`; use `~/.factory/AGENTS.md` only for Droid-specific personal overrides if needed.
-
-When cleaning committed Claude Code runtime artifacts, ignore `.claude/` wholesale unless there is a deliberate shared Claude project config to track. `.claude/worktrees/*` can be committed accidentally as gitlinks, and `.claude/settings.local.json` is local runtime state. If shared Claude config is needed later, use explicit negation patterns in `.gitignore` rather than narrowly ignoring only known generated files.
 
 ## Memory sync
 
