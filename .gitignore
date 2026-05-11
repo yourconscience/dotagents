@@ -4,6 +4,7 @@ tmp/
 # Local agent runtime state
 .omx/
 .claude/
+.worktrees/
 .skill-lock.json
 __pycache__/
 
