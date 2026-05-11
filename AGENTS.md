@@ -46,7 +46,8 @@
 
 # Git
 
-- Preserve unrelated worktree changes. Assume unrecognized changes belong to the user or another agent.
+- Preserve unrelated worktree changes: inspect `git -C <target> status` and `git worktree list` before removing, pruning, or switching worktrees, and only touch worktrees explicitly in scope.
+- Create new git worktrees only under the repository root's `.worktrees/<task-or-branch-name>`; do not use `/tmp`, `/private/tmp`, sibling workspace dirs, or tool-specific worktree dirs unless explicitly requested.
 - Commit messages: short single line; no `Co-Authored-By`.
 - Use the configured git identity.
 - Push only when asked.
