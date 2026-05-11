@@ -30,7 +30,7 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
 - `google-workspace` (`gws`) - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex/OpenClaw and CLI helpers.
 - `jobs` - track job search pipeline, analyze fit for postings, generate interview quizzes, grade answers.
-- `handoff` - access local Droid/Codex work from mobile through Hermes on the VPS using synced knowledge and a Mac bridge.
+- `remote-access` - search local Droid/Codex sessions and send scoped continuation instructions through the Mac bridge from mobile.
 - `omx` - spawn oh-my-codex in a detached tmux session and delegate a substantial task to it.
 - `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
 - `repo-eval` - find, triage, and deep-evaluate GitHub repos for a given need.
