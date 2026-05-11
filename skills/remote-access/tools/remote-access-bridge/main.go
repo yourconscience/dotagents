@@ -123,7 +123,7 @@ func main() {
 	s := &server{
 		home:       home,
 		cmdTimeout: *timeout,
-		askToken:   strings.TrimSpace(os.Getenv("HANDOFF_BRIDGE_TOKEN")),
+		askToken:   strings.TrimSpace(os.Getenv("REMOTE_ACCESS_BRIDGE_TOKEN")),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/status", s.status)
@@ -136,7 +136,7 @@ func main() {
 		Handler:           withJSONErrors(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	log.Printf("handoff bridge listening on %s", *addr)
+	log.Printf("remote-access bridge listening on %s", *addr)
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func (s *server) ask(w http.ResponseWriter, r *http.Request) {
 		req.Mode = "continue"
 	}
 	if req.Agent != "droid" {
-		writeError(w, http.StatusBadRequest, "only agent=droid is supported in v1")
+		writeError(w, http.StatusBadRequest, "only agent=droid is currently supported")
 		return
 	}
 	if req.SessionID == "" {
@@ -275,10 +275,10 @@ func (s *server) ask(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) authorizeSensitive(w http.ResponseWriter, r *http.Request) bool {
 	if s.askToken == "" {
-		writeError(w, http.StatusServiceUnavailable, "HANDOFF_BRIDGE_TOKEN must be set to enable sensitive endpoints")
+		writeError(w, http.StatusServiceUnavailable, "REMOTE_ACCESS_BRIDGE_TOKEN must be set to enable sensitive endpoints")
 		return false
 	}
-	token := strings.TrimSpace(r.Header.Get("X-Handoff-Token"))
+	token := strings.TrimSpace(r.Header.Get("X-Remote-Access-Token"))
 	if token == "" {
 		token = strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 	}
