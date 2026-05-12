@@ -196,7 +196,7 @@ tmux send-keys -t agent-task:0.0 "droid" Enter
 tmux attach-session -t agent-task
 ```
 
-Run normal agent CLIs in tmux panes (`droid`, `omx`, `hermes`, `codex`). cmux-specific launchers such as `cmux omx` are conveniences, not portable commands.
+Run normal agent CLIs in tmux panes (`droid`, `hermes`, `codex`).
 
 ## Browse Project Files In cmux
 
@@ -216,7 +216,7 @@ These do not have tmux equivalents:
 - Browser surfaces and DOM automation: `cmux browser ...`
 - Markdown viewer: `cmux markdown open ...`
 - cmux notifications: `cmux notify ...`
-- cmux agent launchers: `cmux omx`, `cmux hermes`, `cmux claude-teams`
+- cmux agent launchers: `cmux hermes`, `cmux claude-teams`
 
 When these are needed and `cmux` is available, use cmux directly.
 

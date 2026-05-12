@@ -16,7 +16,7 @@ Decide how to split work across agents. This skill is about the decision, not th
 | Small | < 5 min | lookup, lint check, simple search | Do it yourself |
 | Medium | 5-30 min | focused research, single-file refactor, test writing | Subagent |
 | Large | 30+ min | multi-file refactor, deep research, architecture design | Subagent or team |
-| Cross-model | Any | second opinion, GPT vs Claude comparison | omx (see `/omx` skill) |
+| Cross-model | Any | second opinion, GPT vs Claude comparison | Codex or Droid with a different model |
 
 ### When to use subagents
 
@@ -36,13 +36,6 @@ Decide how to split work across agents. This skill is about the decision, not th
 
 - Substantial implementation or review work should default to Factory Droid when available, using Task/custom droids for role-specific delegation.
 - Droid and Codex default to OpenAI/GPT through Droid BYOK/VibeProxy. Claude Code remains available, but is not the default unless the user explicitly asks for Claude.
-
-### When to use omx
-
-- You want a different model's perspective (GPT-5 vs Claude)
-- Task is large enough to justify session overhead (> 5 min)
-- You want parallel work without burning your own context/quota
-- See `/omx` skill for full runbook
 
 ## Model selection
 
@@ -129,7 +122,7 @@ Hermes is an orchestrator first. Default to delegating substantial coding work r
 | Task type | Delegate to | How |
 |---|---|---|
 | Coding (features, refactors, fixes) | Claude Code | `claude -p "..."` via terminal |
-| Cross-model perspective, large codegen | Codex (GPT-5) | `omx exec "..."` via terminal |
+| Cross-model perspective, large codegen | Codex (GPT-5) | Native Codex session via terminal |
 | Parallel coding on same repo | Hermes worktree | `hermes -w -p "..."` via terminal |
 | In-process research, analysis, small tasks | Hermes subagent | `delegate_task(...)` |
 | Conversation, planning, Q&A | Do it yourself | Direct response |
@@ -154,9 +147,6 @@ Always state why you are delegating or doing it yourself.
 ```bash
 # Claude Code - non-interactive, blocks until done
 claude -p "self-contained task prompt" --allow-tools "Edit,Read,Write,Bash"
-
-# Codex via omx - non-interactive, blocks until done
-cd /path/to/repo && omx exec "self-contained task prompt"
 
 # Hermes worktree - parallel isolated instance
 hermes -w -p "self-contained task prompt"
@@ -208,10 +198,6 @@ Add `~/.agents/skills` to `skills.external_dirs` in `~/.hermes/config.yaml`.
 ### Native subagents
 
 Enable `multi_agent = true` in `~/.codex/config.toml`. Codex spawns child agents within the same session context.
-
-### omx team
-
-For parallel independent work, use `omx team` to spawn separate Codex sessions in tmux panes. Or use the `team-executor` agent from oh-my-codex.
 
 ### Limitations
 
