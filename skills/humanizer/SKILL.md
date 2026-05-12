@@ -23,7 +23,7 @@ If the user asks for "my style" and gives no sample, infer from the current conv
 
 - Profile: `~/Workspace/knowledge/profile/USER.md`
 - Work history: `~/Workspace/knowledge/profile/WORK.md`
-- Job stories: `~/Workspace/dotagents/skills/jobs/data/story-bank.md`
+- Job stories: `~/.agents/skills/jobs/data/story-bank.md` or `skills/jobs/data/story-bank.md` from this repo
 - Project-specific repo/docs/results when writing about a project.
 
 Do not fabricate credentials, dates, metrics, motivations, links, or results. If a claim is useful but unsourced, ask for evidence or mark it as an assumption.
@@ -64,7 +64,9 @@ Do not fabricate credentials, dates, metrics, motivations, links, or results. If
    - Could this have been written by anyone about anything? Add specifics or cut it.
    - Is any claim unsupported? Qualify or remove it.
    - Is it too polished to sound like a person? Add a real constraint, concrete detail, or simpler sentence.
-7. Return the finished text first.
+7. Return the output.
+   - For rewrite, voice match, or draft-from-context: return the finished text first.
+   - For audit only: use the "Quick Audit Output" format.
    - Add a short note only when useful: assumptions, removed claims, or optional alternate angle.
 
 ## User Voice Defaults
