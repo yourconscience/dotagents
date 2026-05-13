@@ -18,7 +18,7 @@ Check both ends before changing tunnel machinery:
 ```bash
 launchctl list | grep 'com.conscience.remote-access'
 lsof -nP -iTCP:18777 -sTCP:LISTEN
-ps -axo pid,ppid,etime,command | grep -E 'ssh .*18778|autossh' | grep -v grep
+ps -axo pid,ppid,etime,command | grep -E '[a]utossh|[s]sh .*18778'
 ssh vps 'curl -fsS --max-time 5 http://127.0.0.1:18778/status'
 ```
 
@@ -37,7 +37,7 @@ brew install autossh
 
 Change only the tunnel LaunchAgent. Keep the bridge LaunchAgent separate.
 
-Recommended `ProgramArguments` for `com.conscience.remote-access.tunnel.plist`:
+Recommended `ProgramArguments` for `com.conscience.remote-access.tunnel.plist`. On Apple Silicon Homebrew usually installs `autossh` at `/opt/homebrew/bin/autossh`; on Intel Macs it is usually `/usr/local/bin/autossh`. Confirm with `command -v autossh` and use that absolute path in the plist.
 
 ```xml
 <array>
@@ -72,8 +72,8 @@ launchctl kickstart -k "gui/$(id -u)/com.conscience.remote-access.tunnel"
 Verify:
 
 ```bash
-ps -axo pid,etime,command | grep '[a]utossh'
-ssh vps 'curl -fsS http://127.0.0.1:18778/status'
+ps -axo pid,ppid,etime,command | grep -E '[a]utossh|[s]sh .*18778'
+ssh vps 'curl -fsS --max-time 5 http://127.0.0.1:18778/status'
 ```
 
 ## Pitfall
