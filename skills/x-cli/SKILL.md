@@ -6,13 +6,7 @@ metadata:
   author: Gladium AI
   version: 1.0.0
   category: developer-tools
-  tags:
-    - x
-    - twitter
-    - cli
-    - graphql
-    - scraping
-    - golang
+  tags: "x,twitter,cli,graphql,scraping,golang"
 ---
 
 # X CLI

@@ -1,9 +1,9 @@
 ---
-name: google-workspace
-description: Google Workspace CLI (`gws`) for Drive, Docs, Gmail, Sheets, Calendar, and more.
+name: gws
+description: Use when working with Google Workspace through the `gws` CLI for Drive, Docs, Gmail, Sheets, Calendar, and more.
 ---
 
-# google-workspace (`gws`)
+# gws
 
 CLI for Google Workspace APIs. Binary: `gws`. Config: `~/.config/gws/`.
 

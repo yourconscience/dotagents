@@ -74,7 +74,7 @@ Installs or removes a crontab entry that runs `pull` on a schedule. Default inte
 Promotes a Hermes skill to dotagents shared skills. Copies the skill, creates a branch, commits, pushes, and opens a PR.
 
 ```bash
-go run ./skills/dotagents/tools/dotagents promote <skill-name>        # by name (searches ~/.hermes/skills/)
+go run ./skills/dotagents/tools/dotagents promote SKILL_NAME          # by name (searches ~/.hermes/skills/)
 go run ./skills/dotagents/tools/dotagents promote <category>/<name>   # with category prefix
 go run ./skills/dotagents/tools/dotagents promote <name> --dry-run    # copy only, skip git/PR
 ```
