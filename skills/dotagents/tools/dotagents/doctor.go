@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -40,6 +41,7 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkSkillFrontmatter(repoRoot))
 	results = append(results, checkAgentRoles(repoRoot))
 	results = append(results, checkSkillNameCollisions(repoRoot, home, cfg))
+	results = append(results, checkAgnix(repoRoot))
 	results = append(results, checkAgentsMDSize(repoRoot))
 	results = append(results, checkREADMESkillList(repoRoot))
 	results = append(results, checkMemsearchIndex(home))
@@ -179,16 +181,9 @@ func checkSkillNameCollisions(repoRoot string, home string, cfg config) checkRes
 	}
 
 	hermesSkillsDir := filepath.Join(home, ".hermes", "skills")
-	hermesEntries, err := os.ReadDir(hermesSkillsDir)
+	hermesSkills, err := collectDirectSkillNames(hermesSkillsDir)
 	if err != nil {
 		return checkResult{"skill name collisions", "pass", "hermes skills dir unreadable, skipped"}
-	}
-
-	hermesBuiltins := make(map[string]struct{})
-	for _, e := range hermesEntries {
-		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
-			hermesBuiltins[e.Name()] = struct{}{}
-		}
 	}
 
 	skillsDir := filepath.Join(repoRoot, "skills")
@@ -210,8 +205,8 @@ func checkSkillNameCollisions(repoRoot string, home string, cfg config) checkRes
 		if err != nil || fm.Name == "" {
 			continue
 		}
-		if _, ok := hermesBuiltins[fm.Name]; ok {
-			collisions = append(collisions, fmt.Sprintf("%s collides with hermes builtin %s", entry.Name(), fm.Name))
+		if hermesPath, ok := hermesSkills[fm.Name]; ok {
+			collisions = append(collisions, fmt.Sprintf("%s collides with direct hermes skill %s at %s", entry.Name(), fm.Name, hermesPath))
 		}
 	}
 
@@ -219,6 +214,91 @@ func checkSkillNameCollisions(repoRoot string, home string, cfg config) checkRes
 		return checkResult{"skill name collisions", "warn", strings.Join(collisions, "; ")}
 	}
 	return checkResult{"skill name collisions", "pass", "no collisions"}
+}
+
+func collectDirectSkillNames(root string) (map[string]string, error) {
+	names := make(map[string]string)
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		skillMD := filepath.Join(root, entry.Name(), "SKILL.md")
+		if !hasFile(skillMD) {
+			continue
+		}
+		fm, err := parseSkillFrontmatter(skillMD)
+		if err != nil || strings.TrimSpace(fm.Name) == "" {
+			continue
+		}
+		names[fm.Name] = filepath.Join(entry.Name(), "SKILL.md")
+	}
+	return names, nil
+}
+
+type agnixSummary struct {
+	Errors   int `json:"errors"`
+	Warnings int `json:"warnings"`
+	Info     int `json:"info"`
+}
+
+type agnixDiagnostic struct {
+	Level   string `json:"level"`
+	File    string `json:"file"`
+	Line    int    `json:"line"`
+	Message string `json:"message"`
+}
+
+type agnixReport struct {
+	Summary     agnixSummary      `json:"summary"`
+	Diagnostics []agnixDiagnostic `json:"diagnostics"`
+}
+
+func checkAgnix(repoRoot string) checkResult {
+	if _, err := exec.LookPath("agnix"); err != nil {
+		return checkResult{"agnix", "fail", "agnix not installed; run npm install -g agnix"}
+	}
+	out, err := runAgnix(repoRoot)
+	report, parseErr := parseAgnixReport(out)
+	if parseErr != nil {
+		return checkResult{"agnix", "fail", fmt.Sprintf("could not parse agnix output: %s", parseErr)}
+	}
+	if err != nil || report.Summary.Errors > 0 {
+		return checkResult{"agnix", "fail", agnixDetail(report)}
+	}
+	return checkResult{"agnix", "pass", agnixDetail(report)}
+}
+
+func runAgnix(repoRoot string) ([]byte, error) {
+	cmd := exec.Command("agnix", "--format", "json", ".")
+	cmd.Dir = repoRoot
+	return cmd.CombinedOutput()
+}
+
+func parseAgnixReport(data []byte) (agnixReport, error) {
+	var report agnixReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		return agnixReport{}, err
+	}
+	return report, nil
+}
+
+func agnixDetail(report agnixReport) string {
+	detail := fmt.Sprintf("%d errors, %d warnings, %d info", report.Summary.Errors, report.Summary.Warnings, report.Summary.Info)
+	for _, diagnostic := range report.Diagnostics {
+		if diagnostic.Level != "error" {
+			continue
+		}
+		location := diagnostic.File
+		if diagnostic.Line > 0 {
+			location = fmt.Sprintf("%s:%d", location, diagnostic.Line)
+		}
+		return fmt.Sprintf("%s; first error: %s: %s", detail, location, diagnostic.Message)
+	}
+	return detail
 }
 
 func checkAgentsMDSize(repoRoot string) checkResult {
