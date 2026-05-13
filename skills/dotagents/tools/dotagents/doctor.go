@@ -40,7 +40,7 @@ func runDoctor(opts runOptions) error {
 
 	results = append(results, checkSkillFrontmatter(repoRoot))
 	results = append(results, checkAgentRoles(repoRoot))
-	results = append(results, checkSkillNameCollisions(repoRoot, home, cfg))
+	results = append(results, checkHermesDirectMirrors(repoRoot, home, cfg))
 	results = append(results, checkAgnix(repoRoot))
 	results = append(results, checkAgentsMDSize(repoRoot))
 	results = append(results, checkREADMESkillList(repoRoot))
@@ -173,26 +173,26 @@ func isAgentDetected(cfg config, name string) bool {
 	return false
 }
 
-func checkSkillNameCollisions(repoRoot string, home string, cfg config) checkResult {
+func checkHermesDirectMirrors(repoRoot string, home string, cfg config) checkResult {
 	hermesDetected := isAgentDetected(cfg, agentHermes)
 
 	if !hermesDetected {
-		return checkResult{"skill name collisions", "pass", agentHermes + " not detected, skipped"}
+		return checkResult{"hermes direct mirrors", "pass", agentHermes + " not detected, skipped"}
 	}
 
 	hermesSkillsDir := filepath.Join(home, ".hermes", "skills")
 	hermesSkills, err := collectDirectSkillNames(hermesSkillsDir)
 	if err != nil {
-		return checkResult{"skill name collisions", "pass", "hermes skills dir unreadable, skipped"}
+		return checkResult{"hermes direct mirrors", "pass", "hermes skills dir unreadable, skipped"}
 	}
 
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
-		return checkResult{"skill name collisions", "fail", fmt.Sprintf("cannot read skills/: %s", err)}
+		return checkResult{"hermes direct mirrors", "fail", fmt.Sprintf("cannot read skills/: %s", err)}
 	}
 
-	var collisions []string
+	var mirrors []string
 	for _, entry := range entries {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
@@ -206,14 +206,14 @@ func checkSkillNameCollisions(repoRoot string, home string, cfg config) checkRes
 			continue
 		}
 		if hermesPath, ok := hermesSkills[fm.Name]; ok {
-			collisions = append(collisions, fmt.Sprintf("%s collides with direct hermes skill %s at %s", entry.Name(), fm.Name, hermesPath))
+			mirrors = append(mirrors, fmt.Sprintf("%s has direct hermes mirror %s at %s", entry.Name(), fm.Name, hermesPath))
 		}
 	}
 
-	if len(collisions) > 0 {
-		return checkResult{"skill name collisions", "warn", strings.Join(collisions, "; ")}
+	if len(mirrors) > 0 {
+		return checkResult{"hermes direct mirrors", "warn", strings.Join(mirrors, "; ")}
 	}
-	return checkResult{"skill name collisions", "pass", "no collisions"}
+	return checkResult{"hermes direct mirrors", "pass", "no direct mirrors"}
 }
 
 func collectDirectSkillNames(root string) (map[string]string, error) {
@@ -275,7 +275,7 @@ func checkAgnix(repoRoot string) checkResult {
 func runAgnix(repoRoot string) ([]byte, error) {
 	cmd := exec.Command("agnix", "--format", "json", ".")
 	cmd.Dir = repoRoot
-	return cmd.CombinedOutput()
+	return cmd.Output()
 }
 
 func parseAgnixReport(data []byte) (agnixReport, error) {
