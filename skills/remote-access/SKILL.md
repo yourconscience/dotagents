@@ -92,5 +92,3 @@ launchctl kickstart -k "gui/$(id -u)/com.conscience.remote-access.bridge"
 ```
 
 The binary defaults to `~/.local/bin/remote-access-bridge`.
-
-Reverse tunnel troubleshooting and autossh migration notes live in `references/tunnel-autossh.md`. Use them when VPS requests to `127.0.0.1:18778` produce SSH channel-open failures or the tunnel needs hardening against sleep/network churn.

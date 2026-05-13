@@ -92,8 +92,6 @@ rdt read <post_id> -n 20 --json
 
 If `rdt` is not installed or fails, fall back to direct Reddit JSON with browser User-Agent. On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat. For historical posts or VPS fallback, use Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
 
-Pitfall: Reddit JSON sometimes includes unescaped/control-character text that makes strict Python JSON parsing fail. If that happens, do not abandon Reddit search; retry with `json.loads(raw, strict=False)`, `rdt --compact`, or Pullpush.
-
 ### 4. Discord
 
 Search Discord servers via the user search API. Requires `$DISCORD_TOKEN` env var.
