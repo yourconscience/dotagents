@@ -1,6 +1,6 @@
 ---
 name: jobs
-description: "Track a job search pipeline, analyze fit for postings, generate interview quizzes, and grade answers. Modes: `/jobs` syncs evidence and updates tracker; `/jobs check <url>` runs fit-gap analysis; `/jobs scan` discovers new roles; `/jobs status` shows the pipeline."
+description: "Use when tracking a job search pipeline, analyzing fit for postings, generating interview quizzes, or grading answers. Modes: `/jobs` syncs evidence and updates tracker; `/jobs check URL` runs fit-gap analysis; `/jobs scan` discovers new roles; `/jobs status` shows the pipeline."
 ---
 
 # Jobs
