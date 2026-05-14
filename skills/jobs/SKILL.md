@@ -16,19 +16,18 @@ Single skill for job search tracking and fit analysis.
 
 ## Workspace
 
-All paths are relative to the skill root (`skills/jobs/`).
+Private data lives in the knowledge vault (`$KNOWLEDGE_DIR/skills/jobs/`).
+Code and prompts stay in the skill root (`skills/jobs/`).
 
-- Tracker: `data/opportunities.yaml` (canonical, single source of truth)
-- CV/Resume: `data/cv/`
-- Interview prep: `data/interview-prep/` (per-company prep guides, JDs, study notes)
+- Tracker: `$KNOWLEDGE_DIR/skills/jobs/opportunities.yaml` (canonical, single source of truth)
+- CV/Resume: `$KNOWLEDGE_DIR/skills/jobs/cv/`
+- Interview prep: `$KNOWLEDGE_DIR/skills/jobs/interview-prep/`
+- Company research: `$KNOWLEDGE_DIR/skills/jobs/company-research/`
+- Story bank: `$KNOWLEDGE_DIR/skills/jobs/story-bank.md`
+- Portal config: `$KNOWLEDGE_DIR/skills/jobs/portals.yml`
+- Cover letters: `$KNOWLEDGE_DIR/skills/jobs/cover_letters/`
 - Prompts: `prompts/` (tracked, reusable voice mode interview prompts)
-- LinkedIn exports: `data/linkedin-exports/`
-- Company research: `data/company-research/`
-- Story bank: `data/story-bank.md`
-- Portal config: `data/portals.yml`
 - Scanner: `tools/portals-scan/` (see its README for flags and config format)
-
-`data/` is gitignored - all personal data stays local.
 
 ## Tracker Schema
 

@@ -126,8 +126,8 @@ The dotagents repo also owns the agent memory ↔ knowledge vault sync pipeline 
 
 Two scripts:
 
-- `hooks/session-end.sh`: Appends a session digest to `~/Workspace/knowledge/ai/YYYY-MM-DD.md` and reindexes memsearch. Dispatches on hook payload shape for Claude Code, Droid, and Hermes.
-- `hooks/sync.sh` → `lib/sync.py`: Bidirectional sync between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`~/Workspace/knowledge/`). Three modes: `memory-to-vault`, `vault-to-memory`, `both`.
+- `hooks/session-end.sh`: Appends a session digest to `$KNOWLEDGE_DIR/sessions/YYYY-MM-DD.md` and reindexes memsearch. Dispatches on hook payload shape for Claude Code, Droid, and Hermes.
+- `hooks/sync.sh` -> `lib/sync.py`: Bidirectional sync between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`$KNOWLEDGE_DIR`). Three modes: `memory-to-vault`, `vault-to-memory`, `both`.
 
 The typical Hermes hook pipeline:
 
