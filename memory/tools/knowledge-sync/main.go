@@ -26,7 +26,11 @@ func git(dir string, args ...string) (string, error) {
 }
 
 func main() {
-	repo := getenv("KNOWLEDGE_REPO", filepath.Join(os.Getenv("HOME"), "Workspace", "knowledge"))
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fatal("user home", err, "")
+	}
+	repo := getenv("KNOWLEDGE_REPO", filepath.Join(home, "Workspace", "knowledge"))
 	remote := getenv("KNOWLEDGE_REMOTE", "vps")
 	branch := getenv("KNOWLEDGE_BRANCH", "main")
 
