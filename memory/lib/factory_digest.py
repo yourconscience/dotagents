@@ -212,14 +212,15 @@ def main():
         print(json.dumps({"continue": True, "suppressOutput": True}))
         return
 
-    ai_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_AI_DIR", "~/Workspace/knowledge/ai")))
-    ai_dir.mkdir(parents=True, exist_ok=True)
-    target = update_daily_file(ai_dir, payload, transcript_path, session, messages)
+    knowledge_dir = Path(os.path.expanduser(os.environ.get("KNOWLEDGE_DIR", "~/Workspace/knowledge")))
+    sessions_dir = Path(os.path.expanduser(os.environ.get("SESSIONS_DIR", str(knowledge_dir / "sessions"))))
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    target = update_daily_file(sessions_dir, payload, transcript_path, session, messages)
 
-    notes_dir = os.path.expanduser(os.environ.get("MEMSEARCH_NOTES_DIR", "~/Workspace/knowledge/notes"))
-    profile_dir = os.path.expanduser(os.environ.get("MEMSEARCH_PROFILE_DIR", "~/Workspace/knowledge/profile"))
+    notes_dir = os.path.expanduser(os.environ.get("NOTES_DIR", str(knowledge_dir / "notes")))
+    profile_dir = os.path.expanduser(os.environ.get("PROFILE_DIR", str(knowledge_dir / "profile")))
     collection = os.environ.get("MEMSEARCH_COLLECTION", "ai")
-    reindex(notes_dir, profile_dir, ai_dir, collection)
+    reindex(notes_dir, profile_dir, sessions_dir, collection)
 
     print(
         json.dumps(
