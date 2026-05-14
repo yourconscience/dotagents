@@ -212,7 +212,8 @@ def main():
         print(json.dumps({"continue": True, "suppressOutput": True}))
         return
 
-    ai_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_AI_DIR", "~/Workspace/knowledge/ai")))
+    knowledge_dir = Path(os.path.expanduser(os.environ.get("KNOWLEDGE_DIR", "~/Workspace/knowledge")))
+    ai_dir = Path(os.path.expanduser(os.environ.get("SESSIONS_DIR", str(knowledge_dir / "sessions"))))
     ai_dir.mkdir(parents=True, exist_ok=True)
     target = update_daily_file(ai_dir, payload, transcript_path, session, messages)
 
