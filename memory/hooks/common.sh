@@ -23,11 +23,6 @@ load_memory_config() {
   export MEMSEARCH_STATE_DIR="${MEMSEARCH_STATE_DIR_ENV:-${MEMSEARCH_STATE_DIR:-$HOME/.memsearch/state}}"
   export MEMSEARCH_COLLECTION="${MEMSEARCH_COLLECTION_ENV:-${MEMSEARCH_COLLECTION:-ai}}"
 
-  # backward compat: old MEMSEARCH_* vars still work if set
-  export MEMSEARCH_VAULT_DIR="${KNOWLEDGE_DIR}"
-  export MEMSEARCH_AI_DIR="${SESSIONS_DIR}"
-  export MEMSEARCH_NOTES_DIR="${NOTES_DIR}"
-  export MEMSEARCH_PROFILE_DIR="${PROFILE_DIR}"
 }
 
 resolve_claude_memory_plugin() {
