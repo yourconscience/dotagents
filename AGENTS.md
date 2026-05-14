@@ -43,6 +43,7 @@
 
 - Put generated reports, specs, and plans in markdown files.
 - Report the path clearly; the user can open it with the appropriate local tool.
+- Do not create reference docs with machine-specific paths, migration checklists, or inspection commands that only apply to one machine. Use env vars and conventional paths in tool READMEs instead.
 
 # Git
 
