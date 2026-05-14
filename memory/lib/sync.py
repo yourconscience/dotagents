@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Sync Hermes built-in memory with the dotagents knowledge vault.
 
-Direction 1 (memory→vault): export Hermes MEMORY.md/USER.md facts to vault
-  - Hermes MEMORY.md → vault ai/knowledge.md
-  - Hermes USER.md → vault profile/USER.md (appended as "Hermes Memory Sync" section)
+Direction 1 (memory->vault): export Hermes MEMORY.md/USER.md facts to vault
+  - Hermes MEMORY.md -> vault sessions/knowledge.md
+  - Hermes USER.md -> vault profile/USER.md (appended as "Hermes Memory Sync" section)
 
-Direction 2 (vault→memory): import vault profile facts into Hermes memory
-  - vault profile/USER.md → Hermes USER.md (compact, deduplicated)
-  - vault recent ai/ facts → Hermes MEMORY.md (compact, deduplicated)
+Direction 2 (vault->memory): import vault profile facts into Hermes memory
+  - vault profile/USER.md -> Hermes USER.md (compact, deduplicated)
+  - vault recent sessions/ facts -> Hermes MEMORY.md (compact, deduplicated)
 
 After either direction, reindexes memsearch.
 
 Usage:
-  python sync.py memory-to-vault   # export Hermes → vault
-  python sync.py vault-to-memory   # import vault → Hermes
+  python sync.py memory-to-vault   # export Hermes -> vault
+  python sync.py vault-to-memory   # import vault -> Hermes
   python sync.py both              # bidirectional
 """
 
@@ -24,28 +24,28 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-# ── Paths ─────────────────────────────────────────────────────────────
+# -- Paths -----------------------------------------------------------------
 def resolve():
     home = Path(os.path.expanduser("~"))
-    vault_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_VAULT_DIR", "~/Workspace/knowledge")))
-    ai_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_AI_DIR", str(vault_dir / "ai"))))
-    notes_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_NOTES_DIR", str(vault_dir / "notes"))))
-    profile_dir = Path(os.path.expanduser(os.environ.get("MEMSEARCH_PROFILE_DIR", str(vault_dir / "profile"))))
+    vault_dir = Path(os.path.expanduser(os.environ.get("KNOWLEDGE_DIR", "~/Workspace/knowledge")))
+    sessions_dir = Path(os.path.expanduser(os.environ.get("SESSIONS_DIR", str(vault_dir / "sessions"))))
+    notes_dir = Path(os.path.expanduser(os.environ.get("NOTES_DIR", str(vault_dir / "notes"))))
+    profile_dir = Path(os.path.expanduser(os.environ.get("PROFILE_DIR", str(vault_dir / "profile"))))
     return {
         "hermes_memory": home / ".hermes" / "memories" / "MEMORY.md",
         "hermes_user": home / ".hermes" / "memories" / "USER.md",
         "vault_profile": profile_dir / "USER.md",
-        "vault_knowledge": ai_dir / "knowledge.md",
-        "vault_ai_dir": ai_dir,
+        "vault_knowledge": sessions_dir / "knowledge.md",
+        "vault_sessions_dir": sessions_dir,
         "vault_notes_dir": notes_dir,
         "vault_profile_dir": profile_dir,
         "collection": os.environ.get("MEMSEARCH_COLLECTION", "ai"),
     }
 
 
-# ── Parse Hermes §-delimited memory ──────────────────────────────────
+# -- Parse Hermes section-delimited memory ---------------------------------
 def parse_hermes_memory(path: Path) -> list[str]:
-    """Split Hermes memory file by § delimiter, return non-empty entries."""
+    """Split Hermes memory file by section delimiter, return non-empty entries."""
     if not path.exists():
         return []
     text = path.read_text(encoding="utf-8").strip()
@@ -62,12 +62,12 @@ def normalize(entry: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-# ── Direction 1: Memory → Vault ──────────────────────────────────────
+# -- Direction 1: Memory -> Vault ------------------------------------------
 def memory_to_vault(paths: dict):
     """Export Hermes memory facts to the knowledge vault."""
     changed = False
 
-    # --- MEMORY.md → ai/knowledge.md ---
+    # --- MEMORY.md -> sessions/knowledge.md ---
     memory_entries = parse_hermes_memory(paths["hermes_memory"])
     knowledge_path = paths["vault_knowledge"]
 
@@ -86,20 +86,21 @@ def memory_to_vault(paths: dict):
     if new_entries:
         knowledge_path.parent.mkdir(parents=True, exist_ok=True)
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        is_new_file = not knowledge_path.exists() or knowledge_path.stat().st_size == 0
         with knowledge_path.open("a", encoding="utf-8") as f:
-            if not knowledge_path.exists() or knowledge_path.stat().st_size == 0:
+            if is_new_file:
                 f.write("# Hermes Memory Export\n\n")
                 f.write(f"Auto-synced from Hermes built-in memory. Last sync: {now}\n\n")
             else:
                 f.write(f"\n## Sync {now}\n\n")
             for entry in new_entries:
                 f.write(f"- {entry}\n")
-        print(f"memory→vault: wrote {len(new_entries)} new entries to {knowledge_path}")
+        print(f"memory->vault: wrote {len(new_entries)} new entries to {knowledge_path}")
         changed = True
     else:
-        print(f"memory→vault: {knowledge_path} up to date (no new entries)")
+        print(f"memory->vault: {knowledge_path} up to date (no new entries)")
 
-    # --- USER.md → profile/USER.md ---
+    # --- USER.md -> profile/USER.md ---
     user_entries = parse_hermes_memory(paths["hermes_user"])
     profile_path = paths["vault_profile"]
 
@@ -122,22 +123,21 @@ def memory_to_vault(paths: dict):
         current_section_body = profile_text[profile_text.index(marker):].strip()
 
     desired_section_body = sync_section.strip()
-    # Ignore timestamp when deciding idempotence.
+    # Strip timestamps before comparing to avoid no-op rewrites on every run
     current_without_timestamp = re.sub(r"Last synced: .*", "Last synced: <timestamp>", current_section_body)
     desired_without_timestamp = re.sub(r"Last synced: .*", "Last synced: <timestamp>", desired_section_body)
 
     if current_without_timestamp != desired_without_timestamp:
         profile_path.write_text(base_profile_text + sync_section, encoding="utf-8")
-        print(f"memory→vault: wrote {len(user_entries)} user facts to {profile_path}")
+        print(f"memory->vault: wrote {len(user_entries)} user facts to {profile_path}")
         changed = True
     else:
-        print(f"memory→vault: {profile_path} up to date (no user fact changes)")
+        print(f"memory->vault: {profile_path} up to date (no user fact changes)")
 
     return changed
 
 
-# ── Direction 2: Vault → Memory ──────────────────────────────────────
-# Hermes char limits for memory files
+# -- Direction 2: Vault -> Memory ------------------------------------------
 HERMES_MEMORY_LIMIT = 2200
 HERMES_USER_LIMIT = 1375
 
@@ -146,27 +146,25 @@ def vault_to_memory(paths: dict):
     """Import vault facts into Hermes built-in memory, respecting char limits."""
     changed = False
 
-    # --- profile/USER.md → Hermes USER.md ---
+    # --- profile/USER.md -> Hermes USER.md ---
     profile_path = paths["vault_profile"]
     hermes_user_path = paths["hermes_user"]
 
-    existing_user = {normalize(e) for e in parse_hermes_memory(hermes_user_path)}
+    existing_entries = parse_hermes_memory(hermes_user_path)
+    existing_user = {normalize(e) for e in existing_entries}
 
-    # Extract bullet points from profile sections — full facts, no truncation
     profile_facts = []
     if profile_path.exists():
         for line in profile_path.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
             if stripped.startswith("- "):
                 fact = stripped[2:].strip()
-                # Skip trivial bullets, skip "Hermes Memory Sync" section
                 if fact and len(fact) > 15:
                     profile_facts.append(fact)
 
-    # Deduplicate against existing Hermes user facts. Consolidated Hermes facts
-    # often contain several shorter vault bullets, so treat substring containment
-    # and significant-token subset matches as duplicates too, not just exact
-    # normalized equality.
+    # Hermes consolidates multiple vault bullets into single facts, so
+    # substring containment and token-subset matching are needed for dedup,
+    # not just exact normalized equality.
     def tokens(text: str) -> set[str]:
         stop = {"a", "an", "and", "the", "with", "in", "on", "at", "from", "via", "to", "of"}
         return {t for t in normalize(text).split() if t not in stop}
@@ -187,8 +185,6 @@ def vault_to_memory(paths: dict):
         new_facts.append(fact)
 
     if new_facts:
-        existing_entries = parse_hermes_memory(hermes_user_path)
-        # Build new USER.md: existing facts first (priority), then new vault facts within limit
         lines = list(existing_entries)
 
         def rendered_size(entries: list[str]) -> int:
@@ -212,36 +208,36 @@ def vault_to_memory(paths: dict):
             encoding="utf-8",
         )
         added = len(lines) - len(existing_entries)
-        print(f"vault→memory: added {added} facts to {hermes_user_path} ({current_size}/{HERMES_USER_LIMIT} chars)")
+        print(f"vault->memory: added {added} facts to {hermes_user_path} ({current_size}/{HERMES_USER_LIMIT} chars)")
         changed = True
     else:
-        print(f"vault→memory: {hermes_user_path} up to date")
+        print(f"vault->memory: {hermes_user_path} up to date")
 
     return changed
 
 
-# ── Reindex ──────────────────────────────────────────────────────────
+# -- Reindex ---------------------------------------------------------------
 def reindex_memsearch(paths: dict):
     """Reindex the memsearch collection after changes."""
     import subprocess
-    ai_paths = []
+    session_paths = []
     for pattern in ("*.md", "*.markdown"):
-        ai_paths.extend(str(p) for p in sorted(paths["vault_ai_dir"].glob(pattern)) if p.is_file())
+        session_paths.extend(str(p) for p in sorted(paths["vault_sessions_dir"].glob(pattern)) if p.is_file())
     cmd = [
         "memsearch", "index",
         str(paths["vault_notes_dir"]),
         str(paths["vault_profile_dir"]),
-        *ai_paths,
+        *session_paths,
         "--collection", paths["collection"],
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode == 0:
         print("memsearch reindex: done")
     else:
-        print(f"memsearch reindex: warning — {result.stderr.strip()}")
+        print(f"memsearch reindex: warning - {result.stderr.strip()}")
 
 
-# ── Main ─────────────────────────────────────────────────────────────
+# -- Main ------------------------------------------------------------------
 def main():
     if len(sys.argv) < 2:
         print("Usage: sync.py [memory-to-vault|vault-to-memory|both]", file=sys.stderr)

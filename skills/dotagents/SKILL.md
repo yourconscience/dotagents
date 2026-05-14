@@ -126,8 +126,8 @@ The dotagents repo also owns the agent memory ↔ knowledge vault sync pipeline 
 
 Two scripts:
 
-- `hooks/session-end.sh`: Appends a session digest to `~/Workspace/knowledge/ai/YYYY-MM-DD.md` and reindexes memsearch. Dispatches on hook payload shape for Claude Code, Droid, and Hermes.
-- `hooks/sync.sh` → `lib/sync.py`: Bidirectional sync between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`~/Workspace/knowledge/`). Three modes: `memory-to-vault`, `vault-to-memory`, `both`.
+- `hooks/session-end.sh`: Appends a session digest to `$KNOWLEDGE_DIR/sessions/YYYY-MM-DD.md` and reindexes memsearch. Dispatches on hook payload shape for Claude Code, Droid, and Hermes.
+- `hooks/sync.sh` -> `lib/sync.py`: Bidirectional sync between Hermes built-in memory files (`~/.hermes/memories/`) and the knowledge vault (`$KNOWLEDGE_DIR`). Three modes: `memory-to-vault`, `vault-to-memory`, `both`.
 
 The typical Hermes hook pipeline:
 
@@ -146,6 +146,8 @@ Hook approval: first-use consent requires a TTY prompt. Scripts modified after a
 Hook health pitfall: `hermes hooks doctor` requires hook stdout to be valid JSON. Plain-text sync wrapper output can be allowlisted/executable but still fail doctor with `stdout was not valid JSON`; fix the wrapper contract only when ready to re-approve the modified script in a TTY.
 
 For detailed pitfalls (char limits, silent sync failures, hook debugging, JSON stdout requirements, and re-approval after wrapper changes), see `references/memory-sync.md`.
+
+The `knowledge-sync` tool source lives at `memory/tools/knowledge-sync/`. See its README for build and install instructions.
 
 ## MCP support
 
