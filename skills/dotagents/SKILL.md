@@ -147,6 +147,8 @@ Hook health pitfall: `hermes hooks doctor` requires hook stdout to be valid JSON
 
 For detailed pitfalls (char limits, silent sync failures, hook debugging, JSON stdout requirements, and re-approval after wrapper changes), see `references/memory-sync.md`.
 
+If you find a standalone `knowledge-sync` helper or source tree, treat it as part of the dotagents memory subsystem. Keep its source under `memory/tools/knowledge-sync/` and keep launchd pointing at the stable compiled binary under `~/.local/bin`. Before moving it, inspect LaunchAgents, processes, shell/config references, binary build metadata, logs, and current vault git health. See `references/knowledge-sync-tool.md` for the checklist and migration pattern.
+
 ## MCP support
 
 `dotagents` can also manage selected MCP server parity across agents without symlinking whole config files.

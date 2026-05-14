@@ -36,6 +36,7 @@ needed, and writes the local memory-search configuration.
 
 - `hooks/`: executable lifecycle hook entrypoints.
 - `lib/`: transcript digest, vault sync, and indexing helpers.
+- `tools/`: small repo-owned operational helpers for the memory subsystem.
 - `AGENTS.md`: local rules for keeping this area agent-agnostic.
 
 ## Hook registration
