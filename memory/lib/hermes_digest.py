@@ -164,14 +164,14 @@ def main():
         data = json.load(f)
 
     knowledge_dir = Path(os.path.expanduser(os.environ.get("KNOWLEDGE_DIR", "~/Workspace/knowledge")))
-    ai_dir = Path(os.path.expanduser(os.environ.get("SESSIONS_DIR", str(knowledge_dir / "sessions"))))
-    ai_dir.mkdir(parents=True, exist_ok=True)
-    target = update_daily_file(ai_dir, data)
+    sessions_dir = Path(os.path.expanduser(os.environ.get("SESSIONS_DIR", str(knowledge_dir / "sessions"))))
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    target = update_daily_file(sessions_dir, data)
 
     notes_dir = os.path.expanduser(os.environ.get("NOTES_DIR", str(knowledge_dir / "notes")))
     profile_dir = os.path.expanduser(os.environ.get("PROFILE_DIR", str(knowledge_dir / "profile")))
     collection = os.environ.get("MEMSEARCH_COLLECTION", "ai")
-    reindex(notes_dir, profile_dir, ai_dir, collection)
+    reindex(notes_dir, profile_dir, sessions_dir, collection)
 
     print(json.dumps({
         "action": "continue",

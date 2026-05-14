@@ -86,8 +86,9 @@ def memory_to_vault(paths: dict):
     if new_entries:
         knowledge_path.parent.mkdir(parents=True, exist_ok=True)
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        is_new_file = not knowledge_path.exists() or knowledge_path.stat().st_size == 0
         with knowledge_path.open("a", encoding="utf-8") as f:
-            if not knowledge_path.exists() or knowledge_path.stat().st_size == 0:
+            if is_new_file:
                 f.write("# Hermes Memory Export\n\n")
                 f.write(f"Auto-synced from Hermes built-in memory. Last sync: {now}\n\n")
             else:
@@ -122,6 +123,7 @@ def memory_to_vault(paths: dict):
         current_section_body = profile_text[profile_text.index(marker):].strip()
 
     desired_section_body = sync_section.strip()
+    # Strip timestamps before comparing to avoid no-op rewrites on every run
     current_without_timestamp = re.sub(r"Last synced: .*", "Last synced: <timestamp>", current_section_body)
     desired_without_timestamp = re.sub(r"Last synced: .*", "Last synced: <timestamp>", desired_section_body)
 
@@ -148,7 +150,8 @@ def vault_to_memory(paths: dict):
     profile_path = paths["vault_profile"]
     hermes_user_path = paths["hermes_user"]
 
-    existing_user = {normalize(e) for e in parse_hermes_memory(hermes_user_path)}
+    existing_entries = parse_hermes_memory(hermes_user_path)
+    existing_user = {normalize(e) for e in existing_entries}
 
     profile_facts = []
     if profile_path.exists():
@@ -159,6 +162,9 @@ def vault_to_memory(paths: dict):
                 if fact and len(fact) > 15:
                     profile_facts.append(fact)
 
+    # Hermes consolidates multiple vault bullets into single facts, so
+    # substring containment and token-subset matching are needed for dedup,
+    # not just exact normalized equality.
     def tokens(text: str) -> set[str]:
         stop = {"a", "an", "and", "the", "with", "in", "on", "at", "from", "via", "to", "of"}
         return {t for t in normalize(text).split() if t not in stop}
@@ -179,7 +185,6 @@ def vault_to_memory(paths: dict):
         new_facts.append(fact)
 
     if new_facts:
-        existing_entries = parse_hermes_memory(hermes_user_path)
         lines = list(existing_entries)
 
         def rendered_size(entries: list[str]) -> int:
