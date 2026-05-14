@@ -18,7 +18,7 @@ GOWORK=off go build -o ~/.local/bin/knowledge-sync .
 
 Configuration is read from environment variables, with defaults in `main.go`:
 
-- `KNOWLEDGE_REPO`, default `~/Workspace/knowledge`
+- `KNOWLEDGE_REPO`, default `$KNOWLEDGE_DIR` or `~/Workspace/knowledge`
 - `KNOWLEDGE_REMOTE`, default `vps`
 - `KNOWLEDGE_BRANCH`, default `main`
 
