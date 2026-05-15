@@ -126,6 +126,6 @@ cmux-specific launchers include `cmux codex-teams`, `cmux claude-teams`, `cmux h
 
 - Inspect layout before reading, sending input, moving surfaces, or closing anything.
 - Use explicit targets (`workspace:N`, `pane:N`, `surface:N`).
-- Move browser/video surfaces to a separate workspace before closing them.
+- Move browser/video surfaces to a separate workspace instead of closing them to avoid terminating active sessions.
 - Do not click browser controls, close surfaces, or send destructive commands unless you have verified the target and the user asked for that action.
 - Prefer a dedicated workspace for long-running delegated agents.
