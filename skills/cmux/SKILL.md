@@ -85,7 +85,7 @@ cmux move-tab-to-new-workspace --surface surface:N --workspace workspace:N --tit
 ```bash
 cmux browser --surface surface:N url
 cmux browser --surface surface:N snapshot --compact
-cmux browser --surface surface:N goto https://example.com --snapshot-after
+cmux browser --surface surface:N navigate https://example.com --snapshot-after
 cmux browser --surface surface:N click "button"
 cmux browser --surface surface:N type "input[name=q]" "text"
 cmux browser --surface surface:N screenshot --out /tmp/cmux-browser.png
