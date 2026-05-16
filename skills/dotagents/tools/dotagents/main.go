@@ -137,6 +137,8 @@ func run(args []string) error {
 			return err
 		}
 		return runDogfood(opts)
+	case "dashboard":
+		return runDashboard(args[1:])
 	case "-h", "--help", "help":
 		printUsage()
 		return nil
@@ -200,4 +202,5 @@ func printUsage() {
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
 	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes")
 	fmt.Println("  dotagents dogfood       [--agents ...]           End-to-end self-test: sync + status + doctor")
+	fmt.Println("  dotagents dashboard     [--no-open] [--addr ...] Local browser dashboard")
 }
