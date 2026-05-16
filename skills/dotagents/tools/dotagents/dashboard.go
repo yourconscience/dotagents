@@ -889,28 +889,29 @@ const dashboardHTML = `<!doctype html>
       return el;
     }
 
-    function item(kind, title, description, meta, command) {
-      const el = node("article", "item");
-      el.dataset.kind = kind;
-      el.dataset.search = [kind, title, description, meta, command].map(text).join(" ").toLowerCase();
-      const header = node("header");
-      header.append(node("h2", "", text(title)));
-      header.append(node("span", "badge", kind));
-      el.append(header);
-      if (description) el.append(node("p", "", description));
-      if (meta) el.append(node("div", "path", meta));
-      if (command) {
-        const row = node("div", "copy-row");
-        row.append(node("code", "", command));
-        const button = node("button", "", "Copy");
-        button.type = "button";
-        button.dataset.copy = command;
-        button.addEventListener("click", copyText);
-        row.append(button);
-        el.append(row);
-      }
-      return el;
-    }
+	function item(kind, title, description, meta, commands) {
+	  const copyItems = Array.isArray(commands) ? commands.filter(Boolean) : (commands ? [commands] : []);
+	  const el = node("article", "item");
+	  el.dataset.kind = kind;
+	  el.dataset.search = [kind, title, description, meta].concat(copyItems).filter(Boolean).join(" ").toLowerCase();
+	  const header = node("header");
+	  header.append(node("h2", "", text(title)));
+	  header.append(node("span", "badge", kind));
+	  el.append(header);
+	  if (description) el.append(node("p", "", description));
+	  if (meta) el.append(node("div", "path", meta));
+	  for (const command of copyItems) {
+	    const row = node("div", "copy-row");
+	    row.append(node("code", "", command));
+	    const button = node("button", "", "Copy");
+	    button.type = "button";
+	    button.dataset.copy = command;
+	    button.addEventListener("click", copyText);
+	    row.append(button);
+	    el.append(row);
+	  }
+	  return el;
+	}
 
     async function copyText(event) {
       const button = event.currentTarget;
@@ -918,22 +919,25 @@ const dashboardHTML = `<!doctype html>
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(value);
-        } else {
-          const area = document.createElement("textarea");
-          area.value = value;
-          area.setAttribute("readonly", "");
-          area.style.position = "fixed";
-          area.style.opacity = "0";
-          document.body.append(area);
-          area.select();
-          document.execCommand("copy");
-          area.remove();
-        }
-        button.textContent = "Copied";
-      } catch (error) {
-        button.textContent = "Copy failed";
-      }
-    }
+	    } else {
+	      const area = document.createElement("textarea");
+	      area.value = value;
+	      area.setAttribute("readonly", "");
+	      area.style.position = "fixed";
+	      area.style.opacity = "0";
+	      document.body.append(area);
+	      area.select();
+	      const copied = document.execCommand("copy");
+	      area.remove();
+	      if (!copied) throw new Error("copy command failed");
+	    }
+	    button.textContent = "Copied";
+	    setTimeout(() => { button.textContent = "Copy"; }, 2000);
+	  } catch (error) {
+	    button.textContent = "Copy failed";
+	    setTimeout(() => { button.textContent = "Copy"; }, 2000);
+	  }
+	}
 
     function applyCatalogFilters() {
       const query = state.query.trim().toLowerCase();
@@ -985,12 +989,12 @@ const dashboardHTML = `<!doctype html>
       track(document.getElementById("skills-list"), (skills || []).map((skill) =>
         item("skill", skill.name, skill.description, skill.path, skill.command)
       ));
-      track(document.getElementById("agents-list"), (agents || []).map((agent) =>
-        item("agent", agent.name, agent.description, agent.path, [agent.model, agent.effort].filter(Boolean).join(" / "))
-      ));
-      track(document.getElementById("mcps-list"), (mcps || []).map((mcp) =>
-        item("mcp", mcp.name, mcp.command + " " + (mcp.args || []).join(" "), mcp.path, (mcp.agents || []).join(", "))
-      ));
+	track(document.getElementById("agents-list"), (agents || []).map((agent) =>
+	  item("agent", agent.name, agent.description, [agent.path, [agent.model, agent.effort].filter(Boolean).join(" / ")].filter(Boolean).join(" | "))
+	));
+	track(document.getElementById("mcps-list"), (mcps || []).map((mcp) =>
+	  item("mcp", mcp.name, (mcp.agents || []).join(", "), mcp.path, mcp.command + " " + (mcp.args || []).join(" "))
+	));
       track(document.getElementById("hooks-list"), (hooks || []).map((hook) =>
         item("hook", hook.name, "memory hook", hook.path)
       ));
@@ -1005,9 +1009,9 @@ const dashboardHTML = `<!doctype html>
       } else {
         exampleState.textContent = "Loaded " + examples.examples.length + " example card(s).";
       }
-      track(document.getElementById("examples-list"), (examples.examples || []).map((example) =>
-        item("example", example.title || example.name, example.description, example.path, example.command || example.prompt)
-      ));
+	track(document.getElementById("examples-list"), (examples.examples || []).map((example) =>
+	  item("example", example.title || example.name, example.description, example.path, [example.command, example.prompt])
+	));
       applyCatalogFilters();
     }
 
