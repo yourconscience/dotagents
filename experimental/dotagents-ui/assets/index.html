@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dotagents dashboard</title>
+  <link rel="stylesheet" href="/assets/dashboard.css">
+</head>
+<body>
+  <header>
+    <div class="topline">
+      <h1>dotagents dashboard</h1>
+      <span class="badge">local-first MVP shell</span>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Overview</h2>
+      <div class="metric-row" id="overview-metrics">
+        <p>Loading repo status...</p>
+      </div>
+      <div class="item-row" id="agent-status"></div>
+    </section>
+    <section>
+      <div class="toolbar">
+        <h2>Catalog</h2>
+        <input id="catalog-search" type="search" autocomplete="off" placeholder="Search catalog">
+        <div class="segmented" id="catalog-filters" aria-label="Catalog filters">
+          <button type="button" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" data-filter="skill" aria-pressed="false">Skills</button>
+          <button type="button" data-filter="agent" aria-pressed="false">Agents</button>
+          <button type="button" data-filter="mcp" aria-pressed="false">MCPs</button>
+          <button type="button" data-filter="hook" aria-pressed="false">Hooks</button>
+          <button type="button" data-filter="example" aria-pressed="false">Examples</button>
+        </div>
+      </div>
+      <div class="item-row" id="skills-list"></div>
+    </section>
+    <section>
+      <h2>Native Agents</h2>
+      <div class="item-row" id="agents-list"></div>
+    </section>
+    <section>
+      <h2>MCPs And Hooks</h2>
+      <div class="grid">
+        <div class="item-row" id="mcps-list"></div>
+        <div class="item-row" id="hooks-list"></div>
+      </div>
+    </section>
+    <section>
+      <h2>Examples</h2>
+      <p id="examples-state">Loading examples...</p>
+      <div class="item-row" id="examples-list"></div>
+    </section>
+  </main>
+  <script src="/assets/dashboard.js"></script>
+</body>
+</html>
