@@ -329,6 +329,7 @@ func collectDashboardOverview(repoRoot string, opts dashboardOptions) (dashboard
 	overview := dashboardOverview{
 		Repo:            repoRoot,
 		AgentsTarget:    filepath.Join(home, ".agents"),
+		Agents:          []dashboardAgentStatus{},
 		SessionsEnabled: opts.EnableSessions,
 		Commands: []string{
 			"dotagents status",
@@ -388,11 +389,14 @@ func collectDashboardOverview(repoRoot string, opts dashboardOptions) (dashboard
 func collectDashboardSkills(repoRoot string) ([]dashboardSkill, error) {
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return []dashboardSkill{}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", skillsDir, err)
 	}
 
-	var skills []dashboardSkill
+	skills := []dashboardSkill{}
 	for _, entry := range entries {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
@@ -403,7 +407,7 @@ func collectDashboardSkills(repoRoot string) ([]dashboardSkill, error) {
 		}
 		frontmatter, err := readSkillFrontmatter(path)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		name := strings.TrimSpace(frontmatter.Name)
 		if name == "" {
@@ -425,7 +429,7 @@ func collectDashboardAgents(repoRoot string) ([]dashboardAgent, error) {
 	if err != nil {
 		return nil, err
 	}
-	agents := make([]dashboardAgent, 0, len(roles))
+	agents := []dashboardAgent{}
 	for _, role := range roles {
 		agents = append(agents, dashboardAgent{
 			Name:        role.Name,
@@ -446,9 +450,12 @@ func collectDashboardMCPs(repoRoot string) ([]dashboardMCP, error) {
 	}
 	cfg, err := loadConfig(filepath.Join(repoRoot, "skills", "dotagents"), home, "")
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return []dashboardMCP{}, nil
+		}
 		return nil, err
 	}
-	mcps := make([]dashboardMCP, 0, len(cfg.MCPServers))
+	mcps := []dashboardMCP{}
 	for _, server := range cfg.MCPServers {
 		mcps = append(mcps, dashboardMCP{
 			Name:    server.Name,
@@ -468,12 +475,12 @@ func collectDashboardHooks(repoRoot string) ([]dashboardHook, error) {
 	hooksDir := filepath.Join(repoRoot, "memory", "hooks")
 	entries, err := os.ReadDir(hooksDir)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
+		return []dashboardHook{}, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", hooksDir, err)
 	}
-	var hooks []dashboardHook
+	hooks := []dashboardHook{}
 	for _, entry := range entries {
 		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
@@ -491,13 +498,13 @@ func collectDashboardExamples(repoRoot string) (dashboardExamplesResponse, error
 	examplesDir := filepath.Join(repoRoot, "experimental", "dotagents-ui", "examples")
 	entries, err := os.ReadDir(examplesDir)
 	if errors.Is(err, fs.ErrNotExist) {
-		return dashboardExamplesResponse{}, nil
+		return dashboardExamplesResponse{Examples: []dashboardExample{}}, nil
 	}
 	if err != nil {
 		return dashboardExamplesResponse{}, fmt.Errorf("read %s: %w", examplesDir, err)
 	}
 
-	var response dashboardExamplesResponse
+	response := dashboardExamplesResponse{Examples: []dashboardExample{}}
 	for _, entry := range entries {
 		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
@@ -557,7 +564,7 @@ func readSkillFrontmatter(path string) (dashboardFrontmatter, error) {
 	if err != nil {
 		return dashboardFrontmatter{}, fmt.Errorf("read %s: %w", path, err)
 	}
-	text := string(data)
+	text := strings.ReplaceAll(string(data), "\r\n", "\n")
 	if !strings.HasPrefix(text, "---\n") {
 		return dashboardFrontmatter{}, nil
 	}
@@ -882,7 +889,7 @@ const dashboardHTML = `<!doctype html>
         metric("Hooks", overview.hook_count)
       );
 
-      document.getElementById("agent-status").replaceChildren(...overview.agents.map((agent) =>
+      document.getElementById("agent-status").replaceChildren(...(overview.agents || []).map((agent) =>
         item(agent.name, agent.detected ? "Detected" : "Binary not detected", agent.skill_root, agent.synced ? "synced" : "needs sync")
       ));
       document.getElementById("skills-list").replaceChildren(...skills.map((skill) =>
