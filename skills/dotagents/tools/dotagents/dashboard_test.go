@@ -108,6 +108,9 @@ func TestDashboardDataAPIs(t *testing.T) {
 	if len(agents) != 1 || agents[0].Name != "builder" || agents[0].Model != "sonnet" {
 		t.Fatalf("agents=%+v", agents)
 	}
+	if agents[0].Path != "agents/custom-builder.yaml" {
+		t.Fatalf("agent path=%q, want source filename", agents[0].Path)
+	}
 
 	var mcps []dashboardMCP
 	getDashboardJSON(t, handler, "/api/mcps", &mcps)
@@ -216,7 +219,7 @@ description: Foo skill.
 # Foo
 `)
 	mustWrite(t, filepath.Join(root, "skills", "bad", "SKILL.md"), "---\nname: [\n---\n")
-	mustWrite(t, filepath.Join(root, "agents", "builder.yaml"), `name: builder
+	mustWrite(t, filepath.Join(root, "agents", "custom-builder.yaml"), `name: builder
 description: Builds code.
 model: sonnet
 effort: high

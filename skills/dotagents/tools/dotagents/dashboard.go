@@ -434,7 +434,7 @@ func collectDashboardAgents(repoRoot string) ([]dashboardAgent, error) {
 		agents = append(agents, dashboardAgent{
 			Name:        role.Name,
 			Description: role.Description,
-			Path:        relPath(repoRoot, filepath.Join(repoRoot, "agents", role.Name+".yaml")),
+			Path:        relPath(repoRoot, role.Source),
 			Model:       role.Model,
 			Effort:      role.Effort,
 			Tools:       append([]string{}, role.Tools...),
@@ -892,16 +892,16 @@ const dashboardHTML = `<!doctype html>
       document.getElementById("agent-status").replaceChildren(...(overview.agents || []).map((agent) =>
         item(agent.name, agent.detected ? "Detected" : "Binary not detected", agent.skill_root, agent.synced ? "synced" : "needs sync")
       ));
-      document.getElementById("skills-list").replaceChildren(...skills.map((skill) =>
+      document.getElementById("skills-list").replaceChildren(...(skills || []).map((skill) =>
         item(skill.name, skill.description, skill.path, skill.command)
       ));
-      document.getElementById("agents-list").replaceChildren(...agents.map((agent) =>
+      document.getElementById("agents-list").replaceChildren(...(agents || []).map((agent) =>
         item(agent.name, agent.description, agent.path, [agent.model, agent.effort].filter(Boolean).join(" / "))
       ));
-      document.getElementById("mcps-list").replaceChildren(...mcps.map((mcp) =>
+      document.getElementById("mcps-list").replaceChildren(...(mcps || []).map((mcp) =>
         item(mcp.name, mcp.command + " " + (mcp.args || []).join(" "), mcp.path, (mcp.agents || []).join(", "))
       ));
-      document.getElementById("hooks-list").replaceChildren(...hooks.map((hook) =>
+      document.getElementById("hooks-list").replaceChildren(...(hooks || []).map((hook) =>
         item(hook.name, "memory hook", hook.path)
       ));
 
