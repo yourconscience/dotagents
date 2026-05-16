@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -70,5 +71,17 @@ func TestDashboardHealthReportsSessionsFlag(t *testing.T) {
 	}
 	if !health.SessionsEnabled {
 		t.Fatalf("SessionsEnabled=false, want true")
+	}
+}
+
+func TestDashboardForwardTargetUsesListenerHost(t *testing.T) {
+	host, port := dashboardForwardTarget(&net.TCPAddr{IP: net.ParseIP("::1"), Port: 12345})
+	if host != "[::1]" || port != "12345" {
+		t.Fatalf("host=%q port=%q, want [::1] 12345", host, port)
+	}
+
+	host, port = dashboardForwardTarget(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 23456})
+	if host != "127.0.0.1" || port != "23456" {
+		t.Fatalf("host=%q port=%q, want 127.0.0.1 23456", host, port)
 	}
 }
