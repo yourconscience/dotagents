@@ -694,6 +694,15 @@ const dashboardHTML = `<!doctype html>
       cursor: pointer;
       padding: 6px 9px;
     }
+    input {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink);
+      min-height: 34px;
+      padding: 6px 9px;
+      width: min(360px, 100%);
+    }
     .topline {
       display: flex;
       align-items: center;
@@ -775,8 +784,30 @@ const dashboardHTML = `<!doctype html>
     }
     .toolbar {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 8px;
       flex-wrap: wrap;
+    }
+    .segmented {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .segmented button[aria-pressed="true"] {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .copy-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .copy-row code {
+      flex: 1;
+    }
+    .hidden {
+      display: none;
     }
     code {
       display: block;
@@ -808,6 +839,15 @@ const dashboardHTML = `<!doctype html>
     <section>
       <div class="toolbar">
         <h2>Catalog</h2>
+        <input id="catalog-search" type="search" autocomplete="off" placeholder="Search catalog">
+        <div class="segmented" id="catalog-filters" aria-label="Catalog filters">
+          <button type="button" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" data-filter="skill" aria-pressed="false">Skills</button>
+          <button type="button" data-filter="agent" aria-pressed="false">Agents</button>
+          <button type="button" data-filter="mcp" aria-pressed="false">MCPs</button>
+          <button type="button" data-filter="hook" aria-pressed="false">Hooks</button>
+          <button type="button" data-filter="example" aria-pressed="false">Examples</button>
+        </div>
       </div>
       <div class="item-row" id="skills-list"></div>
     </section>
@@ -829,7 +869,7 @@ const dashboardHTML = `<!doctype html>
     </section>
   </main>
   <script>
-    const state = {};
+    const state = { filter: "all", query: "", cards: [] };
 
     function text(value) {
       return value === undefined || value === null || value === "" ? "-" : String(value);
@@ -849,15 +889,64 @@ const dashboardHTML = `<!doctype html>
       return el;
     }
 
-    function item(title, description, meta, command) {
+    function item(kind, title, description, meta, command) {
       const el = node("article", "item");
+      el.dataset.kind = kind;
+      el.dataset.search = [kind, title, description, meta, command].map(text).join(" ").toLowerCase();
       const header = node("header");
       header.append(node("h2", "", text(title)));
+      header.append(node("span", "badge", kind));
       el.append(header);
       if (description) el.append(node("p", "", description));
       if (meta) el.append(node("div", "path", meta));
-      if (command) el.append(node("code", "", command));
+      if (command) {
+        const row = node("div", "copy-row");
+        row.append(node("code", "", command));
+        const button = node("button", "", "Copy");
+        button.type = "button";
+        button.dataset.copy = command;
+        button.addEventListener("click", copyText);
+        row.append(button);
+        el.append(row);
+      }
       return el;
+    }
+
+    async function copyText(event) {
+      const button = event.currentTarget;
+      const value = button.dataset.copy || "";
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const area = document.createElement("textarea");
+          area.value = value;
+          area.setAttribute("readonly", "");
+          area.style.position = "fixed";
+          area.style.opacity = "0";
+          document.body.append(area);
+          area.select();
+          document.execCommand("copy");
+          area.remove();
+        }
+        button.textContent = "Copied";
+      } catch (error) {
+        button.textContent = "Copy failed";
+      }
+    }
+
+    function applyCatalogFilters() {
+      const query = state.query.trim().toLowerCase();
+      for (const card of state.cards) {
+        const kindMatch = state.filter === "all" || card.dataset.kind === state.filter;
+        const queryMatch = query === "" || card.dataset.search.includes(query);
+        card.classList.toggle("hidden", !(kindMatch && queryMatch));
+      }
+    }
+
+    function track(container, cards) {
+      container.replaceChildren(...cards);
+      state.cards.push(...cards);
     }
 
     async function loadJSON(path) {
@@ -889,20 +978,21 @@ const dashboardHTML = `<!doctype html>
         metric("Hooks", overview.hook_count)
       );
 
+      state.cards = [];
       document.getElementById("agent-status").replaceChildren(...(overview.agents || []).map((agent) =>
-        item(agent.name, agent.detected ? "Detected" : "Binary not detected", agent.skill_root, agent.synced ? "synced" : "needs sync")
+        item("status", agent.name, agent.detected ? "Detected" : "Binary not detected", agent.skill_root, agent.synced ? "synced" : "needs sync")
       ));
-      document.getElementById("skills-list").replaceChildren(...(skills || []).map((skill) =>
-        item(skill.name, skill.description, skill.path, skill.command)
+      track(document.getElementById("skills-list"), (skills || []).map((skill) =>
+        item("skill", skill.name, skill.description, skill.path, skill.command)
       ));
-      document.getElementById("agents-list").replaceChildren(...(agents || []).map((agent) =>
-        item(agent.name, agent.description, agent.path, [agent.model, agent.effort].filter(Boolean).join(" / "))
+      track(document.getElementById("agents-list"), (agents || []).map((agent) =>
+        item("agent", agent.name, agent.description, agent.path, [agent.model, agent.effort].filter(Boolean).join(" / "))
       ));
-      document.getElementById("mcps-list").replaceChildren(...(mcps || []).map((mcp) =>
-        item(mcp.name, mcp.command + " " + (mcp.args || []).join(" "), mcp.path, (mcp.agents || []).join(", "))
+      track(document.getElementById("mcps-list"), (mcps || []).map((mcp) =>
+        item("mcp", mcp.name, mcp.command + " " + (mcp.args || []).join(" "), mcp.path, (mcp.agents || []).join(", "))
       ));
-      document.getElementById("hooks-list").replaceChildren(...(hooks || []).map((hook) =>
-        item(hook.name, "memory hook", hook.path)
+      track(document.getElementById("hooks-list"), (hooks || []).map((hook) =>
+        item("hook", hook.name, "memory hook", hook.path)
       ));
 
       const exampleState = document.getElementById("examples-state");
@@ -915,10 +1005,25 @@ const dashboardHTML = `<!doctype html>
       } else {
         exampleState.textContent = "Loaded " + examples.examples.length + " example card(s).";
       }
-      document.getElementById("examples-list").replaceChildren(...(examples.examples || []).map((example) =>
-        item(example.title || example.name, example.description, example.path, example.command || example.prompt)
+      track(document.getElementById("examples-list"), (examples.examples || []).map((example) =>
+        item("example", example.title || example.name, example.description, example.path, example.command || example.prompt)
       ));
+      applyCatalogFilters();
     }
+
+    document.getElementById("catalog-search").addEventListener("input", (event) => {
+      state.query = event.target.value;
+      applyCatalogFilters();
+    });
+    document.getElementById("catalog-filters").addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-filter]");
+      if (!button) return;
+      state.filter = button.dataset.filter;
+      for (const current of document.querySelectorAll("#catalog-filters button")) {
+        current.setAttribute("aria-pressed", String(current === button));
+      }
+      applyCatalogFilters();
+    });
 
     render().catch((error) => {
       document.getElementById("overview-metrics").replaceChildren(node("p", "warn", error.message));

@@ -1,0 +1,5 @@
+name: mobile-ssh-forwarding
+title: Open dashboard from mobile through SSH
+description: Start the local dashboard and use SSH forwarding over the private device network.
+command: dotagents dashboard --no-open --addr 127.0.0.1:0 --access ssh
+prompt: Start the dashboard in SSH access mode and give me the forwarding command for my current port.

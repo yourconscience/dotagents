@@ -1,0 +1,5 @@
+name: repair-mcp-drift
+title: Inspect and repair MCP drift
+description: Check canonical MCP entries and reconcile agent-native MCP config through dotagents.
+command: dotagents mcp list
+prompt: Inspect MCP drift, explain any mismatch, and use dotagents sync only if the canonical config is correct.
