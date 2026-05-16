@@ -173,6 +173,38 @@ func TestDashboardMissingMCPConfigIsEmpty(t *testing.T) {
 	}
 }
 
+func TestDashboardInitialExamplesRender(t *testing.T) {
+	repoRoot, _, err := findRoots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	examples, err := collectDashboardExamples(repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"choose-skill",
+		"mobile-ssh-forwarding",
+		"repair-mcp-drift",
+		"run-pr-triage",
+		"send-scoped-prompt",
+		"start-agent-terminal",
+		"sync-shared-skills",
+	}
+	if len(examples.Examples) != len(want) {
+		t.Fatalf("example count=%d, want %d: %+v", len(examples.Examples), len(want), examples)
+	}
+	for i, name := range want {
+		example := examples.Examples[i]
+		if example.Name != name {
+			t.Fatalf("example[%d]=%q, want %q", i, example.Name, name)
+		}
+		if example.Title == "" || example.Description == "" || (example.Command == "" && example.Prompt == "") {
+			t.Fatalf("example %s missing render fields: %+v", name, example)
+		}
+	}
+}
+
 func getDashboardJSON(t *testing.T, handler http.Handler, path string, dest any) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
