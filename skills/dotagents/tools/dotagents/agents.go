@@ -25,6 +25,7 @@ type agentRole struct {
 	Instructions string           `yaml:"instructions"`
 	Codex        codexRoleOptions `yaml:"codex"`
 	Droid        droidRoleOptions `yaml:"droid"`
+	Source       string           `yaml:"-"`
 }
 
 type codexRoleOptions struct {
@@ -123,6 +124,7 @@ func loadAgentRoles(repoRoot string) ([]agentRole, error) {
 		if role.Instructions == "" {
 			return nil, fmt.Errorf("%s is missing instructions", path)
 		}
+		role.Source = path
 		if _, ok := seen[role.Name]; ok {
 			return nil, fmt.Errorf("agent role %s is duplicated", role.Name)
 		}
