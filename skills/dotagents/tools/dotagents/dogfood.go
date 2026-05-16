@@ -62,6 +62,7 @@ func runDashboardDogfood() error {
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+	defer shutdownDashboardDogfood(server)
 	serverErrors := make(chan error, 1)
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
@@ -75,55 +76,44 @@ func runDashboardDogfood() error {
 
 	client := &http.Client{Timeout: dogfoodHTTPTimeout}
 	if err := dogfoodGetContains(client, url+"/", "dotagents dashboard", "/assets/dashboard.js"); err != nil {
-		shutdownDashboardDogfood(server)
 		return err
 	}
 	if err := dogfoodGetContains(client, url+"/assets/dashboard.css", ".metric-row", ".item-row"); err != nil {
-		shutdownDashboardDogfood(server)
 		return err
 	}
 	if err := dogfoodGetContains(client, url+"/assets/dashboard.js", "async function render()", "loadJSON(\"/api/overview\")"); err != nil {
-		shutdownDashboardDogfood(server)
 		return err
 	}
 
 	var health dashboardHealth
 	if err := dogfoodGetJSON(client, url+"/api/health", &health); err != nil {
-		shutdownDashboardDogfood(server)
 		return err
 	}
 	if !health.OK || health.Repo != repoRoot || health.SessionsEnabled {
-		shutdownDashboardDogfood(server)
 		return fmt.Errorf("unexpected dashboard health: %+v", health)
 	}
 
 	var overview dashboardOverview
 	if err := dogfoodGetJSON(client, url+"/api/overview", &overview); err != nil {
-		shutdownDashboardDogfood(server)
 		return err
 	}
 	if overview.Repo != repoRoot {
-		shutdownDashboardDogfood(server)
 		return fmt.Errorf("unexpected dashboard overview repo: %q", overview.Repo)
 	}
 
 	var skills []dashboardSkill
 	if err := dogfoodGetJSON(client, url+"/api/skills", &skills); err != nil {
-		shutdownDashboardDogfood(server)
 		return err
 	}
 	if len(skills) == 0 {
-		shutdownDashboardDogfood(server)
 		return fmt.Errorf("dashboard skills API returned no skills")
 	}
 
 	var examples dashboardExamplesResponse
 	if err := dogfoodGetJSON(client, url+"/api/examples", &examples); err != nil {
-		shutdownDashboardDogfood(server)
 		return err
 	}
 	if len(examples.Examples) == 0 {
-		shutdownDashboardDogfood(server)
 		return fmt.Errorf("dashboard examples API returned no examples")
 	}
 
@@ -160,7 +150,7 @@ func dogfoodGetContains(client *http.Client, url string, needles ...string) erro
 	return nil
 }
 
-func dogfoodGetJSON(client *http.Client, url string, dest interface{}) error {
+func dogfoodGetJSON(client *http.Client, url string, dest any) error {
 	body, err := dogfoodGetBody(client, url)
 	if err != nil {
 		return err
