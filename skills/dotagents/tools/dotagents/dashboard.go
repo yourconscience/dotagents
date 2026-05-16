@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const defaultDashboardAddr = "127.0.0.1:8765"
@@ -53,8 +54,8 @@ func runDashboard(args []string) error {
 	url := "http://" + listener.Addr().String()
 	fmt.Printf("dotagents dashboard: %s\n", url)
 	if opts.Access == "ssh" {
-		port := listener.Addr().(*net.TCPAddr).Port
-		fmt.Printf("ssh access: ssh -L 127.0.0.1:%d:127.0.0.1:%d <ssh-host>\n", port, port)
+		host, port := dashboardForwardTarget(listener.Addr())
+		fmt.Printf("ssh access: ssh -L 127.0.0.1:%s:%s:%s <ssh-host>\n", port, host, port)
 	}
 
 	if !opts.NoOpen {
@@ -63,7 +64,10 @@ func runDashboard(args []string) error {
 		}
 	}
 
-	server := &http.Server{Handler: handler}
+	server := &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -109,6 +113,20 @@ func listenDashboard(addr string) (net.Listener, error) {
 		return nil, err
 	}
 	return net.Listen("tcp", normalized)
+}
+
+func dashboardForwardTarget(addr net.Addr) (string, string) {
+	tcpAddr, ok := addr.(*net.TCPAddr)
+	if !ok {
+		return "127.0.0.1", ""
+	}
+	host := "127.0.0.1"
+	if tcpAddr.IP != nil && tcpAddr.IP.To4() == nil {
+		host = "[" + tcpAddr.IP.String() + "]"
+	} else if tcpAddr.IP != nil && !tcpAddr.IP.IsUnspecified() {
+		host = tcpAddr.IP.String()
+	}
+	return host, strconv.Itoa(tcpAddr.Port)
 }
 
 func normalizeDashboardAddr(addr string) (string, error) {
