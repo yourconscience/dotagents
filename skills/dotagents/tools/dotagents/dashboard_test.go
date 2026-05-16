@@ -149,6 +149,25 @@ func TestDashboardExamplesMissingDirectoryIsEmpty(t *testing.T) {
 	if len(examples.Examples) != 0 || len(examples.Warnings) != 0 {
 		t.Fatalf("examples=%+v", examples)
 	}
+	data, err := json.Marshal(examples)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"examples":[]`) {
+		t.Fatalf("examples encoded as %s, want empty JSON array", data)
+	}
+}
+
+func TestDashboardMissingMCPConfigIsEmpty(t *testing.T) {
+	repoRoot := t.TempDir()
+	t.Setenv("HOME", filepath.Join(repoRoot, "home"))
+	mcps, err := collectDashboardMCPs(repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mcps) != 0 {
+		t.Fatalf("mcps=%+v, want empty", mcps)
+	}
 }
 
 func getDashboardJSON(t *testing.T, handler http.Handler, path string, dest any) {
@@ -196,6 +215,7 @@ description: Foo skill.
 
 # Foo
 `)
+	mustWrite(t, filepath.Join(root, "skills", "bad", "SKILL.md"), "---\nname: [\n---\n")
 	mustWrite(t, filepath.Join(root, "agents", "builder.yaml"), `name: builder
 description: Builds code.
 model: sonnet
