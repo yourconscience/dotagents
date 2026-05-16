@@ -25,7 +25,8 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 
 ## Skills
 
-- `tmux` - generic terminal multiplexer skill: uses cmux in cmux-managed terminals and tmux otherwise.
+- `cmux` - control cmux workspaces, panes, terminal/browser surfaces, markdown viewers, and visible agent workspaces.
+- `tmux` - generic tmux reference for sessions, windows, panes, screen capture, and input.
 - `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
 - `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
 - `gws` - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex/OpenClaw and CLI helpers.
