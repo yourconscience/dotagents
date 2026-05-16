@@ -1,0 +1,5 @@
+name: send-scoped-prompt
+title: Send a scoped prompt to a running session
+description: Use the chat composer to send a bounded instruction into an existing agent session.
+command: dotagents dashboard --enable-sessions
+prompt: Send this prompt to the selected session, preserve unrelated worktree changes, and report the exact commands run.

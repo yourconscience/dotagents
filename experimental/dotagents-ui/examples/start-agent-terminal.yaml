@@ -1,0 +1,5 @@
+name: start-agent-terminal
+title: Start a local terminal session
+description: Launch a controlled local terminal preset from the dashboard when sessions are explicitly enabled.
+command: dotagents dashboard --enable-sessions
+prompt: Start from an allowlisted terminal preset in the dotagents repo and keep the session scoped to this task.

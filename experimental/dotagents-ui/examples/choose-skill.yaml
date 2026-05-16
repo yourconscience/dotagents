@@ -1,0 +1,5 @@
+name: choose-skill
+title: Choose the right skill
+description: Inspect available skills and select the smallest workflow that matches the task.
+command: dotagents status --agents codex
+prompt: Given this task, inspect the skills catalog and choose the one skill that should guide the work.

@@ -34,7 +34,11 @@ func TestParseDashboardFlagsRejectsNonLoopback(t *testing.T) {
 }
 
 func TestDashboardHandlerServesStaticShellAndHealth(t *testing.T) {
-	handler := newDashboardHandler("/repo", dashboardOptions{})
+	repoRoot, _, err := findRoots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newDashboardHandler(repoRoot, dashboardOptions{})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -42,8 +46,18 @@ func TestDashboardHandlerServesStaticShellAndHealth(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET / status=%d, want 200", rec.Code)
 	}
-	if got := rec.Body.String(); !strings.Contains(got, "dotagents dashboard") || !strings.Contains(got, "/api/overview") {
+	if got := rec.Body.String(); !strings.Contains(got, "dotagents dashboard") || !strings.Contains(got, "/assets/dashboard.js") {
 		t.Fatalf("static shell missing expected content: %s", got)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/assets/dashboard.js", nil)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /assets/dashboard.js status=%d, want 200", rec.Code)
+	}
+	if got := rec.Body.String(); !strings.Contains(got, "function render()") {
+		t.Fatalf("dashboard.js missing render function: %s", got)
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/health", nil)
@@ -56,7 +70,7 @@ func TestDashboardHandlerServesStaticShellAndHealth(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &health); err != nil {
 		t.Fatal(err)
 	}
-	if !health.OK || health.Repo != "/repo" || health.SessionsEnabled {
+	if !health.OK || health.Repo != repoRoot || health.SessionsEnabled {
 		t.Fatalf("health=%+v", health)
 	}
 }
@@ -170,6 +184,38 @@ func TestDashboardMissingMCPConfigIsEmpty(t *testing.T) {
 	}
 	if len(mcps) != 0 {
 		t.Fatalf("mcps=%+v, want empty", mcps)
+	}
+}
+
+func TestDashboardInitialExamplesRender(t *testing.T) {
+	repoRoot, _, err := findRoots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	examples, err := collectDashboardExamples(repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"choose-skill",
+		"mobile-ssh-forwarding",
+		"repair-mcp-drift",
+		"run-pr-triage",
+		"send-scoped-prompt",
+		"start-agent-terminal",
+		"sync-shared-skills",
+	}
+	if len(examples.Examples) != len(want) {
+		t.Fatalf("example count=%d, want %d: %+v", len(examples.Examples), len(want), examples)
+	}
+	for i, name := range want {
+		example := examples.Examples[i]
+		if example.Name != name {
+			t.Fatalf("example[%d]=%q, want %q", i, example.Name, name)
+		}
+		if example.Title == "" || example.Description == "" || (example.Command == "" && example.Prompt == "") {
+			t.Fatalf("example %s missing render fields: %+v", name, example)
+		}
 	}
 }
 

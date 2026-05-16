@@ -1,0 +1,4 @@
+name: run-pr-triage
+title: Run /pr-triage on a feature PR
+description: Inspect mergeability, checks, review threads, and bot feedback before a PR is considered ready.
+prompt: Use /pr-triage on the current PR, fix valid bot feedback, leave human comments for review, and do not merge.

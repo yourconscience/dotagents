@@ -1,0 +1,5 @@
+name: sync-shared-skills
+title: Sync shared skills after update
+description: Refresh local agent skill mirrors after pulling dotagents changes.
+command: dotagents pull --agents codex,claude-code
+prompt: Check dotagents status, run the sync command if needed, and report drift.
