@@ -21,30 +21,30 @@ Do not use this for session transfer, live terminal sharing, tmux, Warp/TUI scra
 
 ```text
 Mac local: http://127.0.0.1:18777
-VPS to Mac over Tailscale: http://100.80.21.89:18777
+VPS to Mac over Tailscale: $REMOTE_ACCESS_BRIDGE_URL
 ```
 
-Hermes on the VPS should call the Mac bridge directly over Tailscale. The Mac bridge LaunchAgent must listen on `0.0.0.0:18777` or `*:18777`.
+Hermes on the VPS should call the Mac bridge directly over Tailscale. Set `REMOTE_ACCESS_BRIDGE_URL` to the Mac bridge URL, for example `http://<mac-tailscale-host>:18777`. Prefer binding the bridge to the Mac's Tailscale address instead of all interfaces.
 
 ## Commands
 
 Status is unauthenticated:
 
 ```bash
-curl -fsS http://100.80.21.89:18777/status
+curl -fsS "$REMOTE_ACCESS_BRIDGE_URL/status"
 ```
 
 Recent/search/ask require `REMOTE_ACCESS_BRIDGE_TOKEN`:
 
 ```bash
 curl -fsS -H "authorization: Bearer $REMOTE_ACCESS_BRIDGE_TOKEN" \
-  http://100.80.21.89:18777/recent
+  "$REMOTE_ACCESS_BRIDGE_URL/recent"
 
 curl -fsS -H "authorization: Bearer $REMOTE_ACCESS_BRIDGE_TOKEN" \
   --get --data-urlencode 'q=<query>' \
-  http://100.80.21.89:18777/search
+  "$REMOTE_ACCESS_BRIDGE_URL/search"
 
-curl -fsS -X POST http://100.80.21.89:18777/ask \
+curl -fsS -X POST "$REMOTE_ACCESS_BRIDGE_URL/ask" \
   -H 'content-type: application/json' \
   -H "authorization: Bearer $REMOTE_ACCESS_BRIDGE_TOKEN" \
   -d '{"agent":"droid","session_id":"<id>","instruction":"summarize current state and next action","mode":"continue"}'
@@ -96,5 +96,5 @@ The binary defaults to `~/.local/bin/remote-access-bridge`.
 If VPS access fails, check Tailscale connectivity first:
 
 ```bash
-ssh vps-ts 'curl -fsS --max-time 5 http://100.80.21.89:18777/status'
+ssh vps-ts 'curl -fsS --max-time 5 "$REMOTE_ACCESS_BRIDGE_URL/status"'
 ```
