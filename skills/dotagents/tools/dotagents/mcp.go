@@ -36,7 +36,7 @@ const yamlMapTag = "!!map"
 var mcpTargets = map[string]mcpTarget{
 	agentAmp: {
 		agentName:  agentAmp,
-		configPath: func(home string) string { return filepath.Join(home, ".config", "amp", "settings.json") },
+		configPath: ampSettingsPath,
 		inspect:    inspectJSONMCPServer,
 		patch:      patchJSONMCPServer,
 		read:       readJSONMCPServer,
@@ -192,7 +192,7 @@ func inspectJSONMCPServer(target mcpTarget, server mcpServerConfig, home string)
 	}
 
 	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := parseJSONConfig(configPath, data, &raw); err != nil {
 		return stateMissing, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 	return inspectMapMCPServer(raw, target.rootKey, server, target.defaults), nil
@@ -206,7 +206,7 @@ func patchJSONMCPServer(target mcpTarget, server mcpServerConfig, home string) e
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("read %s: %w", configPath, err)
 		}
-	} else if err := json.Unmarshal(data, &raw); err != nil {
+	} else if err := parseJSONConfig(configPath, data, &raw); err != nil {
 		return fmt.Errorf("parse %s: %w", configPath, err)
 	}
 	upsertMapMCPServer(raw, target.rootKey, server, target.defaults)
@@ -232,7 +232,7 @@ func readJSONMCPServer(target mcpTarget, name string, home string) (mcpServerCon
 		return mcpServerConfig{}, fmt.Errorf("read %s: %w", configPath, err)
 	}
 	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := parseJSONConfig(configPath, data, &raw); err != nil {
 		return mcpServerConfig{}, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 	entry, ok := mapMCPEntry(raw, target.rootKey, name)
@@ -358,6 +358,117 @@ func upsertMapMCPServer(raw map[string]interface{}, rootKey string, server mcpSe
 	}
 	applyManagedMCPMap(entry, server, defaults)
 	serversMap[server.Name] = entry
+}
+
+func parseJSONConfig(path string, data []byte, v interface{}) error {
+	if strings.EqualFold(filepath.Ext(path), ".jsonc") {
+		data = removeTrailingJSONCommas(stripJSONComments(data))
+	}
+	return json.Unmarshal(data, v)
+}
+
+func stripJSONComments(data []byte) []byte {
+	out := make([]byte, 0, len(data))
+	inString := false
+	escaped := false
+	lineComment := false
+	blockComment := false
+
+	for i := 0; i < len(data); i++ {
+		ch := data[i]
+		var next byte
+		if i+1 < len(data) {
+			next = data[i+1]
+		}
+
+		if lineComment {
+			if ch == '\n' || ch == '\r' {
+				lineComment = false
+				out = append(out, ch)
+			}
+			continue
+		}
+		if blockComment {
+			if ch == '*' && next == '/' {
+				blockComment = false
+				i++
+			}
+			continue
+		}
+		if inString {
+			out = append(out, ch)
+			if escaped {
+				escaped = false
+				continue
+			}
+			if ch == '\\' {
+				escaped = true
+				continue
+			}
+			if ch == '"' {
+				inString = false
+			}
+			continue
+		}
+
+		if ch == '"' {
+			inString = true
+			out = append(out, ch)
+			continue
+		}
+		if ch == '/' && next == '/' {
+			lineComment = true
+			i++
+			continue
+		}
+		if ch == '/' && next == '*' {
+			blockComment = true
+			i++
+			continue
+		}
+		out = append(out, ch)
+	}
+	return out
+}
+
+func removeTrailingJSONCommas(data []byte) []byte {
+	out := make([]byte, 0, len(data))
+	inString := false
+	escaped := false
+	for i := 0; i < len(data); i++ {
+		ch := data[i]
+		if inString {
+			out = append(out, ch)
+			if escaped {
+				escaped = false
+				continue
+			}
+			if ch == '\\' {
+				escaped = true
+				continue
+			}
+			if ch == '"' {
+				inString = false
+			}
+			continue
+		}
+		if ch == '"' {
+			inString = true
+			out = append(out, ch)
+			continue
+		}
+		if ch == ',' {
+			j := i + 1
+			for j < len(data) && (data[j] == ' ' || data[j] == '\t' || data[j] == '\n' || data[j] == '\r') {
+				j++
+			}
+			if j < len(data) && (data[j] == '}' || data[j] == ']') {
+				continue
+			}
+		}
+		out = append(out, ch)
+	}
+	return out
 }
 
 func inspectCodexMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {

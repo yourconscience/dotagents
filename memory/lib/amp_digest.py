@@ -128,13 +128,24 @@ def build_block(data: dict[str, Any]) -> str:
 def update_daily_file(sessions_dir: Path, data: dict[str, Any]) -> Path:
     started = parse_start(data.get("session_start"))
     target = sessions_dir / f"{started.strftime('%Y-%m-%d')}.md"
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
     session_id = str(data.get("session_id") or data.get("amp_thread_id") or "unknown")
     session_marker_re = re.compile(
         rf"<!-- amp-session:{re.escape(session_id)}:start -->.*?<!-- amp-session:{re.escape(session_id)}:end -->\n?",
         re.DOTALL,
     )
-    existing = session_marker_re.sub("", existing).rstrip()
+
+    existing = ""
+    session_files = sorted({*sessions_dir.glob("*.md"), *sessions_dir.glob("*.markdown")})
+    for path in session_files:
+        text = path.read_text(encoding="utf-8")
+        cleaned = session_marker_re.sub("", text).rstrip()
+        if path == target:
+            existing = cleaned
+        elif cleaned != text.rstrip():
+            path.write_text(cleaned + "\n" if cleaned else "", encoding="utf-8")
+    if not existing and target.exists() and target not in session_files:
+        existing = session_marker_re.sub("", target.read_text(encoding="utf-8")).rstrip()
+
     block = build_block(data).rstrip() + "\n"
     target.write_text((existing + "\n\n" + block).lstrip() if existing else block, encoding="utf-8")
     return target

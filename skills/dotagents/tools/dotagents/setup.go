@@ -78,14 +78,14 @@ func patchAgentConfig(agent agentConfig, home string) (bool, error) {
 }
 
 func patchAmpConfig(home string) (bool, error) {
-	configPath := filepath.Join(home, ".config", "amp", "settings.json")
+	configPath := ampSettingsPath(home)
 	data, err := os.ReadFile(configPath)
 	raw := map[string]interface{}{}
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return false, fmt.Errorf("read %s: %w", configPath, err)
 		}
-	} else if err := json.Unmarshal(data, &raw); err != nil {
+	} else if err := parseJSONConfig(configPath, data, &raw); err != nil {
 		return false, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 
@@ -107,6 +107,16 @@ func patchAmpConfig(home string) (bool, error) {
 		return false, fmt.Errorf("write %s: %w", configPath, err)
 	}
 	return true, nil
+}
+
+func ampSettingsPath(home string) string {
+	configDir := filepath.Join(home, ".config", "amp")
+	jsonPath := filepath.Join(configDir, "settings.json")
+	jsoncPath := filepath.Join(configDir, "settings.jsonc")
+	if hasFile(jsonPath) || !hasFile(jsoncPath) {
+		return jsonPath
+	}
+	return jsoncPath
 }
 
 func patchHermesConfig(home string) (bool, error) {

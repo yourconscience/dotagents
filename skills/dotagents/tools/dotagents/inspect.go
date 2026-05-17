@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -275,7 +274,7 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 }
 
 func ampHasSkillsPath(home string) (bool, error) {
-	configPath := filepath.Join(home, ".config", "amp", "settings.json")
+	configPath := ampSettingsPath(home)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -285,7 +284,7 @@ func ampHasSkillsPath(home string) (bool, error) {
 	}
 
 	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := parseJSONConfig(configPath, data, &raw); err != nil {
 		return false, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 	path, _ := raw["amp.skills.path"].(string)
