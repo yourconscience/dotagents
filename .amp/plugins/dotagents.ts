@@ -8,6 +8,8 @@ const dotagentsRoot = process.env.DOTAGENTS_ROOT || join(home, '.agents')
 const memoryHook = join(dotagentsRoot, 'memory', 'hooks', 'session-end.sh')
 const memorySync = join(dotagentsRoot, 'memory', 'hooks', 'sync.sh')
 const agentsDir = join(dotagentsRoot, 'agents')
+const threadMessages = new Map<string, ThreadMessage[]>()
+const threadStartedAt = new Map<string, string>()
 
 function textFromContent(content: unknown): string {
   if (typeof content === 'string') return content
@@ -30,6 +32,26 @@ function simplifyMessage(message: ThreadMessage): { role: string; content: strin
     role: message.role,
     content: textFromContent(message.content),
   }
+}
+
+function accumulatedMessages(threadID: string, messages: ThreadMessage[]): ThreadMessage[] {
+  const existing = threadMessages.get(threadID) || []
+  const offsets = new Map(existing.map((message, index) => [String(message.id), index]))
+  const merged = [...existing]
+
+  for (const message of messages) {
+    const key = String(message.id)
+    const offset = offsets.get(key)
+    if (offset === undefined) {
+      offsets.set(key, merged.length)
+      merged.push(message)
+    } else {
+      merged[offset] = message
+    }
+  }
+
+  threadMessages.set(threadID, merged)
+  return merged
 }
 
 function runHook(path: string, payload?: unknown, args: string[] = []): string {
@@ -63,12 +85,16 @@ export default function (amp: PluginAPI) {
   amp.logger.log('dotagents plugin loaded')
 
   amp.on('agent.end', async (event) => {
+    const threadID = event.thread.id
+    const startedAt = threadStartedAt.get(threadID) || new Date().toISOString()
+    threadStartedAt.set(threadID, startedAt)
+    const messages = accumulatedMessages(threadID, event.messages)
     const payload = {
       platform: 'amp',
-      session_id: event.thread.id,
-      amp_thread_id: event.thread.id,
-      session_start: new Date().toISOString(),
-      messages: event.messages.map(simplifyMessage),
+      session_id: threadID,
+      amp_thread_id: threadID,
+      session_start: startedAt,
+      messages: messages.map(simplifyMessage),
     }
     const output = runHook(memoryHook, payload)
     amp.logger.log(`dotagents memory hook: ${output}`)
