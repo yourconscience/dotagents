@@ -13,6 +13,7 @@ import (
 const (
 	mcpTestNodeCommand      = "node"
 	mcpTestTokenPlaceholder = "${TOKEN}"
+	mcpTestUVXCommand       = "uvx"
 )
 
 func writeTestDotagentsConfig(t *testing.T, path string) {
@@ -65,7 +66,7 @@ func TestMCPCLIAddListRemove(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "dotagents.yaml")
 	writeTestDotagentsConfig(t, configPath)
 
-	if err := runMCP([]string{"add", "local", "--command", "uvx", "--arg", "pkg@latest", "--env", "SECRET=value", "--agents", "claude-code,droid", "--config", configPath}); err != nil {
+	if err := runMCP([]string{"add", "local", "--command", mcpTestUVXCommand, "--arg", "pkg@latest", "--env", "SECRET=value", "--agents", "claude-code,droid", "--config", configPath}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -77,7 +78,7 @@ func TestMCPCLIAddListRemove(t *testing.T) {
 		t.Fatalf("MCP server count = %d, want 1", len(cfg.MCPServers))
 	}
 	server := cfg.MCPServers[0]
-	if server.Name != "local" || server.Command != "uvx" || !stringSlicesEqual(server.Args, []string{"pkg@latest"}) {
+	if server.Name != "local" || server.Command != mcpTestUVXCommand || !stringSlicesEqual(server.Args, []string{"pkg@latest"}) {
 		t.Fatalf("unexpected server: %#v", server)
 	}
 	if !stringSlicesEqual(server.Agents, []string{"claude-code", "droid"}) {
@@ -246,7 +247,7 @@ env = { TOKEN = 'secret', HASH = 'keep#value' }
 func TestMCPCLIRejectsUnsupportedAgent(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "dotagents.yaml")
 	writeTestDotagentsConfig(t, configPath)
-	if err := runMCP([]string{"add", "bad", "--command", "uvx", "--agents", "openclaw", "--config", configPath}); err == nil {
+	if err := runMCP([]string{"add", "bad", "--command", mcpTestUVXCommand, "--agents", "openclaw", "--config", configPath}); err == nil {
 		t.Fatal("mcp add with openclaw succeeded, want error")
 	}
 }
