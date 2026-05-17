@@ -2,7 +2,7 @@
 
 Private repo for my shared authored `~/.agents` layer.
 
-This repo is under active development and currently holds shared rules, cross-tool skills, and small agent-native config parity such as managed MCP entries for Claude Code, Codex, Hermes Agent, Factory Droid, and OpenClaw.
+This repo is under active development and currently holds shared rules, cross-tool skills, and small agent-native config parity such as managed MCP entries for Amp, Claude Code, Codex, Hermes Agent, Factory Droid, and OpenClaw.
 
 ## Agent instructions
 
@@ -39,6 +39,10 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `spawn` - spawn and manage Claude Code agent teams with model routing and cmux integration.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
+
+Amp uses `~/.agents/skills` through `amp.skills.path` in `~/.config/amp/settings.json`. `dotagents setup` patches that setting and `dotagents sync` keeps managed MCP entries under `amp.mcpServers`.
+
+This repo also keeps a project Amp plugin at `.amp/plugins/dotagents.ts`. Use the project plugin path for local dotagents integration because it is loaded on fresh Amp starts for this workspace; do not depend on user-wide/system plugins for required hooks.
 
 Hermes uses `~/.agents/skills` through `skills.external_dirs` in `~/.hermes/config.yaml`. Do not mirror repo skills into `~/.hermes/skills`, because Hermes already ships bundled categorized skills there and name collisions are easy.
 

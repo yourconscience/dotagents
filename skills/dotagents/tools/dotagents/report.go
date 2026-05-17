@@ -33,6 +33,9 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		if report.AgentRoot != "" {
 			fmt.Printf("  agent root: %s\n", report.AgentRoot)
 		}
+		if report.Name == agentAmp {
+			fmt.Println("  integration: config-driven via ~/.config/amp/settings.json -> amp.skills.path")
+		}
 		if report.Name == agentHermes {
 			fmt.Println("  integration: config-driven via ~/.hermes/config.yaml -> skills.external_dirs")
 		}

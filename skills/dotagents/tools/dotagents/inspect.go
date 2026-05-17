@@ -100,6 +100,9 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if !report.Detected {
 		return report, nil
 	}
+	if agent.Name == agentAmp {
+		return inspectAmpAgent(agent, expected, cfg, home)
+	}
 	if agent.Name == agentHermes {
 		return inspectHermesAgent(agent, agentsSkillRoot, cfg, home)
 	}
@@ -241,6 +244,51 @@ func inspectDroidRootInstructions(report *agentReport, home string) error {
 
 	report.RootState = stateDrifted
 	return nil
+}
+
+func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, home string) (agentReport, error) {
+	report := agentReport{
+		Name:      agent.Name,
+		SkillRoot: agent.SkillRoot,
+		AgentRoot: agent.AgentRoot,
+		Detected:  isDetected(agent),
+	}
+	if !report.Detected {
+		return report, nil
+	}
+
+	if ok, err := ampHasSkillsPath(home); err != nil {
+		return agentReport{}, err
+	} else if !ok {
+		report.Missing = append(report.Missing, "config amp.skills.path -> ~/.agents/skills")
+		report.Adds = append(report.Adds, "config amp.skills.path -> ~/.agents/skills")
+	}
+	report.Managed = append(report.Managed, sortedKeys(expected)...)
+	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
+		return agentReport{}, err
+	}
+
+	sortReportLists(&report)
+	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0
+	return report, nil
+}
+
+func ampHasSkillsPath(home string) (bool, error) {
+	configPath := ampSettingsPath(home)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("read %s: %w", configPath, err)
+	}
+
+	var raw map[string]interface{}
+	if err := parseJSONConfig(configPath, data, &raw); err != nil {
+		return false, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	path, _ := raw["amp.skills.path"].(string)
+	return ampSkillsPathConfigured(path, home), nil
 }
 
 func inspectHermesAgent(agent agentConfig, agentsSkillRoot string, cfg config, home string) (agentReport, error) {

@@ -1,6 +1,6 @@
 ---
 name: dotagents
-description: Inspect and sync the repo-owned agent skill links for the dotagents repo across supported coding agents. Use when the user asks for dotagents status, dotagents sync, dotagents setup, or wants to reconcile ~/.agents with Claude/Codex/Hermes/OpenClaw skill roots.
+description: Inspect and sync the repo-owned agent skill links for the dotagents repo across supported coding agents. Use when the user asks for dotagents status, dotagents sync, dotagents setup, or wants to reconcile ~/.agents with Amp/Claude/Codex/Hermes/OpenClaw skill roots.
 ---
 
 # dotagents
@@ -36,8 +36,31 @@ go run ./skills/dotagents/tools/dotagents sync --agents=claude-code,hermes
 
 First-time setup on a new machine. Does three things:
 1. Creates `~/.agents` symlink pointing at the repo root.
-2. Patches detected agent configs to load shared dotagents config where needed (Hermes: adds `skills.external_dirs` in `config.yaml`).
+2. Patches detected agent configs to load shared dotagents config where needed (Amp: sets `amp.skills.path` in `settings.json`; Hermes: adds `skills.external_dirs` in `config.yaml`).
 3. Runs `sync` for managed skills and managed MCP entries.
+
+Important Amp note: Amp should consume dotagents skills directly from `~/.agents/skills` via `amp.skills.path` in `~/.config/amp/settings.json`. Do not mirror repo skills into an Amp-specific directory; let dotagents keep `~/.agents` canonical. Amp MCP entries are managed in the same settings file under `amp.mcpServers`.
+
+Use `.amp/plugins/dotagents.ts` for the local Amp plugin because workspace plugins are loaded on fresh Amp starts for this repo. Do not rely on user-wide/system plugins for required local dotagents behavior unless Amp's fresh-load semantics change. Check with:
+
+```bash
+amp plugins list
+```
+
+Expected plugin surface:
+
+- event hook: `agent.end` writes an Amp session digest through `~/.agents/memory/hooks/session-end.sh`
+- tool: `dotagents_status` reports skill/memory/subagent integration status
+- command: `Dotagents: Sync Memory to Vault` runs `~/.agents/memory/hooks/sync.sh memory-to-vault`
+
+If Amp suggests installing a plugin/skill instead of using the shared path, prefer pointing the install target back at dotagents so there is one source of truth:
+
+```bash
+amp skill add <source> --target ~/.agents/skills --overwrite
+go run ./skills/dotagents/tools/dotagents setup --agents=amp
+```
+
+Amp currently exposes this through `amp skill add`; treat that as the plugin-install path unless a future Amp plugin command appears.
 
 Important Hermes note: Hermes should consume dotagents skills primarily via `skills.external_dirs: ["~/.agents/skills"]`, not by mirroring repo skills into `~/.hermes/skills`. Hermes already ships a bundled categorized skill tree under `~/.hermes/skills`, so symlinking repo skills there can collide with bundled category directories. Example: a repo skill named `research` conflicts with Hermes' builtin `research/` category. Prefer Hermes-native bundled skills when an equivalent already exists there. Example: use Hermes' builtin `google-workspace` skill instead of trying to override it from dotagents. Treat `external_dirs` as the canonical Hermes integration path.
 
@@ -49,14 +72,14 @@ Reports sync state for each detected agent. Agents whose binary is not on PATH s
 
 ### sync
 
-Creates, updates, or removes skill symlinks in each detected agent's skill root for agents that use managed mirrors. Non-repo skills are reported as `external` and left untouched. Hermes is special-cased: `sync` verifies the `skills.external_dirs` integration and does not try to mirror repo skills into `~/.hermes/skills`.
+Creates, updates, or removes skill symlinks in each detected agent's skill root for agents that use managed mirrors. Non-repo skills are reported as `external` and left untouched. Amp and Hermes are special-cased: `sync` verifies their config-driven shared-skill integrations and does not try to mirror repo skills into separate native skill roots.
 
-For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `skills/dotagents/dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target all configured agents with MCP support (`claude-code`, `codex`, `hermes`, `droid`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
+For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `skills/dotagents/dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target all configured agents with MCP support (`amp`, `claude-code`, `codex`, `hermes`, `droid`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
 
 ```bash
 go run ./skills/dotagents/tools/dotagents mcp list
 go run ./skills/dotagents/tools/dotagents mcp add local --command uvx --arg pkg@latest --env KEY=value
-go run ./skills/dotagents/tools/dotagents mcp import claude-code local --agents=codex,hermes,droid
+go run ./skills/dotagents/tools/dotagents mcp import claude-code local --agents=amp,codex,hermes,droid
 go run ./skills/dotagents/tools/dotagents sync
 go run ./skills/dotagents/tools/dotagents mcp remove local
 ```
@@ -100,6 +123,7 @@ go run ./skills/dotagents/tools/dotagents dogfood
 ## What it manages
 
 - Fixes `~/.agents` if it should point at the repo root and is missing or drifted.
+- Configures Amp to load skills from `~/.agents/skills` through `~/.config/amp/settings.json`.
 - Links Droid global instructions: `~/.factory/AGENTS.md -> ~/.agents/AGENTS.md` (real files conflict).
 - Detects agents by checking if their binary is on PATH (`detect` field in config).
 - Treats repo skills under `skills/` as the managed set for each detected agent.
@@ -156,7 +180,7 @@ The `knowledge-sync` tool source lives at `memory/tools/knowledge-sync/`. See it
 Current managed MCP set lives in `skills/dotagents/dotagents.yaml` under `mcp_servers:`. Minimal example in this repo:
 
 - `linkedin` -> `uvx linkedin-scraper-mcp@latest`
-- managed for `claude-code`, `codex`, `hermes`, and `droid`
+- managed for `amp`, `claude-code`, `codex`, `hermes`, and `droid`
 
 Status and sync rules:
 
@@ -167,6 +191,7 @@ Status and sync rules:
 Per-agent targets:
 
 - Claude Code: `~/.claude/settings.json` -> `mcpServers.<name>`
+- Amp: `~/.config/amp/settings.json` -> `amp.mcpServers.<name>`
 - Codex: `~/.codex/config.toml` -> `[mcp_servers.<name>]`
 - Hermes: `~/.hermes/config.yaml` -> `mcp_servers.<name>`
 - Factory Droid: `~/.factory/mcp.json` -> `mcpServers.<name>`
