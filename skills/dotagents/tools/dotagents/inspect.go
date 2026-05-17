@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -99,6 +100,9 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	}
 	if !report.Detected {
 		return report, nil
+	}
+	if agent.Name == agentAmp {
+		return inspectAmpAgent(agent, expected, cfg, home)
 	}
 	if agent.Name == agentHermes {
 		return inspectHermesAgent(agent, agentsSkillRoot, cfg, home)
@@ -241,6 +245,53 @@ func inspectDroidRootInstructions(report *agentReport, home string) error {
 
 	report.RootState = stateDrifted
 	return nil
+}
+
+func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, home string) (agentReport, error) {
+	report := agentReport{
+		Name:      agent.Name,
+		SkillRoot: agent.SkillRoot,
+		AgentRoot: agent.AgentRoot,
+		Detected:  isDetected(agent),
+	}
+	if !report.Detected {
+		return report, nil
+	}
+
+	if ok, err := ampHasSkillsPath(home); err != nil {
+		return agentReport{}, err
+	} else if !ok {
+		report.Missing = append(report.Missing, "config amp.skills.path -> ~/.agents/skills")
+		report.Adds = append(report.Adds, "config amp.skills.path -> ~/.agents/skills")
+	}
+	for _, name := range sortedKeys(expected) {
+		report.Managed = append(report.Managed, name)
+	}
+	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
+		return agentReport{}, err
+	}
+
+	sortReportLists(&report)
+	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0
+	return report, nil
+}
+
+func ampHasSkillsPath(home string) (bool, error) {
+	configPath := filepath.Join(home, ".config", "amp", "settings.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("read %s: %w", configPath, err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return false, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	path, _ := raw["amp.skills.path"].(string)
+	return expandPath(strings.TrimSpace(path), home) == filepath.Join(home, ".agents", "skills"), nil
 }
 
 func inspectHermesAgent(agent agentConfig, agentsSkillRoot string, cfg config, home string) (agentReport, error) {

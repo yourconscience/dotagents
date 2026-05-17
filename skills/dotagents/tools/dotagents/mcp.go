@@ -34,6 +34,14 @@ type mcpTarget struct {
 const yamlMapTag = "!!map"
 
 var mcpTargets = map[string]mcpTarget{
+	agentAmp: {
+		agentName:  agentAmp,
+		configPath: func(home string) string { return filepath.Join(home, ".config", "amp", "settings.json") },
+		inspect:    inspectJSONMCPServer,
+		patch:      patchJSONMCPServer,
+		read:       readJSONMCPServer,
+		rootKey:    "amp.mcpServers",
+	},
 	agentClaudeCode: {
 		agentName:  agentClaudeCode,
 		configPath: func(home string) string { return filepath.Join(home, ".claude", "settings.json") },
