@@ -48,6 +48,11 @@ func TestAmpMemoryHookE2EWritesSessionDigest(t *testing.T) {
 	if err := os.WriteFile(digestPath, []byte(existingSession), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	previousDigestPath := filepath.Join(vault, "sessions", "2026-05-16.md")
+	const staleSameSession = "<!-- amp-session:T-amp-e2e:start -->\n## Stale\n\n<!-- amp-session:T-amp-e2e:end -->\n"
+	if err := os.WriteFile(previousDigestPath, []byte(staleSameSession), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cmd.Stdin = strings.NewReader(payload)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -75,5 +80,12 @@ func TestAmpMemoryHookE2EWritesSessionDigest(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("digest missing %q:\n%s", want, text)
 		}
+	}
+	previousDigest, err := os.ReadFile(previousDigestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(previousDigest), "amp-session:T-amp-e2e") {
+		t.Fatalf("stale same-session digest was not removed:\n%s", string(previousDigest))
 	}
 }

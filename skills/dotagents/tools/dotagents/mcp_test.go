@@ -269,6 +269,56 @@ func TestAmpMCPPatchCreatesSettingsConfig(t *testing.T) {
 	}
 }
 
+func TestAmpMCPPatchUsesExistingSettingsJSONC(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".config", "amp", "settings.jsonc")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte(`{
+  // Amp accepts JSONC settings.
+  "amp.skills.path": "~/.agents/skills",
+  "amp.mcpServers": {
+    "keep": {"command": "node", "args": [],},
+  },
+}`)
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if ok, err := ampHasSkillsPath(home); err != nil || !ok {
+		t.Fatalf("ampHasSkillsPath = %v, %v; want true, nil", ok, err)
+	}
+	if err := patchMCPServer(agentAmp, testMCPServer(), home); err != nil {
+		t.Fatal(err)
+	}
+	state, err := inspectMCPServer(agentAmp, testMCPServer(), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != stateSynced {
+		t.Fatalf("inspect after jsonc patch = %q, want %q", state, stateSynced)
+	}
+	if hasFile(filepath.Join(home, ".config", "amp", "settings.json")) {
+		t.Fatal("patch created settings.json even though settings.jsonc existed")
+	}
+	out, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		t.Fatal(err)
+	}
+	servers, _ := asMap(raw["amp.mcpServers"])
+	if _, ok := servers["keep"]; !ok {
+		t.Fatalf("existing jsonc MCP was not preserved: %#v", servers)
+	}
+	if _, ok := servers["linkedin"]; !ok {
+		t.Fatalf("managed jsonc MCP was not added: %#v", servers)
+	}
+}
+
 func TestUnsupportedMCPAgentErrors(t *testing.T) {
 	home := t.TempDir()
 	if _, err := inspectMCPServer("openclaw", testMCPServer(), home); err == nil {
