@@ -239,6 +239,169 @@ func TestClaudeMCPPatchCreatesMissingConfig(t *testing.T) {
 	}
 }
 
+func TestAmpMCPPatchCreatesSettingsConfig(t *testing.T) {
+	home := t.TempDir()
+	if err := patchMCPServer(agentAmp, testMCPServer(), home); err != nil {
+		t.Fatal(err)
+	}
+	state, err := inspectMCPServer(agentAmp, testMCPServer(), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != stateSynced {
+		t.Fatalf("inspect after create = %q, want %q", state, stateSynced)
+	}
+	out, err := os.ReadFile(filepath.Join(home, ".config", "amp", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		t.Fatal(err)
+	}
+	servers, _ := asMap(raw["amp.mcpServers"])
+	linkedin, _ := asMap(servers["linkedin"])
+	if linkedin["command"] != "uvx" {
+		t.Fatalf("amp MCP command not patched: %#v", linkedin)
+	}
+	if _, ok := raw["mcpServers"]; ok {
+		t.Fatalf("amp config should use amp.mcpServers, got top-level mcpServers: %#v", raw)
+	}
+}
+
+func TestAmpMCPPatchUsesExistingSettingsJSONC(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".config", "amp", "settings.jsonc")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte(`{
+  // Amp accepts JSONC settings.
+  "amp.skills.path": "~/.agents/skills",
+  "amp.mcpServers": {
+    "keep": {"command": "node", "args": [],},
+  },
+}`)
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if ok, err := ampHasSkillsPath(home); err != nil || !ok {
+		t.Fatalf("ampHasSkillsPath = %v, %v; want true, nil", ok, err)
+	}
+	if err := patchMCPServer(agentAmp, testMCPServer(), home); err != nil {
+		t.Fatal(err)
+	}
+	state, err := inspectMCPServer(agentAmp, testMCPServer(), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != stateSynced {
+		t.Fatalf("inspect after jsonc patch = %q, want %q", state, stateSynced)
+	}
+	if hasFile(filepath.Join(home, ".config", "amp", "settings.json")) {
+		t.Fatal("patch created settings.json even though settings.jsonc existed")
+	}
+	out, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		t.Fatal(err)
+	}
+	servers, _ := asMap(raw["amp.mcpServers"])
+	if _, ok := servers["keep"]; !ok {
+		t.Fatalf("existing jsonc MCP was not preserved: %#v", servers)
+	}
+	if _, ok := servers["linkedin"]; !ok {
+		t.Fatalf("managed jsonc MCP was not added: %#v", servers)
+	}
+}
+
+func TestAmpConfigPreservesExistingSkillPaths(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".config", "amp", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, []byte(`{"amp.skills.path":"~/team-skills"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	patched, err := patchAmpConfig(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !patched {
+		t.Fatal("patchAmpConfig did not patch missing dotagents path")
+	}
+	out, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if raw["amp.skills.path"] != "~/team-skills:~/.agents/skills" {
+		t.Fatalf("amp.skills.path = %#v, want existing path preserved", raw["amp.skills.path"])
+	}
+	if ok, err := ampHasSkillsPath(home); err != nil || !ok {
+		t.Fatalf("ampHasSkillsPath = %v, %v; want true, nil", ok, err)
+	}
+}
+
+func TestAmpConfigAcceptsExistingColonSeparatedSkillPath(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".config", "amp", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const original = `{"amp.skills.path":"~/team-skills:~/.agents/skills"}`
+	if err := os.WriteFile(configPath, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	patched, err := patchAmpConfig(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if patched {
+		t.Fatal("patchAmpConfig patched an already-valid colon-separated path")
+	}
+	out, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != original {
+		t.Fatalf("config changed unexpectedly: %s", string(out))
+	}
+}
+
+func TestAmpSettingsPathPrefersWorkspaceSettings(t *testing.T) {
+	repoRoot := t.TempDir()
+	home := t.TempDir()
+	workspaceSettings := filepath.Join(repoRoot, ".amp", "settings.jsonc")
+	if err := os.MkdirAll(filepath.Dir(workspaceSettings), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(workspaceSettings, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	userSettings := filepath.Join(home, ".config", "amp", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(userSettings), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(userSettings, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := ampSettingsPathForRoots(repoRoot, home); got != workspaceSettings {
+		t.Fatalf("ampSettingsPathForRoots = %q, want workspace settings %q", got, workspaceSettings)
+	}
+}
+
 func TestUnsupportedMCPAgentErrors(t *testing.T) {
 	home := t.TempDir()
 	if _, err := inspectMCPServer("openclaw", testMCPServer(), home); err == nil {
