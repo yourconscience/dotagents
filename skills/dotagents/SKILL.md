@@ -41,15 +41,6 @@ First-time setup on a new machine. Does three things:
 
 Important Amp note: Amp should consume dotagents skills directly from `~/.agents/skills` via `amp.skills.path` in settings. Do not mirror repo skills into an Amp-specific directory, and do not commit project-local `.amp/` plugins or settings to this agent-agnostic repo. Let dotagents keep `~/.agents` canonical. Amp MCP entries are managed in the same settings file under `amp.mcpServers`. If an ignored local `.amp/settings.json` or `.amp/settings.jsonc` already exists, dotagents patches it because Amp gives workspace settings precedence; otherwise it uses `~/.config/amp/settings.json`.
 
-Dotagents-owned integrations should be first-party repo surfaces:
-
-- skills: shared instructions and workflows under `skills/`
-- hooks: executable lifecycle hooks under `memory/hooks/`
-- memory: knowledge-vault sync under `memory/`
-- subagents: canonical roles under `agents/*.yaml`, rendered to native agent formats by `dotagents sync`
-
-Agent-specific plugin systems can be studied for ideas, but required behavior should land in those shared surfaces or in targeted config/generated native files rather than an agent-specific project directory.
-
 If Amp suggests installing a plugin/skill instead of using the shared path, prefer pointing the install target back at dotagents so there is one source of truth:
 
 ```bash
