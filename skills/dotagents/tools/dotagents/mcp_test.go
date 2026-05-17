@@ -379,7 +379,7 @@ func TestAmpConfigAcceptsExistingColonSeparatedSkillPath(t *testing.T) {
 	}
 }
 
-func TestAmpSettingsPathPrefersWorkspaceSettings(t *testing.T) {
+func TestAmpSettingsPathUsesUserSettings(t *testing.T) {
 	repoRoot := t.TempDir()
 	home := t.TempDir()
 	workspaceSettings := filepath.Join(repoRoot, ".amp", "settings.jsonc")
@@ -397,8 +397,8 @@ func TestAmpSettingsPathPrefersWorkspaceSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := ampSettingsPathForRoots(repoRoot, home); got != workspaceSettings {
-		t.Fatalf("ampSettingsPathForRoots = %q, want workspace settings %q", got, workspaceSettings)
+	if got := ampSettingsPathForRoots(repoRoot, home); got != userSettings {
+		t.Fatalf("ampSettingsPathForRoots = %q, want user settings %q", got, userSettings)
 	}
 }
 
