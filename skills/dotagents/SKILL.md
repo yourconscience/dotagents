@@ -39,19 +39,7 @@ First-time setup on a new machine. Does three things:
 2. Patches detected agent configs to load shared dotagents config where needed (Amp: sets `amp.skills.path` in `settings.json`; Hermes: adds `skills.external_dirs` in `config.yaml`).
 3. Runs `sync` for managed skills and managed MCP entries.
 
-Important Amp note: Amp should consume dotagents skills directly from `~/.agents/skills` via `amp.skills.path` in `~/.config/amp/settings.json`. Do not mirror repo skills into an Amp-specific directory; let dotagents keep `~/.agents` canonical. Amp MCP entries are managed in the same settings file under `amp.mcpServers`.
-
-Use `.amp/plugins/dotagents.ts` for the local Amp plugin because workspace plugins are loaded on fresh Amp starts for this repo. Do not rely on user-wide/system plugins for required local dotagents behavior unless Amp's fresh-load semantics change. Check with:
-
-```bash
-amp plugins list
-```
-
-Expected plugin surface:
-
-- event hook: `agent.end` writes an Amp session digest through `~/.agents/memory/hooks/session-end.sh`
-- tool: `dotagents_status` reports skill/memory/subagent integration status
-- command: `Dotagents: Sync Memory to Vault` runs `~/.agents/memory/hooks/sync.sh memory-to-vault`
+Important Amp note: Amp should consume dotagents skills directly from `~/.agents/skills` via `amp.skills.path` in settings. Do not mirror repo skills into an Amp-specific directory, and do not commit project-local `.amp/` plugins or settings to this agent-agnostic repo. Let dotagents keep `~/.agents` canonical. Amp MCP entries are managed in the same settings file under `amp.mcpServers`. If an ignored local `.amp/settings.json` or `.amp/settings.jsonc` already exists, dotagents patches it because Amp gives workspace settings precedence; otherwise it uses `~/.config/amp/settings.json`.
 
 If Amp suggests installing a plugin/skill instead of using the shared path, prefer pointing the install target back at dotagents so there is one source of truth:
 
@@ -60,7 +48,7 @@ amp skill add <source> --target ~/.agents/skills --overwrite
 go run ./skills/dotagents/tools/dotagents setup --agents=amp
 ```
 
-Amp currently exposes this through `amp skill add`; treat that as the plugin-install path unless a future Amp plugin command appears.
+Amp currently exposes this through `amp skill add`; keep the install target pointed at dotagents so there is one source of truth.
 
 Important Hermes note: Hermes should consume dotagents skills primarily via `skills.external_dirs: ["~/.agents/skills"]`, not by mirroring repo skills into `~/.hermes/skills`. Hermes already ships a bundled categorized skill tree under `~/.hermes/skills`, so symlinking repo skills there can collide with bundled category directories. Example: a repo skill named `research` conflicts with Hermes' builtin `research/` category. Prefer Hermes-native bundled skills when an equivalent already exists there. Example: use Hermes' builtin `google-workspace` skill instead of trying to override it from dotagents. Treat `external_dirs` as the canonical Hermes integration path.
 

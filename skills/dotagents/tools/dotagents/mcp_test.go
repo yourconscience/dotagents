@@ -379,7 +379,7 @@ func TestAmpConfigAcceptsExistingColonSeparatedSkillPath(t *testing.T) {
 	}
 }
 
-func TestAmpSettingsPathPrefersWorkspaceSettings(t *testing.T) {
+func TestAmpSettingsPathPrefersExistingWorkspaceSettings(t *testing.T) {
 	repoRoot := t.TempDir()
 	home := t.TempDir()
 	workspaceSettings := filepath.Join(repoRoot, ".amp", "settings.jsonc")
