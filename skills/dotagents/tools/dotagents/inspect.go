@@ -288,7 +288,7 @@ func ampHasSkillsPath(home string) (bool, error) {
 		return false, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 	path, _ := raw["amp.skills.path"].(string)
-	return expandPath(strings.TrimSpace(path), home) == filepath.Join(home, ".agents", "skills"), nil
+	return ampSkillsPathConfigured(path, home), nil
 }
 
 func inspectHermesAgent(agent agentConfig, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
