@@ -15,10 +15,12 @@ import (
 )
 
 const (
+	agentAmp        = "amp"
 	agentClaudeCode = "claude-code"
 	agentCodex      = "codex"
 	agentDroid      = "droid"
 	agentHermes     = "hermes"
+	ampSkillsPath   = "~/.agents/skills"
 )
 
 type checkResult struct {

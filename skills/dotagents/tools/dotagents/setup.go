@@ -66,6 +66,8 @@ func runSetup(opts runOptions) error {
 
 func patchAgentConfig(agent agentConfig, home string) (bool, error) {
 	switch agent.Name {
+	case agentAmp:
+		return patchAmpConfig(home)
 	case agentHermes:
 		return patchHermesConfig(home)
 	case "openclaw":
@@ -73,6 +75,95 @@ func patchAgentConfig(agent agentConfig, home string) (bool, error) {
 	default:
 		return false, nil
 	}
+}
+
+func patchAmpConfig(home string) (bool, error) {
+	configPath := ampSettingsPath(home)
+	data, err := os.ReadFile(configPath)
+	raw := map[string]interface{}{}
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, fmt.Errorf("read %s: %w", configPath, err)
+		}
+	} else if err := parseJSONConfig(configPath, data, &raw); err != nil {
+		return false, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+
+	current, _ := raw["amp.skills.path"].(string)
+	if ampSkillsPathConfigured(current, home) {
+		return false, nil
+	}
+	raw["amp.skills.path"] = appendAmpSkillsPath(current)
+
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return false, fmt.Errorf("marshal %s: %w", configPath, err)
+	}
+	out = append(out, '\n')
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return false, fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
+	}
+	if err := os.WriteFile(configPath, out, 0o644); err != nil {
+		return false, fmt.Errorf("write %s: %w", configPath, err)
+	}
+	return true, nil
+}
+
+func ampSettingsPath(home string) string {
+	repoRoot, _, err := findRoots()
+	if err == nil {
+		if path := existingAmpSettingsPath(filepath.Join(repoRoot, ".amp")); path != "" {
+			return path
+		}
+	}
+	return ampSettingsPathForRoots("", home)
+}
+
+func ampSettingsPathForRoots(repoRoot string, home string) string {
+	if repoRoot != "" {
+		if path := existingAmpSettingsPath(filepath.Join(repoRoot, ".amp")); path != "" {
+			return path
+		}
+	}
+	return defaultAmpSettingsPath(filepath.Join(home, ".config", "amp"))
+}
+
+func existingAmpSettingsPath(configDir string) string {
+	jsonPath := filepath.Join(configDir, "settings.json")
+	jsoncPath := filepath.Join(configDir, "settings.jsonc")
+	if hasFile(jsonPath) {
+		return jsonPath
+	}
+	if hasFile(jsoncPath) {
+		return jsoncPath
+	}
+	return ""
+}
+
+func defaultAmpSettingsPath(configDir string) string {
+	jsonPath := filepath.Join(configDir, "settings.json")
+	jsoncPath := filepath.Join(configDir, "settings.jsonc")
+	if hasFile(jsonPath) || !hasFile(jsoncPath) {
+		return jsonPath
+	}
+	return jsoncPath
+}
+
+func ampSkillsPathConfigured(raw string, home string) bool {
+	target := filepath.Join(home, ".agents", "skills")
+	for _, part := range strings.Split(raw, ":") {
+		if expandPath(strings.TrimSpace(part), home) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func appendAmpSkillsPath(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return ampSkillsPath
+	}
+	return strings.TrimRight(raw, ":") + ":" + ampSkillsPath
 }
 
 func patchHermesConfig(home string) (bool, error) {
@@ -97,7 +188,6 @@ func patchHermesConfig(home string) (bool, error) {
 		return false, fmt.Errorf("skills key in %s is not a map", configPath)
 	}
 
-	target := "~/.agents/skills"
 	targetExpanded := filepath.Join(home, ".agents", "skills")
 	dirsRaw, ok := skills["external_dirs"]
 	if ok {
@@ -106,17 +196,17 @@ func patchHermesConfig(home string) (bool, error) {
 			for _, d := range dirs {
 				if s, ok := d.(string); ok {
 					expanded := expandPath(strings.TrimSpace(s), home)
-					if s == target || expanded == targetExpanded {
+					if s == ampSkillsPath || expanded == targetExpanded {
 						return false, nil
 					}
 				}
 			}
-			skills["external_dirs"] = append(dirs, target)
+			skills["external_dirs"] = append(dirs, ampSkillsPath)
 		} else {
-			skills["external_dirs"] = []interface{}{target}
+			skills["external_dirs"] = []interface{}{ampSkillsPath}
 		}
 	} else {
-		skills["external_dirs"] = []interface{}{target}
+		skills["external_dirs"] = []interface{}{ampSkillsPath}
 	}
 
 	out, err := yaml.Marshal(raw)
@@ -164,22 +254,21 @@ func patchOpenClawConfig(home string) (bool, error) {
 		return false, fmt.Errorf("skills.load in %s is not a map", configPath)
 	}
 
-	target := "~/.agents/skills"
 	dirsRaw, ok := load["extraDirs"]
 	if ok {
 		dirs, ok := dirsRaw.([]interface{})
 		if ok {
 			for _, d := range dirs {
-				if s, ok := d.(string); ok && s == target {
+				if s, ok := d.(string); ok && s == ampSkillsPath {
 					return false, nil
 				}
 			}
-			load["extraDirs"] = append(dirs, target)
+			load["extraDirs"] = append(dirs, ampSkillsPath)
 		} else {
-			load["extraDirs"] = []interface{}{target}
+			load["extraDirs"] = []interface{}{ampSkillsPath}
 		}
 	} else {
-		load["extraDirs"] = []interface{}{target}
+		load["extraDirs"] = []interface{}{ampSkillsPath}
 	}
 
 	out, err := json.MarshalIndent(raw, "", "  ")
