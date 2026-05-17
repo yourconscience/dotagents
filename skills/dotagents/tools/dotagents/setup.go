@@ -113,7 +113,7 @@ func ampSettingsPath(home string) string {
 	return ampSettingsPathForRoots("", home)
 }
 
-func ampSettingsPathForRoots(repoRoot string, home string) string {
+func ampSettingsPathForRoots(_ string, home string) string {
 	return defaultAmpSettingsPath(filepath.Join(home, ".config", "amp"))
 }
 
