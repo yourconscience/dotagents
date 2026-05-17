@@ -20,31 +20,31 @@ Do not use this for session transfer, live terminal sharing, tmux, Warp/TUI scra
 ## Bridge endpoints
 
 ```text
-Mac: http://127.0.0.1:18777
-VPS: http://127.0.0.1:18778
+Mac local: http://127.0.0.1:18777
+VPS to Mac over Tailscale: http://100.80.21.89:18777
 ```
 
-The VPS endpoint is exposed by a reverse SSH tunnel from the Mac. Hermes should call the VPS-local endpoint.
+Hermes on the VPS should call the Mac bridge directly over Tailscale. The Mac bridge LaunchAgent must listen on `0.0.0.0:18777` or `*:18777`.
 
 ## Commands
 
 Status is unauthenticated:
 
 ```bash
-curl -fsS http://127.0.0.1:18778/status
+curl -fsS http://100.80.21.89:18777/status
 ```
 
 Recent/search/ask require `REMOTE_ACCESS_BRIDGE_TOKEN`:
 
 ```bash
 curl -fsS -H "authorization: Bearer $REMOTE_ACCESS_BRIDGE_TOKEN" \
-  http://127.0.0.1:18778/recent
+  http://100.80.21.89:18777/recent
 
 curl -fsS -H "authorization: Bearer $REMOTE_ACCESS_BRIDGE_TOKEN" \
   --get --data-urlencode 'q=<query>' \
-  http://127.0.0.1:18778/search
+  http://100.80.21.89:18777/search
 
-curl -fsS -X POST http://127.0.0.1:18778/ask \
+curl -fsS -X POST http://100.80.21.89:18777/ask \
   -H 'content-type: application/json' \
   -H "authorization: Bearer $REMOTE_ACCESS_BRIDGE_TOKEN" \
   -d '{"agent":"droid","session_id":"<id>","instruction":"summarize current state and next action","mode":"continue"}'
@@ -92,3 +92,9 @@ launchctl kickstart -k "gui/$(id -u)/com.conscience.remote-access.bridge"
 ```
 
 The binary defaults to `~/.local/bin/remote-access-bridge`.
+
+If VPS access fails, check Tailscale connectivity first:
+
+```bash
+ssh vps-ts 'curl -fsS --max-time 5 http://100.80.21.89:18777/status'
+```
