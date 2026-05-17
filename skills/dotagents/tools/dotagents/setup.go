@@ -66,6 +66,8 @@ func runSetup(opts runOptions) error {
 
 func patchAgentConfig(agent agentConfig, home string) (bool, error) {
 	switch agent.Name {
+	case agentAmp:
+		return patchAmpConfig(home)
 	case agentHermes:
 		return patchHermesConfig(home)
 	case "openclaw":
@@ -73,6 +75,39 @@ func patchAgentConfig(agent agentConfig, home string) (bool, error) {
 	default:
 		return false, nil
 	}
+}
+
+func patchAmpConfig(home string) (bool, error) {
+	configPath := filepath.Join(home, ".config", "amp", "settings.json")
+	data, err := os.ReadFile(configPath)
+	raw := map[string]interface{}{}
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, fmt.Errorf("read %s: %w", configPath, err)
+		}
+	} else if err := json.Unmarshal(data, &raw); err != nil {
+		return false, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+
+	target := "~/.agents/skills"
+	current, _ := raw["amp.skills.path"].(string)
+	if expandPath(strings.TrimSpace(current), home) == filepath.Join(home, ".agents", "skills") {
+		return false, nil
+	}
+	raw["amp.skills.path"] = target
+
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return false, fmt.Errorf("marshal %s: %w", configPath, err)
+	}
+	out = append(out, '\n')
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return false, fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
+	}
+	if err := os.WriteFile(configPath, out, 0o644); err != nil {
+		return false, fmt.Errorf("write %s: %w", configPath, err)
+	}
+	return true, nil
 }
 
 func patchHermesConfig(home string) (bool, error) {

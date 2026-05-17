@@ -239,6 +239,36 @@ func TestClaudeMCPPatchCreatesMissingConfig(t *testing.T) {
 	}
 }
 
+func TestAmpMCPPatchCreatesSettingsConfig(t *testing.T) {
+	home := t.TempDir()
+	if err := patchMCPServer(agentAmp, testMCPServer(), home); err != nil {
+		t.Fatal(err)
+	}
+	state, err := inspectMCPServer(agentAmp, testMCPServer(), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != stateSynced {
+		t.Fatalf("inspect after create = %q, want %q", state, stateSynced)
+	}
+	out, err := os.ReadFile(filepath.Join(home, ".config", "amp", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		t.Fatal(err)
+	}
+	servers, _ := asMap(raw["amp.mcpServers"])
+	linkedin, _ := asMap(servers["linkedin"])
+	if linkedin["command"] != "uvx" {
+		t.Fatalf("amp MCP command not patched: %#v", linkedin)
+	}
+	if _, ok := raw["mcpServers"]; ok {
+		t.Fatalf("amp config should use amp.mcpServers, got top-level mcpServers: %#v", raw)
+	}
+}
+
 func TestUnsupportedMCPAgentErrors(t *testing.T) {
 	home := t.TempDir()
 	if _, err := inspectMCPServer("openclaw", testMCPServer(), home); err == nil {

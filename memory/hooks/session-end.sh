@@ -30,6 +30,8 @@ except Exception:
 transcript = os.path.expanduser(str(data.get("transcript_path") or ""))
 if transcript and "/.factory/" in transcript and Path(transcript).suffix == ".jsonl":
     print("factory-jsonl")
+elif data.get("platform") == "amp" or data.get("amp_thread_id"):
+    print("amp-json")
 elif data.get("session_id") and not transcript:
     print("hermes-json")
 else:
@@ -38,6 +40,9 @@ PY
 )"
 
 case "$kind" in
+  amp-json)
+    exec python3 "$MEMORY_DIR/lib/amp_digest.py" <"$payload"
+    ;;
   factory-jsonl)
     exec python3 "$MEMORY_DIR/lib/factory_digest.py" <"$payload"
     ;;
