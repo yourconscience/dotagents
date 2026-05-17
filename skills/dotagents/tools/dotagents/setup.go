@@ -90,10 +90,10 @@ func patchAmpConfig(home string) (bool, error) {
 	}
 
 	current, _ := raw["amp.skills.path"].(string)
-	if expandPath(strings.TrimSpace(current), home) == filepath.Join(home, ".agents", "skills") {
+	if ampSkillsPathConfigured(current, home) {
 		return false, nil
 	}
-	raw["amp.skills.path"] = ampSkillsPath
+	raw["amp.skills.path"] = appendAmpSkillsPath(current)
 
 	out, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
@@ -110,13 +110,60 @@ func patchAmpConfig(home string) (bool, error) {
 }
 
 func ampSettingsPath(home string) string {
-	configDir := filepath.Join(home, ".config", "amp")
+	repoRoot, _, err := findRoots()
+	if err == nil {
+		if path := existingAmpSettingsPath(filepath.Join(repoRoot, ".amp")); path != "" {
+			return path
+		}
+	}
+	return ampSettingsPathForRoots("", home)
+}
+
+func ampSettingsPathForRoots(repoRoot string, home string) string {
+	if repoRoot != "" {
+		if path := existingAmpSettingsPath(filepath.Join(repoRoot, ".amp")); path != "" {
+			return path
+		}
+	}
+	return defaultAmpSettingsPath(filepath.Join(home, ".config", "amp"))
+}
+
+func existingAmpSettingsPath(configDir string) string {
+	jsonPath := filepath.Join(configDir, "settings.json")
+	jsoncPath := filepath.Join(configDir, "settings.jsonc")
+	if hasFile(jsonPath) {
+		return jsonPath
+	}
+	if hasFile(jsoncPath) {
+		return jsoncPath
+	}
+	return ""
+}
+
+func defaultAmpSettingsPath(configDir string) string {
 	jsonPath := filepath.Join(configDir, "settings.json")
 	jsoncPath := filepath.Join(configDir, "settings.jsonc")
 	if hasFile(jsonPath) || !hasFile(jsoncPath) {
 		return jsonPath
 	}
 	return jsoncPath
+}
+
+func ampSkillsPathConfigured(raw string, home string) bool {
+	target := filepath.Join(home, ".agents", "skills")
+	for _, part := range strings.Split(raw, ":") {
+		if expandPath(strings.TrimSpace(part), home) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func appendAmpSkillsPath(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return ampSkillsPath
+	}
+	return strings.TrimRight(raw, ":") + ":" + ampSkillsPath
 }
 
 func patchHermesConfig(home string) (bool, error) {
