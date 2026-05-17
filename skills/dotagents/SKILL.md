@@ -39,7 +39,7 @@ First-time setup on a new machine. Does three things:
 2. Patches detected agent configs to load shared dotagents config where needed (Amp: sets `amp.skills.path` in `settings.json`; Hermes: adds `skills.external_dirs` in `config.yaml`).
 3. Runs `sync` for managed skills and managed MCP entries.
 
-Important Amp note: Amp should consume dotagents skills directly from `~/.agents/skills` via `amp.skills.path` in `~/.config/amp/settings.json`. Do not mirror repo skills into an Amp-specific directory, and do not add project-local `.amp/` plugins or settings to this agent-agnostic repo. Let dotagents keep `~/.agents` canonical. Amp MCP entries are managed in the same user settings file under `amp.mcpServers`.
+Important Amp note: Amp should consume dotagents skills directly from `~/.agents/skills` via `amp.skills.path` in settings. Do not mirror repo skills into an Amp-specific directory, and do not commit project-local `.amp/` plugins or settings to this agent-agnostic repo. Let dotagents keep `~/.agents` canonical. Amp MCP entries are managed in the same settings file under `amp.mcpServers`. If an ignored local `.amp/settings.json` or `.amp/settings.jsonc` already exists, dotagents patches it because Amp gives workspace settings precedence; otherwise it uses `~/.config/amp/settings.json`.
 
 Dotagents-owned integrations should be first-party repo surfaces:
 

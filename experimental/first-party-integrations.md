@@ -4,7 +4,7 @@ Evaluated: 2026-05-17 15:01 +04
 
 ## Decision
 
-Do not build dotagents integration as an Amp workspace plugin or any other agent-specific project directory. Dotagents should own the reusable primitives directly and render or patch each agent through adapters.
+Do not build dotagents integration as an Amp workspace plugin or any other committed agent-specific project directory. Dotagents should own the reusable primitives directly and render or patch each agent through adapters.
 
 Canonical repo surfaces:
 
@@ -48,7 +48,7 @@ Agent-specific plugin systems are reference material, not the source of truth.
 ## Design implications
 
 - Keep packaging separate from runtime. A future dotagents bundle manifest can declare skills, hooks, memory sync, subagents, and MCP targets without becoming the runtime itself.
-- Keep adapters explicit. Each agent should get targeted config patches or generated native files; no whole-config symlinks and no checked-in vendor runtime directories.
+- Keep adapters explicit. Each agent should get targeted config patches or generated native files; no whole-config symlinks and no checked-in vendor runtime directories. Existing ignored local settings may still need patches when the agent gives them precedence.
 - Keep hooks typed and narrow. Lifecycle hooks should be explicit scripts under `memory/hooks/` with clear input/output contracts.
 - Keep memory inspectable. Prefer markdown and repo-owned sync rules over opaque global retrieval.
 - Keep invocation explicit. Do not rely only on model auto-discovery for important skills or subagent routing.
