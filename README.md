@@ -40,11 +40,18 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
 
-Amp uses `~/.agents/skills` through `amp.skills.path` in `~/.config/amp/settings.json`. `dotagents setup` patches that setting and `dotagents sync` keeps managed MCP entries under `amp.mcpServers`.
+## Agent Integration Status
 
-This repo also keeps a project Amp plugin at `.amp/plugins/dotagents.ts`. Use the project plugin path for local dotagents integration because it is loaded on fresh Amp starts for this workspace; do not depend on user-wide/system plugins for required hooks.
+Dotagents keeps `~/.agents` as the source of truth and adapts each agent through symlinks, targeted config patches, or generated native files. Do not commit agent-specific project runtime directories such as `.amp/` or `.hermes/` to this repo.
 
-Hermes uses `~/.agents/skills` through `skills.external_dirs` in `~/.hermes/config.yaml`. Do not mirror repo skills into `~/.hermes/skills`, because Hermes already ships bundled categorized skills there and name collisions are easy.
+| Agent | Shared skills | Native subagents | MCP sync | Root instructions | Integration notes |
+|---|---|---|---|---|---|
+| Claude Code | Symlink mirror to `~/.claude/skills` | Generated to `~/.claude/agents` | `~/.claude/settings.json` | `CLAUDE.md` shim points to `AGENTS.md` | Full managed mirror for skills and roles. |
+| Codex | Symlink mirror to `~/.codex/skills` | Generated to `~/.codex/agents` | `~/.codex/config.toml` | Reads `AGENTS.md` | Full managed mirror for skills and roles. |
+| Amp | Config path to `~/.agents/skills` | Not managed | Amp settings `amp.mcpServers` | Reads `AGENTS.md` | Uses `amp.skills.path`; patches an existing ignored workspace `.amp/settings.*` only when Amp would give it precedence. |
+| Hermes | Config path to `~/.agents/skills` | Not managed | `~/.hermes/config.yaml` | Reads configured Hermes context | Uses `skills.external_dirs`; do not mirror into `~/.hermes/skills` because bundled categories can collide. |
+| Factory Droid | Symlink mirror to `~/.factory/skills` | Generated to `~/.factory/droids` | `~/.factory/mcp.json` | `~/.factory/AGENTS.md` symlink | Full managed mirror for skills and roles. |
+| OpenClaw | Symlink mirror to `~/.openclaw/skills` | Not managed | Not managed | Reads its own config | Skills only today. |
 
 ## Experimental
 
