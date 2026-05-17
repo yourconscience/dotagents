@@ -264,9 +264,7 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 		report.Missing = append(report.Missing, "config amp.skills.path -> ~/.agents/skills")
 		report.Adds = append(report.Adds, "config amp.skills.path -> ~/.agents/skills")
 	}
-	for _, name := range sortedKeys(expected) {
-		report.Managed = append(report.Managed, name)
-	}
+	report.Managed = append(report.Managed, sortedKeys(expected)...)
 	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
 		return agentReport{}, err
 	}

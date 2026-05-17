@@ -89,12 +89,11 @@ func patchAmpConfig(home string) (bool, error) {
 		return false, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 
-	target := "~/.agents/skills"
 	current, _ := raw["amp.skills.path"].(string)
 	if expandPath(strings.TrimSpace(current), home) == filepath.Join(home, ".agents", "skills") {
 		return false, nil
 	}
-	raw["amp.skills.path"] = target
+	raw["amp.skills.path"] = ampSkillsPath
 
 	out, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
@@ -132,7 +131,6 @@ func patchHermesConfig(home string) (bool, error) {
 		return false, fmt.Errorf("skills key in %s is not a map", configPath)
 	}
 
-	target := "~/.agents/skills"
 	targetExpanded := filepath.Join(home, ".agents", "skills")
 	dirsRaw, ok := skills["external_dirs"]
 	if ok {
@@ -141,17 +139,17 @@ func patchHermesConfig(home string) (bool, error) {
 			for _, d := range dirs {
 				if s, ok := d.(string); ok {
 					expanded := expandPath(strings.TrimSpace(s), home)
-					if s == target || expanded == targetExpanded {
+					if s == ampSkillsPath || expanded == targetExpanded {
 						return false, nil
 					}
 				}
 			}
-			skills["external_dirs"] = append(dirs, target)
+			skills["external_dirs"] = append(dirs, ampSkillsPath)
 		} else {
-			skills["external_dirs"] = []interface{}{target}
+			skills["external_dirs"] = []interface{}{ampSkillsPath}
 		}
 	} else {
-		skills["external_dirs"] = []interface{}{target}
+		skills["external_dirs"] = []interface{}{ampSkillsPath}
 	}
 
 	out, err := yaml.Marshal(raw)
@@ -199,22 +197,21 @@ func patchOpenClawConfig(home string) (bool, error) {
 		return false, fmt.Errorf("skills.load in %s is not a map", configPath)
 	}
 
-	target := "~/.agents/skills"
 	dirsRaw, ok := load["extraDirs"]
 	if ok {
 		dirs, ok := dirsRaw.([]interface{})
 		if ok {
 			for _, d := range dirs {
-				if s, ok := d.(string); ok && s == target {
+				if s, ok := d.(string); ok && s == ampSkillsPath {
 					return false, nil
 				}
 			}
-			load["extraDirs"] = append(dirs, target)
+			load["extraDirs"] = append(dirs, ampSkillsPath)
 		} else {
-			load["extraDirs"] = []interface{}{target}
+			load["extraDirs"] = []interface{}{ampSkillsPath}
 		}
 	} else {
-		load["extraDirs"] = []interface{}{target}
+		load["extraDirs"] = []interface{}{ampSkillsPath}
 	}
 
 	out, err := json.MarshalIndent(raw, "", "  ")

@@ -9,14 +9,11 @@ import re
 import subprocess
 import sys
 from datetime import datetime
+from datetime import timezone
 from pathlib import Path
 from typing import Any
 
 
-SESSION_MARKER_RE = re.compile(
-    r"<!-- amp-session:(?P<sid>[^:]+):start -->.*?<!-- amp-session:(?P=sid):end -->\n?",
-    re.DOTALL,
-)
 PATH_RE = re.compile(r"(?:~?/[^\s`'\"\\]+|/Users/[^\s`'\"\\]+|\./[^\s`'\"\\]+)")
 
 
@@ -34,7 +31,7 @@ def parse_start(value: Any) -> datetime:
             return datetime.fromisoformat(normalized)
         except ValueError:
             pass
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def content_text(content: Any) -> str:
@@ -132,7 +129,12 @@ def update_daily_file(sessions_dir: Path, data: dict[str, Any]) -> Path:
     started = parse_start(data.get("session_start"))
     target = sessions_dir / f"{started.strftime('%Y-%m-%d')}.md"
     existing = target.read_text(encoding="utf-8") if target.exists() else ""
-    existing = SESSION_MARKER_RE.sub("", existing).rstrip()
+    session_id = str(data.get("session_id") or data.get("amp_thread_id") or "unknown")
+    session_marker_re = re.compile(
+        rf"<!-- amp-session:{re.escape(session_id)}:start -->.*?<!-- amp-session:{re.escape(session_id)}:end -->\n?",
+        re.DOTALL,
+    )
+    existing = session_marker_re.sub("", existing).rstrip()
     block = build_block(data).rstrip() + "\n"
     target.write_text((existing + "\n\n" + block).lstrip() if existing else block, encoding="utf-8")
     return target
@@ -142,12 +144,15 @@ def reindex(notes_dir: str, profile_dir: str, sessions_dir: Path, collection: st
     paths: list[str] = []
     for pattern in ("*.md", "*.markdown"):
         paths.extend(str(path) for path in sorted(sessions_dir.glob(pattern)) if path.is_file())
-    subprocess.run(
-        ["memsearch", "index", notes_dir, profile_dir, *paths, "--collection", collection],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
+    try:
+        subprocess.run(
+            ["memsearch", "index", notes_dir, profile_dir, *paths, "--collection", collection],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except OSError:
+        pass
 
 
 def main() -> None:
