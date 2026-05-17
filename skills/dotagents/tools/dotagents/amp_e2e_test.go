@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,7 @@ import (
 
 func writeAmpE2EConfig(t *testing.T, path string) {
 	t.Helper()
-	data := []byte(`version: 1
+	data := []byte(fmt.Sprintf(`version: 1
 agents:
   - name: amp
     enabled: true
@@ -18,14 +19,14 @@ agents:
 mcp_servers:
   - name: local
     enabled: true
-    command: uvx
+    command: %s
     args:
       - local-mcp@latest
     env:
       TOKEN: ${TOKEN}
     agents:
       - amp
-`)
+`, testMCPServer().Command))
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +59,7 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	if err := json.Unmarshal(settingsData, &settings); err != nil {
 		t.Fatal(err)
 	}
-	if settings["amp.skills.path"] != "~/.agents/skills" {
+	if settings["amp.skills.path"] != ampSkillsPath {
 		t.Fatalf("amp.skills.path = %#v", settings["amp.skills.path"])
 	}
 	servers, ok := asMap(settings["amp.mcpServers"])
@@ -69,7 +70,7 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	if !ok {
 		t.Fatalf("local MCP missing from %#v", servers)
 	}
-	if local["command"] != "uvx" {
+	if local["command"] != testMCPServer().Command {
 		t.Fatalf("local MCP = %#v", local)
 	}
 

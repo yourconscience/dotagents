@@ -40,6 +40,14 @@ func TestAmpMemoryHookE2EWritesSessionDigest(t *testing.T) {
 		"KNOWLEDGE_DIR="+vault,
 		"PATH="+fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"),
 	)
+	digestPath := filepath.Join(vault, "sessions", "2026-05-17.md")
+	if err := os.MkdirAll(filepath.Dir(digestPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const existingSession = "<!-- amp-session:T-existing:start -->\n## Existing\n\n<!-- amp-session:T-existing:end -->\n"
+	if err := os.WriteFile(digestPath, []byte(existingSession), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cmd.Stdin = strings.NewReader(payload)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -52,13 +60,13 @@ func TestAmpMemoryHookE2EWritesSessionDigest(t *testing.T) {
 	if !strings.Contains(out, "memsearch updated from Amp session T-amp-e2e") {
 		t.Fatalf("unexpected hook output: %s", out)
 	}
-	digestPath := filepath.Join(vault, "sessions", "2026-05-17.md")
 	digest, err := os.ReadFile(digestPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(digest)
 	for _, want := range []string{
+		existingSession,
 		"<!-- amp-session:T-amp-e2e:start -->",
 		"## Amp session 2026-05-17 01:02 - T-amp-e2e",
 		"first request: wire Amp memory",

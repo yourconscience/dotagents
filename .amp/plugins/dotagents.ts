@@ -40,7 +40,8 @@ function runHook(path: string, payload?: unknown, args: string[] = []): string {
     env: process.env,
   })
   const output = `${result.stdout || ''}${result.stderr || ''}`.trim()
-  if (result.status && result.status !== 0) return output || `exit ${result.status}`
+  if (result.error) return result.error.message
+  if (result.status !== 0) return output || `exit ${result.status}`
   return output || 'ok'
 }
 
