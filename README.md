@@ -42,7 +42,7 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 
 Amp uses `~/.agents/skills` through `amp.skills.path` in `~/.config/amp/settings.json`. `dotagents setup` patches that setting and `dotagents sync` keeps managed MCP entries under `amp.mcpServers`.
 
-Dotagents integrations should stay repo-owned and agent-agnostic: shared skills under `skills/`, hook scripts under `memory/hooks/`, knowledge sync under `memory/`, and subagent roles under `agents/`. Do not add agent-specific project directories such as `.amp/` or `.hermes/` to this repo; wire each agent through targeted config patches or generated native files instead.
+Dotagents integrations should stay repo-owned and agent-agnostic: shared skills under `skills/`, hook scripts under `memory/hooks/`, knowledge sync under `memory/`, and subagent roles under `agents/`. Do not commit agent-specific project directories such as `.amp/` or `.hermes/` to this repo; wire each agent through targeted config patches or generated native files instead.
 
 Hermes uses `~/.agents/skills` through `skills.external_dirs` in `~/.hermes/config.yaml`. Do not mirror repo skills into `~/.hermes/skills`, because Hermes already ships bundled categorized skills there and name collisions are easy.
 
