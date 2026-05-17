@@ -110,11 +110,34 @@ func patchAmpConfig(home string) (bool, error) {
 }
 
 func ampSettingsPath(home string) string {
+	repoRoot, _, err := findRoots()
+	if err == nil {
+		if path := existingAmpSettingsPath(filepath.Join(repoRoot, ".amp")); path != "" {
+			return path
+		}
+	}
 	return ampSettingsPathForRoots("", home)
 }
 
-func ampSettingsPathForRoots(_ string, home string) string {
+func ampSettingsPathForRoots(repoRoot string, home string) string {
+	if repoRoot != "" {
+		if path := existingAmpSettingsPath(filepath.Join(repoRoot, ".amp")); path != "" {
+			return path
+		}
+	}
 	return defaultAmpSettingsPath(filepath.Join(home, ".config", "amp"))
+}
+
+func existingAmpSettingsPath(configDir string) string {
+	jsonPath := filepath.Join(configDir, "settings.json")
+	jsoncPath := filepath.Join(configDir, "settings.jsonc")
+	if hasFile(jsonPath) {
+		return jsonPath
+	}
+	if hasFile(jsoncPath) {
+		return jsoncPath
+	}
+	return ""
 }
 
 func defaultAmpSettingsPath(configDir string) string {
