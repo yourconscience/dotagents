@@ -44,11 +44,14 @@ var mcpTargets = map[string]mcpTarget{
 	},
 	agentClaudeCode: {
 		agentName:  agentClaudeCode,
-		configPath: func(home string) string { return filepath.Join(home, ".claude", "settings.json") },
+		configPath: func(home string) string { return filepath.Join(home, ".claude.json") },
 		inspect:    inspectJSONMCPServer,
 		patch:      patchJSONMCPServer,
 		read:       readJSONMCPServer,
 		rootKey:    "mcpServers",
+		defaults: map[string]interface{}{
+			"type": "stdio",
+		},
 	},
 	agentDroid: {
 		agentName:  agentDroid,

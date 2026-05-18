@@ -62,11 +62,11 @@ type JSONJob struct {
 // Per-company scan result
 
 type scanResult struct {
-	company   string
-	jobs      []Job
-	total     int
-	filtered  int
-	err       error
+	company  string
+	jobs     []Job
+	total    int
+	filtered int
+	err      error
 }
 
 func main() {
@@ -141,11 +141,13 @@ func main() {
 	if *asJSON {
 		out := make([]JSONJob, len(newJobs))
 		for i, j := range newJobs {
-			out[i] = JSONJob{Company: j.Company, Title: j.Title, Location: j.Location, URL: j.URL}
+			out[i] = JSONJob(j)
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(out)
+		if err := enc.Encode(out); err != nil {
+			fatalf("failed to encode JSON: %v", err)
+		}
 		return
 	}
 
@@ -239,9 +241,9 @@ func scanCompany(client *http.Client, c Company, filter TitleFilter) scanResult 
 // Platform detection
 
 var (
-	reAshby       = regexp.MustCompile(`(?i)^https?://jobs\.ashbyhq\.com/([^/?#]+)`)
-	reGreenhouse  = regexp.MustCompile(`(?i)^https?://job-boards(?:\.eu)?\.greenhouse\.io/([^/?#]+)`)
-	reLever       = regexp.MustCompile(`(?i)^https?://jobs\.lever\.co/([^/?#]+)`)
+	reAshby      = regexp.MustCompile(`(?i)^https?://jobs\.ashbyhq\.com/([^/?#]+)`)
+	reGreenhouse = regexp.MustCompile(`(?i)^https?://job-boards(?:\.eu)?\.greenhouse\.io/([^/?#]+)`)
+	reLever      = regexp.MustCompile(`(?i)^https?://jobs\.lever\.co/([^/?#]+)`)
 )
 
 func detectPlatform(careersURL string) (platform, slug string, err error) {
@@ -326,8 +328,8 @@ func fetchAshby(client *http.Client, slug, company string) ([]Job, error) {
 // Lever
 
 type leverPosting struct {
-	Text      string `json:"text"`
-	HostedURL string `json:"hostedUrl"`
+	Text       string `json:"text"`
+	HostedURL  string `json:"hostedUrl"`
 	Categories struct {
 		Location string `json:"location"`
 	} `json:"categories"`
