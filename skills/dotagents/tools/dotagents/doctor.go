@@ -29,6 +29,12 @@ type checkResult struct {
 	detail string
 }
 
+const (
+	checkStatusPass = "pass"
+	checkStatusWarn = "warn"
+	checkStatusFail = "fail"
+)
+
 func runDoctor(opts runOptions) error {
 	repoRoot, home, cfg, _, err := loadContext(opts)
 	if err != nil {
@@ -63,11 +69,11 @@ func runDoctor(opts runOptions) error {
 		padding := strings.Repeat(".", labelWidth-len(r.name)+3)
 		fmt.Printf("  %s %s %s (%s)\n", r.name, padding, r.status, r.detail)
 		switch r.status {
-		case "pass":
+		case checkStatusPass:
 			passed++
-		case "warn":
+		case checkStatusWarn:
 			warned++
-		case "fail":
+		case checkStatusFail:
 			failed++
 		}
 	}
@@ -85,12 +91,12 @@ func runDoctor(opts runOptions) error {
 func checkAgentRoles(repoRoot string) checkResult {
 	roles, err := loadAgentRoles(repoRoot)
 	if err != nil {
-		return checkResult{"agent roles", "fail", err.Error()}
+		return checkResult{"agent roles", checkStatusFail, err.Error()}
 	}
 	if len(roles) == 0 {
-		return checkResult{"agent roles", "warn", "no agents/*.yaml roles found"}
+		return checkResult{"agent roles", checkStatusWarn, "no agents/*.yaml roles found"}
 	}
-	return checkResult{"agent roles", "pass", fmt.Sprintf("%d roles valid", len(roles))}
+	return checkResult{"agent roles", checkStatusPass, fmt.Sprintf("%d roles valid", len(roles))}
 }
 
 type skillFrontmatter struct {
@@ -102,7 +108,7 @@ func checkSkillFrontmatter(repoRoot string) checkResult {
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
-		return checkResult{"skill frontmatter", "fail", fmt.Sprintf("cannot read skills/: %s", err)}
+		return checkResult{"skill frontmatter", checkStatusFail, fmt.Sprintf("cannot read skills/: %s", err)}
 	}
 
 	var invalid []string
@@ -125,9 +131,9 @@ func checkSkillFrontmatter(repoRoot string) checkResult {
 	}
 
 	if len(invalid) > 0 {
-		return checkResult{"skill frontmatter", "fail", fmt.Sprintf("%s missing name/description", strings.Join(invalid, ", "))}
+		return checkResult{"skill frontmatter", checkStatusFail, fmt.Sprintf("%s missing name/description", strings.Join(invalid, ", "))}
 	}
-	return checkResult{"skill frontmatter", "pass", fmt.Sprintf("%d skills valid", total)}
+	return checkResult{"skill frontmatter", checkStatusPass, fmt.Sprintf("%d skills valid", total)}
 }
 
 func parseSkillFrontmatter(path string) (skillFrontmatter, error) {
@@ -180,19 +186,19 @@ func checkHermesDirectMirrors(repoRoot string, home string, cfg config) checkRes
 	hermesDetected := isAgentDetected(cfg, agentHermes)
 
 	if !hermesDetected {
-		return checkResult{"hermes direct mirrors", "pass", agentHermes + " not detected, skipped"}
+		return checkResult{"hermes direct mirrors", checkStatusPass, agentHermes + " not detected, skipped"}
 	}
 
 	hermesSkillsDir := filepath.Join(home, ".hermes", "skills")
 	hermesSkills, err := collectDirectSkillNames(hermesSkillsDir)
 	if err != nil {
-		return checkResult{"hermes direct mirrors", "pass", "hermes skills dir unreadable, skipped"}
+		return checkResult{"hermes direct mirrors", checkStatusPass, "hermes skills dir unreadable, skipped"}
 	}
 
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
-		return checkResult{"hermes direct mirrors", "fail", fmt.Sprintf("cannot read skills/: %s", err)}
+		return checkResult{"hermes direct mirrors", checkStatusFail, fmt.Sprintf("cannot read skills/: %s", err)}
 	}
 
 	var mirrors []string
@@ -214,9 +220,9 @@ func checkHermesDirectMirrors(repoRoot string, home string, cfg config) checkRes
 	}
 
 	if len(mirrors) > 0 {
-		return checkResult{"hermes direct mirrors", "warn", strings.Join(mirrors, "; ")}
+		return checkResult{"hermes direct mirrors", checkStatusWarn, strings.Join(mirrors, "; ")}
 	}
-	return checkResult{"hermes direct mirrors", "pass", "no direct mirrors"}
+	return checkResult{"hermes direct mirrors", checkStatusPass, "no direct mirrors"}
 }
 
 func collectDirectSkillNames(root string) (map[string]string, error) {
@@ -262,17 +268,17 @@ type agnixReport struct {
 
 func checkAgnix(repoRoot string) checkResult {
 	if _, err := exec.LookPath("agnix"); err != nil {
-		return checkResult{"agnix", "fail", "agnix not installed; run npm install -g agnix"}
+		return checkResult{"agnix", checkStatusFail, "agnix not installed; run npm install -g agnix"}
 	}
 	out, err := runAgnix(repoRoot)
 	report, parseErr := parseAgnixReport(out)
 	if parseErr != nil {
-		return checkResult{"agnix", "fail", fmt.Sprintf("could not parse agnix output: %s", parseErr)}
+		return checkResult{"agnix", checkStatusFail, fmt.Sprintf("could not parse agnix output: %s", parseErr)}
 	}
 	if err != nil || report.Summary.Errors > 0 {
-		return checkResult{"agnix", "fail", agnixDetail(report)}
+		return checkResult{"agnix", checkStatusFail, agnixDetail(report)}
 	}
-	return checkResult{"agnix", "pass", agnixDetail(report)}
+	return checkResult{"agnix", checkStatusPass, agnixDetail(report)}
 }
 
 func runAgnix(repoRoot string) ([]byte, error) {
@@ -309,28 +315,28 @@ func checkAgentsMDSize(repoRoot string) checkResult {
 	path := filepath.Join(repoRoot, "AGENTS.md")
 	info, err := os.Stat(path)
 	if err != nil {
-		return checkResult{"AGENTS.md size", "fail", "AGENTS.md not found"}
+		return checkResult{"AGENTS.md size", checkStatusFail, "AGENTS.md not found"}
 	}
 	size := info.Size()
 	sizeKB := float64(size) / 1024.0
 	if size > limit {
-		return checkResult{"AGENTS.md size", "warn", fmt.Sprintf("%.1fKB / 8.0KB limit", sizeKB)}
+		return checkResult{"AGENTS.md size", checkStatusWarn, fmt.Sprintf("%.1fKB / 8.0KB limit", sizeKB)}
 	}
-	return checkResult{"AGENTS.md size", "pass", fmt.Sprintf("%.1fKB / 8.0KB limit", sizeKB)}
+	return checkResult{"AGENTS.md size", checkStatusPass, fmt.Sprintf("%.1fKB / 8.0KB limit", sizeKB)}
 }
 
 func checkREADMESkillList(repoRoot string) checkResult {
 	readmePath := filepath.Join(repoRoot, "README.md")
 	data, err := os.ReadFile(readmePath)
 	if err != nil {
-		return checkResult{"README skill list", "fail", "README.md not found"}
+		return checkResult{"README skill list", checkStatusFail, "README.md not found"}
 	}
 	readmeContent := string(data)
 
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
-		return checkResult{"README skill list", "fail", fmt.Sprintf("cannot read skills/: %s", err)}
+		return checkResult{"README skill list", checkStatusFail, fmt.Sprintf("cannot read skills/: %s", err)}
 	}
 
 	var missing []string
@@ -349,9 +355,9 @@ func checkREADMESkillList(repoRoot string) checkResult {
 	}
 
 	if len(missing) > 0 {
-		return checkResult{"README skill list", "warn", fmt.Sprintf("not listed: %s", strings.Join(missing, ", "))}
+		return checkResult{"README skill list", checkStatusWarn, fmt.Sprintf("not listed: %s", strings.Join(missing, ", "))}
 	}
-	return checkResult{"README skill list", "pass", fmt.Sprintf("all %d skills listed", total)}
+	return checkResult{"README skill list", checkStatusPass, fmt.Sprintf("all %d skills listed", total)}
 }
 
 func checkMemsearchIndex(home string) checkResult {
@@ -360,9 +366,9 @@ func checkMemsearchIndex(home string) checkResult {
 		if err == nil {
 			if chunks, ok := parseMemsearchChunks(string(out)); ok {
 				if chunks == 0 {
-					return checkResult{"memsearch index", "warn", "collection ai has 0 chunks"}
+					return checkResult{"memsearch index", checkStatusWarn, "collection ai has 0 chunks"}
 				}
-				return checkResult{"memsearch index", "pass", fmt.Sprintf("collection ai has %d chunks", chunks)}
+				return checkResult{"memsearch index", checkStatusPass, fmt.Sprintf("collection ai has %d chunks", chunks)}
 			}
 		}
 	}
@@ -370,7 +376,7 @@ func checkMemsearchIndex(home string) checkResult {
 	stateDir := filepath.Join(home, ".memsearch", "state")
 	entries, err := os.ReadDir(stateDir)
 	if err != nil {
-		return checkResult{"memsearch index", "warn", "state dir missing or unreadable"}
+		return checkResult{"memsearch index", checkStatusWarn, "state dir missing or unreadable"}
 	}
 	count := 0
 	for _, e := range entries {
@@ -379,9 +385,9 @@ func checkMemsearchIndex(home string) checkResult {
 		}
 	}
 	if count == 0 {
-		return checkResult{"memsearch index", "warn", "state dir empty, index never built"}
+		return checkResult{"memsearch index", checkStatusWarn, "state dir empty, index never built"}
 	}
-	return checkResult{"memsearch index", "pass", fmt.Sprintf("state dir has %d files", count)}
+	return checkResult{"memsearch index", checkStatusPass, fmt.Sprintf("state dir has %d files", count)}
 }
 
 func parseMemsearchChunks(statsOutput string) (int, bool) {
@@ -399,23 +405,23 @@ func parseMemsearchChunks(statsOutput string) (int, bool) {
 
 func checkHermesHooks(home string, cfg config) checkResult {
 	if !isAgentDetected(cfg, agentHermes) {
-		return checkResult{"hermes hooks", "pass", agentHermes + " not detected, skipped"}
+		return checkResult{"hermes hooks", checkStatusPass, agentHermes + " not detected, skipped"}
 	}
 
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return checkResult{"hermes hooks", "warn", "config.yaml not readable"}
+		return checkResult{"hermes hooks", checkStatusWarn, "config.yaml not readable"}
 	}
 
 	var raw map[string]interface{}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return checkResult{"hermes hooks", "warn", "config.yaml parse error"}
+		return checkResult{"hermes hooks", checkStatusWarn, "config.yaml parse error"}
 	}
 
 	hooksRaw, ok := raw["hooks"]
 	if !ok {
-		return checkResult{"hermes hooks", "warn", "no hooks section configured"}
+		return checkResult{"hermes hooks", checkStatusWarn, "no hooks section configured"}
 	}
 
 	// Count hooks if it's a list or map
@@ -432,7 +438,7 @@ func checkHermesHooks(home string, cfg config) checkResult {
 	}
 
 	if count == 0 {
-		return checkResult{"hermes hooks", "warn", "hooks section present but empty"}
+		return checkResult{"hermes hooks", checkStatusWarn, "hooks section present but empty"}
 	}
-	return checkResult{"hermes hooks", "pass", fmt.Sprintf("%d hook configured", count)}
+	return checkResult{"hermes hooks", checkStatusPass, fmt.Sprintf("%d hook configured", count)}
 }

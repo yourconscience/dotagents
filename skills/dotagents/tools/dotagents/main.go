@@ -177,7 +177,7 @@ func parseCronFlags(args []string) (cronOptions, error) {
 	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names")
 	fs.BoolVar(&opts.Remove, "remove", false, "Remove the cron entry instead of installing")
 	fs.BoolVar(&opts.Deps, "deps", false, "Install dependency maintenance cron instead of auto-pull")
-	fs.StringVar(&opts.Interval, "interval", "30m", "Pull interval: 5m, 15m, 30m, 1h, 6h, 12h, daily, weekly")
+	fs.StringVar(&opts.Interval, "interval", cronIntervalDefault, "Pull interval: 5m, 15m, 30m, 1h, 6h, 12h, daily, weekly")
 
 	if err := fs.Parse(args); err != nil {
 		return cronOptions{}, err

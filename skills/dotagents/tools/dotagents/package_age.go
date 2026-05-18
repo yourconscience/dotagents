@@ -15,6 +15,11 @@ import (
 
 const defaultPackageAgeMinimum = 7 * 24 * time.Hour
 
+const (
+	packageVersionLatest = "latest"
+	packageCommandUVX    = "uvx"
+)
+
 var timeNow = time.Now
 
 type packageReference struct {
@@ -38,14 +43,14 @@ func checkExternalPackageAge(repoRoot string, cfg config, skip bool, now time.Ti
 
 func checkExternalPackageAgeWithResolver(repoRoot string, cfg config, skip bool, now time.Time, resolver packageAgeResolver) checkResult {
 	if skip {
-		return checkResult{"package age", "pass", "skipped by --skip-package-age"}
+		return checkResult{"package age", checkStatusPass, "skipped by --skip-package-age"}
 	}
 	refs, err := collectPackageReferences(repoRoot, cfg)
 	if err != nil {
-		return checkResult{"package age", "fail", err.Error()}
+		return checkResult{"package age", checkStatusFail, err.Error()}
 	}
 	if len(refs) == 0 {
-		return checkResult{"package age", "pass", "no external package references found"}
+		return checkResult{"package age", checkStatusPass, "no external package references found"}
 	}
 	var fresh []string
 	var unresolved []string
@@ -61,12 +66,12 @@ func checkExternalPackageAgeWithResolver(repoRoot string, cfg config, skip bool,
 		}
 	}
 	if len(unresolved) > 0 {
-		return checkResult{"package age", "fail", "registry lookup failed: " + strings.Join(unresolved, "; ")}
+		return checkResult{"package age", checkStatusFail, "registry lookup failed: " + strings.Join(unresolved, "; ")}
 	}
 	if len(fresh) > 0 {
-		return checkResult{"package age", "fail", "package newer than 7 days: " + strings.Join(fresh, "; ")}
+		return checkResult{"package age", checkStatusFail, "package newer than 7 days: " + strings.Join(fresh, "; ")}
 	}
-	return checkResult{"package age", "pass", fmt.Sprintf("%d references older than 7 days", len(refs))}
+	return checkResult{"package age", checkStatusPass, fmt.Sprintf("%d references older than 7 days", len(refs))}
 }
 
 func collectPackageReferences(repoRoot string, cfg config) ([]packageReference, error) {
@@ -148,7 +153,7 @@ func packageReferenceFiles(repoRoot string) []string {
 func packageReferencesFromCommand(command string, args []string, source string) []packageReference {
 	cmd := filepath.Base(strings.TrimSpace(command))
 	switch cmd {
-	case "uvx":
+	case packageCommandUVX:
 		if len(args) == 0 {
 			return nil
 		}
@@ -207,7 +212,7 @@ func splitPyPISpec(spec string) (string, string) {
 	if idx := strings.LastIndex(spec, "@"); idx > 0 {
 		return spec[:idx], spec[idx+1:]
 	}
-	return spec, "latest"
+	return spec, packageVersionLatest
 }
 
 func splitNPMSpec(spec string) (string, string) {
@@ -215,18 +220,18 @@ func splitNPMSpec(spec string) (string, string) {
 	if strings.HasPrefix(spec, "@") {
 		slash := strings.Index(spec, "/")
 		if slash == -1 {
-			return spec, "latest"
+			return spec, packageVersionLatest
 		}
 		if idx := strings.LastIndex(spec[slash+1:], "@"); idx >= 0 {
 			cut := slash + 1 + idx
 			return spec[:cut], spec[cut+1:]
 		}
-		return spec, "latest"
+		return spec, packageVersionLatest
 	}
 	if idx := strings.LastIndex(spec, "@"); idx > 0 {
 		return spec[:idx], spec[idx+1:]
 	}
-	return spec, "latest"
+	return spec, packageVersionLatest
 }
 
 func resolvePackageRelease(ref packageReference) (packageRelease, error) {
@@ -254,7 +259,7 @@ func resolvePyPIRelease(ref packageReference) (packageRelease, error) {
 		return packageRelease{}, err
 	}
 	version := ref.Version
-	if version == "" || version == "latest" {
+	if version == "" || version == packageVersionLatest {
 		version = doc.Info.Version
 	}
 	files := doc.Releases[version]
@@ -279,8 +284,8 @@ func resolveNPMRelease(ref packageReference) (packageRelease, error) {
 		return packageRelease{}, err
 	}
 	version := ref.Version
-	if version == "" || version == "latest" {
-		version = doc.DistTags["latest"]
+	if version == "" || version == packageVersionLatest {
+		version = doc.DistTags[packageVersionLatest]
 	}
 	raw := doc.Time[version]
 	if raw == "" {

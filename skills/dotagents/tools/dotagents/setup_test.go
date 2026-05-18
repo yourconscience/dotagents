@@ -6,9 +6,9 @@ import (
 )
 
 func TestCronCommandForWeeklyDeps(t *testing.T) {
-	cmd, interval := cronCommandForOptions("/repo", "/usr/bin/go", cronOptions{Deps: true, Interval: "30m"})
-	if interval != "weekly" {
-		t.Fatalf("interval = %q, want weekly", interval)
+	cmd, interval := cronCommandForOptions("/repo", "/usr/bin/go", cronOptions{Deps: true, Interval: cronIntervalDefault})
+	if interval != cronIntervalWeekly {
+		t.Fatalf("interval = %q, want %s", interval, cronIntervalWeekly)
 	}
 	if !strings.Contains(cmd, "deps update") {
 		t.Fatalf("cmd = %q, want deps update", cmd)
@@ -19,7 +19,7 @@ func TestCronCommandForWeeklyDeps(t *testing.T) {
 }
 
 func TestIntervalToScheduleWeekly(t *testing.T) {
-	if got := intervalToSchedule("weekly"); got != "0 4 * * 1" {
+	if got := intervalToSchedule(cronIntervalWeekly); got != "0 4 * * 1" {
 		t.Fatalf("weekly schedule = %q, want Monday 04:00", got)
 	}
 }
