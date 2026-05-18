@@ -671,12 +671,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "mcp" },
+    { name = "python-dotenv" },
     { name = "telethon" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "mcp", specifier = ">=1.13.0" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "telethon", specifier = ">=1.41.0" },
 ]
 

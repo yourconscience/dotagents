@@ -251,26 +251,27 @@ func readJSONMCPServer(target mcpTarget, name string, home string) (mcpServerCon
 func readClaudeMCPServer(target mcpTarget, name string, home string) (mcpServerConfig, error) {
 	configPath := target.configPath(home)
 	data, err := os.ReadFile(configPath)
-	if err != nil {
+	raw := map[string]interface{}{}
+	if err != nil && !os.IsNotExist(err) {
 		return mcpServerConfig{}, fmt.Errorf("read %s: %w", configPath, err)
-	}
-	var raw map[string]interface{}
-	if err := parseJSONConfig(configPath, data, &raw); err != nil {
-		return mcpServerConfig{}, fmt.Errorf("parse %s: %w", configPath, err)
+	} else if err == nil {
+		if err := parseJSONConfig(configPath, data, &raw); err != nil {
+			return mcpServerConfig{}, fmt.Errorf("parse %s: %w", configPath, err)
+		}
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return mcpServerConfig{}, fmt.Errorf("resolve cwd: %w", err)
 	}
-	if entry, ok, err := claudeMCPJSONEntry(name, cwd); err != nil {
-		return mcpServerConfig{}, err
-	} else if ok {
+	if entry, ok := claudeProjectMCPEntry(raw, name, cwd); ok {
 		if err := validateNativeDefaults(target, entry); err != nil {
 			return mcpServerConfig{}, err
 		}
 		return mcpServerFromMap(name, entry)
 	}
-	if entry, ok := claudeProjectMCPEntry(raw, name, cwd); ok {
+	if entry, ok, err := claudeMCPJSONEntry(name, cwd); err != nil {
+		return mcpServerConfig{}, err
+	} else if ok {
 		if err := validateNativeDefaults(target, entry); err != nil {
 			return mcpServerConfig{}, err
 		}
