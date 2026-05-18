@@ -12,22 +12,25 @@ Use the root CLI tool. This skill is specific to the `~/Workspace/dotagents` rep
 From the repo root:
 
 ```bash
-go run ./cmd/dotagents setup                # first-time machine setup
-go run ./cmd/dotagents status               # show sync state
-go run ./cmd/dotagents sync                 # sync skill symlinks
-go run ./cmd/dotagents pull                 # git pull + sync (for cron)
-go run ./cmd/dotagents cron --interval 30m  # install auto-pull crontab
-go run ./cmd/dotagents cron --remove        # remove crontab entry
-go run ./cmd/dotagents mcp list             # list canonical managed MCPs
-go run ./cmd/dotagents mcp add local --command uvx --arg pkg@latest
-go run ./cmd/dotagents mcp import claude-code local
-go run ./cmd/dotagents mcp remove local
+go install ./cmd/dotagents                  # install to Go bin dir
+dotagents setup                             # first-time machine setup
+dotagents status                            # show sync state
+dotagents sync                              # sync skill symlinks
+dotagents pull                              # git pull + sync (for cron)
+dotagents cron --interval 30m               # install auto-pull crontab
+dotagents cron --remove                     # remove crontab entry
+dotagents mcp list                          # list canonical managed MCPs
+dotagents mcp add local --command uvx --arg pkg@latest
+dotagents mcp import claude-code local
+dotagents mcp remove local
 ```
+
+Ensure the Go install directory is on `PATH`. If `go env GOBIN` is non-empty, add that directory; otherwise add `$(go env GOPATH)/bin`.
 
 Limit a run to specific agents:
 
 ```bash
-go run ./cmd/dotagents sync --agents=claude-code,hermes
+dotagents sync --agents=claude-code,hermes
 ```
 
 ## Subcommands
@@ -45,7 +48,7 @@ If Amp suggests installing a plugin/skill instead of using the shared path, pref
 
 ```bash
 amp skill add <source> --target ~/.agents/skills --overwrite
-go run ./cmd/dotagents setup --agents=amp
+dotagents setup --agents=amp
 ```
 
 Amp currently exposes this through `amp skill add`; keep the install target pointed at dotagents so there is one source of truth.
@@ -67,11 +70,11 @@ For MCPs, `sync` patches only the managed server entries declared in `dotagents.
 For repo-owned local MCP servers, prefer `mcp/<server-name>/` plus a canonical `dotagents.yaml` entry using `sh -lc 'exec ...'`, with local secrets/state outside git.
 
 ```bash
-go run ./cmd/dotagents mcp list
-go run ./cmd/dotagents mcp add local --command uvx --arg pkg@latest --env KEY=value
-go run ./cmd/dotagents mcp import claude-code local --agents=amp,codex,hermes,droid
-go run ./cmd/dotagents sync
-go run ./cmd/dotagents mcp remove local
+dotagents mcp list
+dotagents mcp add local --command uvx --arg pkg@latest --env KEY=value
+dotagents mcp import claude-code local --agents=amp,codex,hermes,droid
+dotagents sync
+dotagents mcp remove local
 ```
 
 ### pull
@@ -87,9 +90,9 @@ Installs or removes a crontab entry that runs `pull` on a schedule. Default inte
 Promotes a Hermes skill to dotagents shared skills. Copies the skill, creates a branch, commits, pushes, and opens a PR.
 
 ```bash
-go run ./cmd/dotagents promote SKILL_NAME          # by name (searches ~/.hermes/skills/)
-go run ./cmd/dotagents promote <category>/<name>   # with category prefix
-go run ./cmd/dotagents promote <name> --dry-run    # copy only, skip git/PR
+dotagents promote SKILL_NAME          # by name (searches ~/.hermes/skills/)
+dotagents promote <category>/<name>   # with category prefix
+dotagents promote <name> --dry-run    # copy only, skip git/PR
 ```
 
 The skill is searched in `~/.hermes/skills/` by name (including inside category subdirectories). The promote command:
@@ -107,7 +110,7 @@ For the full promotion workflow (evaluation, pr-triage, merge), use the `skill-p
 End-to-end self-test: runs sync, then status, then doctor. Fails on any drift, conflict, or doctor warning. Use after making changes to skills or config to verify the full pipeline.
 
 ```bash
-go run ./cmd/dotagents dogfood
+dotagents dogfood
 ```
 
 ## What it manages
