@@ -14,6 +14,7 @@ __pycache__/
 skills/dotagents/tools/dotagents/dotagents
 memsearch.conf
 mcp/*/.env
+mcp/*/.*.session
 mcp/*/.venv/
 memory/local/
 memory/apply-local.sh
