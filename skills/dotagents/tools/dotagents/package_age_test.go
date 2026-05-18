@@ -17,6 +17,16 @@ func TestPackageReferencesFromCommandUVX(t *testing.T) {
 	}
 }
 
+func TestPackageReferencesFromCommandUVXFrom(t *testing.T) {
+	refs := packageReferencesFromCommand(mcpTestUVXCommand, []string{"--from", "some-pkg@1.2.3", "some-command", "--arg"}, "config")
+	if len(refs) != 1 {
+		t.Fatalf("refs = %#v, want one", refs)
+	}
+	if refs[0].Package != "some-pkg" || refs[0].Version != "1.2.3" {
+		t.Fatalf("unexpected ref: %#v", refs[0])
+	}
+}
+
 func TestPackageReferencesFromCommandUVToolInstallWithFlags(t *testing.T) {
 	refs := packageReferencesFromCommand("uv", []string{"tool", "install", "--upgrade", "ruff==0.15.12"}, "setup")
 	if len(refs) != 1 {
@@ -33,6 +43,16 @@ func TestPackageReferencesFromCommandNPMInstallMultiple(t *testing.T) {
 		t.Fatalf("refs = %#v, want two", refs)
 	}
 	if refs[0].Package != "pkg-one" || refs[1].Package != "@scope/pkg-two" {
+		t.Fatalf("unexpected refs: %#v", refs)
+	}
+}
+
+func TestPackageReferencesFromCommandPNPMDlxIgnoresCommandArgs(t *testing.T) {
+	refs := packageReferencesFromCommand("pnpm", []string{"dlx", "create-vue@1.0.0", "my-app"}, "setup")
+	if len(refs) != 1 {
+		t.Fatalf("refs = %#v, want one", refs)
+	}
+	if refs[0].Package != "create-vue" {
 		t.Fatalf("unexpected refs: %#v", refs)
 	}
 }

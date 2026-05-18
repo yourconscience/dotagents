@@ -156,11 +156,7 @@ func packageReferencesFromCommand(command string, args []string, source string) 
 	cmd := filepath.Base(strings.TrimSpace(command))
 	switch cmd {
 	case packageCommandUVX:
-		if len(args) == 0 {
-			return nil
-		}
-		pkg, version := splitPyPISpec(args[0])
-		return []packageReference{{Ecosystem: ecosystemPyPI, Package: pkg, Version: version, Source: source}}
+		return packageReferencesFromUVXArgs(args, source)
 	case "uv":
 		if len(args) >= 3 && args[0] == "tool" && args[1] == "install" {
 			var refs []packageReference
@@ -175,19 +171,56 @@ func packageReferencesFromCommand(command string, args []string, source string) 
 		}
 	case "npx", "pnpm", "npm":
 		var refs []packageReference
+		limitToFirstPackage := cmd == "npx"
 		for _, arg := range args {
 			if strings.HasPrefix(arg, "-") || arg == "install" || arg == "add" || arg == "dlx" || arg == "-g" {
+				if cmd == "pnpm" && arg == "dlx" {
+					limitToFirstPackage = true
+				}
 				continue
 			}
 			pkg, version := splitNPMSpec(arg)
 			refs = append(refs, packageReference{Ecosystem: ecosystemNPM, Package: pkg, Version: version, Source: source})
-			if cmd == "npx" {
+			if limitToFirstPackage {
 				break
 			}
 		}
 		return refs
 	}
 	return nil
+}
+
+func packageReferencesFromUVXArgs(args []string, source string) []packageReference {
+	var refs []packageReference
+	hasExplicitPackage := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--from" || arg == "--with":
+			if i+1 >= len(args) {
+				continue
+			}
+			refs = appendPyPIReference(refs, args[i+1], source)
+			hasExplicitPackage = hasExplicitPackage || arg == "--from"
+			i++
+		case strings.HasPrefix(arg, "--from="):
+			refs = appendPyPIReference(refs, strings.TrimPrefix(arg, "--from="), source)
+			hasExplicitPackage = true
+		case strings.HasPrefix(arg, "--with="):
+			refs = appendPyPIReference(refs, strings.TrimPrefix(arg, "--with="), source)
+		case strings.HasPrefix(arg, "-"):
+			continue
+		case !hasExplicitPackage && len(refs) == 0:
+			refs = appendPyPIReference(refs, arg, source)
+			return refs
+		}
+	}
+	return refs
+}
+
+func appendPyPIReference(refs []packageReference, spec string, source string) []packageReference {
+	pkg, version := splitPyPISpec(spec)
+	return append(refs, packageReference{Ecosystem: ecosystemPyPI, Package: pkg, Version: version, Source: source})
 }
 
 var (
