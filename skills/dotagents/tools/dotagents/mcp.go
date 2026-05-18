@@ -47,7 +47,7 @@ var mcpTargets = map[string]mcpTarget{
 		configPath: func(home string) string { return filepath.Join(home, ".claude.json") },
 		inspect:    inspectJSONMCPServer,
 		patch:      patchJSONMCPServer,
-		read:       readJSONMCPServer,
+		read:       readClaudeMCPServer,
 		rootKey:    "mcpServers",
 		defaults: map[string]interface{}{
 			"type": "stdio",
@@ -248,6 +248,31 @@ func readJSONMCPServer(target mcpTarget, name string, home string) (mcpServerCon
 	return mcpServerFromMap(name, entry)
 }
 
+func readClaudeMCPServer(target mcpTarget, name string, home string) (mcpServerConfig, error) {
+	configPath := target.configPath(home)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return mcpServerConfig{}, fmt.Errorf("read %s: %w", configPath, err)
+	}
+	var raw map[string]interface{}
+	if err := parseJSONConfig(configPath, data, &raw); err != nil {
+		return mcpServerConfig{}, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	if entry, ok := mapMCPEntry(raw, target.rootKey, name); ok {
+		if err := validateNativeDefaults(target, entry); err != nil {
+			return mcpServerConfig{}, err
+		}
+		return mcpServerFromMap(name, entry)
+	}
+	if entry, ok := claudeProjectMCPEntry(raw, name); ok {
+		if err := validateNativeDefaults(target, entry); err != nil {
+			return mcpServerConfig{}, err
+		}
+		return mcpServerFromMap(name, entry)
+	}
+	return mcpServerConfig{}, fmt.Errorf("MCP server %q not found in %s", name, target.agentName)
+}
+
 func inspectYAMLMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {
 	configPath := target.configPath(home)
 	data, err := os.ReadFile(configPath)
@@ -347,6 +372,27 @@ func mapMCPEntry(raw map[string]interface{}, rootKey string, name string) (map[s
 	}
 	entry, ok := asMap(entryRaw)
 	return entry, ok
+}
+
+func claudeProjectMCPEntry(raw map[string]interface{}, name string) (map[string]interface{}, bool) {
+	projectsRaw, ok := raw["projects"]
+	if !ok {
+		return nil, false
+	}
+	projects, ok := asMap(projectsRaw)
+	if !ok {
+		return nil, false
+	}
+	for _, projectRaw := range projects {
+		project, ok := asMap(projectRaw)
+		if !ok {
+			continue
+		}
+		if entry, ok := mapMCPEntry(project, "mcpServers", name); ok {
+			return entry, true
+		}
+	}
+	return nil, false
 }
 
 func upsertMapMCPServer(raw map[string]interface{}, rootKey string, server mcpServerConfig, defaults map[string]interface{}) {
