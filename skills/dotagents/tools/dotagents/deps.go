@@ -55,7 +55,7 @@ func runDepsCheck(opts runOptions) error {
 	}
 	result := checkExternalPackageAge(repoRoot, cfg, opts.SkipPackageAge, time.Now())
 	fmt.Printf("package age: %s (%s)\n", result.status, result.detail)
-	if result.status != "pass" {
+	if result.status != checkStatusPass {
 		return errors.New(result.detail)
 	}
 	return nil

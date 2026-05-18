@@ -305,6 +305,11 @@ type cronOptions struct {
 	Interval string
 }
 
+const (
+	cronIntervalDefault = "30m"
+	cronIntervalWeekly  = "weekly"
+)
+
 func runCron(opts cronOptions) error {
 	repoRoot, _, _, _, err := loadContext(opts.runOptions)
 	if err != nil {
@@ -330,12 +335,12 @@ func cronCommandForOptions(repoRoot string, goPath string, opts cronOptions) (st
 	interval := opts.Interval
 	if opts.Deps {
 		mode = "deps update"
-		if interval == "" || interval == "30m" {
-			interval = "weekly"
+		if interval == "" || interval == cronIntervalDefault {
+			interval = cronIntervalWeekly
 		}
 	}
 	if interval == "" {
-		interval = "30m"
+		interval = cronIntervalDefault
 	}
 	return fmt.Sprintf(". \"$HOME/.profile\" 2>/dev/null; cd %s && %s run %s %s", repoRoot, goPath, toolPath, mode), interval
 }
@@ -405,7 +410,7 @@ func intervalToSchedule(interval string) string {
 		return "*/5 * * * *"
 	case "15m":
 		return "*/15 * * * *"
-	case "30m":
+	case cronIntervalDefault:
 		return "*/30 * * * *"
 	case "1h", "hourly":
 		return "0 * * * *"
@@ -415,7 +420,7 @@ func intervalToSchedule(interval string) string {
 		return "0 */12 * * *"
 	case "daily":
 		return "0 4 * * *"
-	case "weekly":
+	case cronIntervalWeekly:
 		return "0 4 * * 1"
 	default:
 		return "*/30 * * * *"
