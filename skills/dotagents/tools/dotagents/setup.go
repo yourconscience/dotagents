@@ -342,7 +342,7 @@ func cronCommandForOptions(repoRoot string, goPath string, opts cronOptions) (st
 	if interval == "" {
 		interval = cronIntervalDefault
 	}
-	return fmt.Sprintf(". \"$HOME/.profile\" 2>/dev/null; cd %s && %s run %s %s", repoRoot, goPath, toolPath, mode), interval
+	return fmt.Sprintf(". \"$HOME/.profile\" 2>/dev/null; cd %q && %q run %q %s", repoRoot, goPath, toolPath, mode), interval
 }
 
 func installCronEntry(cronCmd string, interval string) error {

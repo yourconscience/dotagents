@@ -12,8 +12,28 @@ func TestPackageReferencesFromCommandUVX(t *testing.T) {
 	if len(refs) != 1 {
 		t.Fatalf("refs = %#v, want one", refs)
 	}
-	if refs[0].Ecosystem != "pypi" || refs[0].Package != "linkedin-scraper-mcp" || refs[0].Version != "4.12.0" {
+	if refs[0].Ecosystem != ecosystemPyPI || refs[0].Package != "linkedin-scraper-mcp" || refs[0].Version != "4.12.0" {
 		t.Fatalf("unexpected ref: %#v", refs[0])
+	}
+}
+
+func TestPackageReferencesFromCommandUVToolInstallWithFlags(t *testing.T) {
+	refs := packageReferencesFromCommand("uv", []string{"tool", "install", "--upgrade", "ruff==0.15.12"}, "setup")
+	if len(refs) != 1 {
+		t.Fatalf("refs = %#v, want one", refs)
+	}
+	if refs[0].Ecosystem != ecosystemPyPI || refs[0].Package != "ruff" || refs[0].Version != "0.15.12" {
+		t.Fatalf("unexpected ref: %#v", refs[0])
+	}
+}
+
+func TestPackageReferencesFromCommandNPMInstallMultiple(t *testing.T) {
+	refs := packageReferencesFromCommand("npm", []string{"install", "pkg-one@1.0.0", "@scope/pkg-two@2.0.0"}, "setup")
+	if len(refs) != 2 {
+		t.Fatalf("refs = %#v, want two", refs)
+	}
+	if refs[0].Package != "pkg-one" || refs[1].Package != "@scope/pkg-two" {
+		t.Fatalf("unexpected refs: %#v", refs)
 	}
 }
 
