@@ -41,3 +41,15 @@ mcp_servers:
       - amp
       - hermes
       - droid
+  - name: telegram_readonly
+    enabled: true
+    command: sh
+    args:
+      - -lc
+      - exec uv run --project ~/.agents/mcp/telegram-readonly python ~/.agents/mcp/telegram-readonly/server.py
+    agents:
+      - claude-code
+      - codex
+      - amp
+      - hermes
+      - droid
