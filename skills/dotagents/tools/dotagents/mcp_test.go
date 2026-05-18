@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -236,6 +237,33 @@ func TestClaudeMCPPatchCreatesMissingConfig(t *testing.T) {
 	}
 	if _, ok := linkedin["disabled"]; ok {
 		t.Fatalf("claude config should not get droid disabled default: %#v", linkedin)
+	}
+}
+
+func TestClaudeMCPReadProjectScopedConfig(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".claude.json")
+	if err := os.WriteFile(configPath, []byte(fmt.Sprintf(`{
+  "projects": {
+    "/repo": {
+      "mcpServers": {
+        "imported": {
+          "type": "stdio",
+          "command": %q,
+          "args": ["server.js"]
+        }
+      }
+    }
+  }
+}`, mcpTestNodeCommand)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	server, err := readNativeMCPServer(agentClaudeCode, "imported", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.Name != "imported" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"server.js"}) {
+		t.Fatalf("unexpected project-scoped server: %#v", server)
 	}
 }
 
