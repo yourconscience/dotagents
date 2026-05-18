@@ -96,10 +96,14 @@ func installDotagentsBinary(repoRoot string) error {
 }
 
 func goBinDir(goPath string) (string, error) {
-	if gobin := strings.TrimSpace(os.Getenv("GOBIN")); gobin != "" {
-		return gobin, nil
+	out, err := exec.Command(goPath, "env", "GOBIN").Output()
+	if err != nil {
+		return "", fmt.Errorf("go env GOBIN: %w", err)
 	}
-	out, err := exec.Command(goPath, "env", "GOPATH").Output()
+	if goBinValue := strings.TrimSpace(string(out)); goBinValue != "" {
+		return goBinValue, nil
+	}
+	out, err = exec.Command(goPath, "env", "GOPATH").Output()
 	if err != nil {
 		return "", fmt.Errorf("go env GOPATH: %w", err)
 	}
