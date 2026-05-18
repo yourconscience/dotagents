@@ -135,15 +135,15 @@ fi
 
 log "Running dotagents setup..."
 cd "$DOTAGENTS_DIR"
-run_as_user go run ./skills/dotagents/tools/dotagents setup
+run_as_user go run ./cmd/dotagents setup
 
 # --- Knowledge vault + memsearch ---
 log "Setting up knowledge vault + memsearch..."
 run_as_user uv tool install memsearch==0.4.2 || warn "memsearch install failed"
-run_as_user go run ./skills/dotagents/tools/dotagents memsearch setup --vault "$TARGET_HOME/Workspace/knowledge" || warn "memsearch setup failed (non-critical)"
+run_as_user go run ./cmd/dotagents memsearch setup --vault "$TARGET_HOME/Workspace/knowledge" || warn "memsearch setup failed (non-critical)"
 
 log "Installing dotagents auto-pull cron (every 30m)..."
-run_as_user go run ./skills/dotagents/tools/dotagents cron --interval 30m
+run_as_user go run ./cmd/dotagents cron --interval 30m
 
 # --- Shell config ---
 log "Configuring shell aliases and integrations..."

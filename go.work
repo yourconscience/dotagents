@@ -1,7 +1,7 @@
 go 1.24.0
 
 use (
-	./skills/dotagents/tools/dotagents
+	./cmd/dotagents
 	./skills/gws
 	./skills/remote-access/tools/remote-access-bridge
 	./skills/jobs/tools/portals-scan
