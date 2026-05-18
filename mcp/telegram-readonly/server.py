@@ -34,7 +34,9 @@ def _load_env() -> None:
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip())
+            key = key.strip()
+            value = value.strip().strip("'\"")
+            os.environ.setdefault(key, value)
 
 
 def _require_env() -> tuple[int, str, str]:
@@ -46,7 +48,7 @@ def _require_env() -> tuple[int, str, str]:
         str(Path.home() / ".local" / "share" / "dotagents" / "telegram-readonly" / "telegram.session"),
     )
     if not api_id or not api_hash:
-        raise RuntimeError("TELEGRAM_API_ID/TELEGRAM_API_HASH missing. Fill ~/.agents/mcp/telegram-readonly/.env")
+        raise RuntimeError(f"TELEGRAM_API_ID/TELEGRAM_API_HASH missing. Fill {ENV_PATH}")
     return int(api_id), api_hash, str(Path(session_path).expanduser())
 
 
@@ -54,14 +56,20 @@ async def _get_client() -> TelegramClient:
     global _client
     async with _lock:
         if _client is not None and _client.is_connected():
-            return _client
+            if await _client.is_user_authorized():
+                return _client
+            await _client.disconnect()
+            _client = None
         api_id, api_hash, session_path = _require_env()
         Path(session_path).parent.mkdir(parents=True, exist_ok=True)
-        _client = TelegramClient(session_path, api_id, api_hash)
-        await _client.connect()
-        if not await _client.is_user_authorized():
-            raise RuntimeError("Telegram session is not authorized. Run: cd ~/.agents/mcp/telegram-readonly && uv run python login.py")
-        return _client
+        client = TelegramClient(session_path, api_id, api_hash)
+        await client.connect()
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            _client = None
+            raise RuntimeError(f"Telegram session is not authorized. Run: cd {ROOT} && uv run python login.py")
+        _client = client
+        return client
 
 
 def _entity_name(entity: Any) -> str:
