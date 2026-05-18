@@ -12,6 +12,8 @@ __pycache__/
 # Local binaries and generated data
 /dotagents
 memsearch.conf
+mcp/*/.env
+mcp/*/.venv/
 memory/local/
 memory/apply-local.sh
 skills/jobs/data/

@@ -64,6 +64,8 @@ Creates, updates, or removes skill symlinks in each detected agent's skill root 
 
 For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `skills/dotagents/dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target all configured agents with MCP support (`amp`, `claude-code`, `codex`, `hermes`, `droid`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
 
+For repo-owned local MCP servers, prefer `mcp/<server-name>/` plus a canonical `dotagents.yaml` entry using `sh -lc 'exec ...'`, with local secrets/state outside git.
+
 ```bash
 go run ./skills/dotagents/tools/dotagents mcp list
 go run ./skills/dotagents/tools/dotagents mcp add local --command uvx --arg pkg@latest --env KEY=value

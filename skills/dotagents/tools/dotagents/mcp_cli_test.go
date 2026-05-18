@@ -117,11 +117,11 @@ func TestMCPCLIImport(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "dotagents.yaml")
 	writeTestDotagentsConfig(t, configPath)
 
-	claudePath := filepath.Join(home, ".claude", "settings.json")
+	claudePath := filepath.Join(home, ".claude.json")
 	if err := os.MkdirAll(filepath.Dir(claudePath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(claudePath, []byte(fmt.Sprintf(`{"mcpServers":{"imported":{"command":%q,"args":["server.js"],"env":{"TOKEN":"secret"}}}}`, mcpTestNodeCommand)), 0o644); err != nil {
+	if err := os.WriteFile(claudePath, []byte(fmt.Sprintf(`{"mcpServers":{"imported":{"type":"stdio","command":%q,"args":["server.js"],"env":{"TOKEN":"secret"}}}}`, mcpTestNodeCommand)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

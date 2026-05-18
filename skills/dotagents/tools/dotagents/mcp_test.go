@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -221,7 +222,7 @@ func TestClaudeMCPPatchCreatesMissingConfig(t *testing.T) {
 	if state != stateSynced {
 		t.Fatalf("inspect after create = %q, want %q", state, stateSynced)
 	}
-	out, err := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+	out, err := os.ReadFile(filepath.Join(home, ".claude.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,11 +232,156 @@ func TestClaudeMCPPatchCreatesMissingConfig(t *testing.T) {
 	}
 	servers, _ := asMap(raw["mcpServers"])
 	linkedin, _ := asMap(servers["linkedin"])
-	if _, ok := linkedin["type"]; ok {
-		t.Fatalf("claude config should not get droid type default: %#v", linkedin)
+	if linkedin["type"] != "stdio" {
+		t.Fatalf("claude config should get stdio type default: %#v", linkedin)
 	}
 	if _, ok := linkedin["disabled"]; ok {
 		t.Fatalf("claude config should not get droid disabled default: %#v", linkedin)
+	}
+}
+
+func TestClaudeMCPReadProjectScopedConfig(t *testing.T) {
+	home := t.TempDir()
+	projectDir := filepath.Join(t.TempDir(), "repo")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	otherProjectDir := filepath.Join(t.TempDir(), "other")
+	if err := os.MkdirAll(otherProjectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(projectDir)
+	configPath := filepath.Join(home, ".claude.json")
+	if err := os.WriteFile(configPath, []byte(fmt.Sprintf(`{
+  "mcpServers": {
+    "imported": {
+      "type": "stdio",
+      "command": "wrong-user-command",
+      "args": ["wrong-user.js"]
+    }
+  },
+  "projects": {
+    %q: {
+      "mcpServers": {
+        "imported": {
+          "type": "stdio",
+          "command": %q,
+          "args": ["server.js"]
+        }
+      }
+    },
+    %q: {
+      "mcpServers": {
+        "imported": {
+          "type": "stdio",
+          "command": "wrong-project-command",
+          "args": ["wrong-project.js"]
+        }
+      }
+    }
+  }
+}`, projectDir, mcpTestNodeCommand, otherProjectDir)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	server, err := readNativeMCPServer(agentClaudeCode, "imported", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.Name != "imported" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"server.js"}) {
+		t.Fatalf("unexpected project-scoped server: %#v", server)
+	}
+}
+
+func TestPathInProjectResolvesSymlinks(t *testing.T) {
+	root := t.TempDir()
+	realProject := filepath.Join(root, "real", "repo")
+	if err := os.MkdirAll(filepath.Join(realProject, "subdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	linkProject := filepath.Join(root, "link")
+	if err := os.Symlink(realProject, linkProject); err != nil {
+		t.Fatal(err)
+	}
+	if !pathInProject(filepath.Join(linkProject, "subdir"), realProject) {
+		t.Fatal("symlinked cwd should match real project path")
+	}
+}
+
+func TestClaudeMCPReadLocalConfigBeforeMCPJSONAndUserConfig(t *testing.T) {
+	home := t.TempDir()
+	projectDir := filepath.Join(t.TempDir(), "repo")
+	subdir := filepath.Join(projectDir, "subdir")
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(subdir)
+	if err := os.WriteFile(filepath.Join(projectDir, ".mcp.json"), []byte(`{
+  "mcpServers": {
+    "imported": {
+      "type": "stdio",
+      "command": "wrong-project-command",
+      "args": ["wrong-project.js"]
+    }
+  }
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(home, ".claude.json")
+	if err := os.WriteFile(configPath, []byte(fmt.Sprintf(`{
+  "mcpServers": {
+    "imported": {
+      "type": "stdio",
+      "command": "wrong-user-command",
+      "args": ["wrong-user.js"]
+    }
+  },
+  "projects": {
+    %q: {
+      "mcpServers": {
+        "imported": {
+          "type": "stdio",
+          "command": %q,
+          "args": ["local.js"]
+        }
+      }
+    }
+  }
+}`, projectDir, mcpTestNodeCommand)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	server, err := readNativeMCPServer(agentClaudeCode, "imported", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.Name != "imported" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"local.js"}) {
+		t.Fatalf("unexpected local-scoped server: %#v", server)
+	}
+}
+
+func TestClaudeMCPReadMCPJSONWithoutClaudeJSON(t *testing.T) {
+	home := t.TempDir()
+	projectDir := filepath.Join(t.TempDir(), "repo")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(projectDir)
+	if err := os.WriteFile(filepath.Join(projectDir, ".mcp.json"), []byte(fmt.Sprintf(`{
+  "mcpServers": {
+    "imported": {
+      "type": "stdio",
+      "command": %q,
+      "args": ["project.js"]
+    }
+  }
+}`, mcpTestNodeCommand)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	server, err := readNativeMCPServer(agentClaudeCode, "imported", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.Name != "imported" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"project.js"}) {
+		t.Fatalf("unexpected .mcp.json server: %#v", server)
 	}
 }
 
