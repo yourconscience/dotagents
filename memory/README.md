@@ -14,7 +14,7 @@ library code.
 ## Setup
 
 ```bash
-uv tool install memsearch
+uv tool install memsearch==0.4.2
 dotagents memsearch setup --vault ~/Workspace/knowledge
 ```
 
