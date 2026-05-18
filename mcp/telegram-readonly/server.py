@@ -117,7 +117,7 @@ async def _resolve_chat(chat: str) -> Any:
     except Exception:
         pass
     low = chat.lower()
-    async for dialog in client.iter_dialogs(limit=500):
+    async for dialog in client.iter_dialogs():
         if dialog.name and (dialog.name.lower() == low or low in dialog.name.lower()):
             return dialog.entity
     raise ValueError(f"Could not resolve Telegram chat: {chat!r}")
