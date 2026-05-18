@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -29,6 +31,54 @@ func TestPathContainsDir(t *testing.T) {
 	if pathContainsDir(path, "/Users/me/.local/bin") {
 		t.Fatal("unexpected PATH match")
 	}
+}
+
+func TestGoBinDirUsesEffectiveGOBIN(t *testing.T) {
+	fakeGo := writeFakeGo(t)
+	t.Setenv("FAKE_GOBIN", "/custom/go/bin")
+	t.Setenv("FAKE_GOPATH", "/wrong/go")
+
+	got, err := goBinDir(fakeGo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/custom/go/bin" {
+		t.Fatalf("goBinDir = %q, want effective GOBIN", got)
+	}
+}
+
+func TestGoBinDirFallsBackToGOPATHBin(t *testing.T) {
+	fakeGo := writeFakeGo(t)
+	t.Setenv("FAKE_GOBIN", "")
+	t.Setenv("FAKE_GOPATH", strings.Join([]string{"/first/go", "/second/go"}, string(os.PathListSeparator)))
+
+	got, err := goBinDir(fakeGo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join("/first/go", "bin") {
+		t.Fatalf("goBinDir = %q, want first GOPATH bin", got)
+	}
+}
+
+func writeFakeGo(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "go")
+	data := `#!/bin/sh
+if [ "$1" = "env" ] && [ "$2" = "GOBIN" ]; then
+  printf '%s\n' "$FAKE_GOBIN"
+  exit 0
+fi
+if [ "$1" = "env" ] && [ "$2" = "GOPATH" ]; then
+  printf '%s\n' "$FAKE_GOPATH"
+  exit 0
+fi
+exit 1
+`
+	if err := os.WriteFile(path, []byte(data), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func TestIntervalToScheduleWeekly(t *testing.T) {
