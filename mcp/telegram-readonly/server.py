@@ -117,9 +117,17 @@ async def _resolve_chat(chat: str) -> Any:
     except Exception:
         pass
     low = chat.lower()
+    substring_match = None
     async for dialog in client.iter_dialogs():
-        if dialog.name and (dialog.name.lower() == low or low in dialog.name.lower()):
+        if not dialog.name:
+            continue
+        dialog_name = dialog.name.lower()
+        if dialog_name == low:
             return dialog.entity
+        if substring_match is None and low in dialog_name:
+            substring_match = dialog.entity
+    if substring_match is not None:
+        return substring_match
     raise ValueError(f"Could not resolve Telegram chat: {chat!r}")
 
 
