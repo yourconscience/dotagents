@@ -1,6 +1,6 @@
 # Telegram read-only MCP
 
-Local MTProto MCP server for reading Telegram dialogs and messages from agent clients that support MCP.
+Local MTProto MCP server for reading Telegram dialogs and messages from MCP-capable agent clients.
 
 Exposed tools:
 - `list_dialogs`
@@ -12,12 +12,7 @@ The server intentionally does not implement send, edit, or delete tools.
 
 ## Dotagents integration
 
-The canonical MCP entry lives in `skills/dotagents/dotagents.yaml` as `telegram_readonly` and targets:
-- Amp
-- Claude Code
-- Codex
-- Hermes
-- Factory Droid
+The canonical MCP entry lives in dotagents config as `telegram_readonly`.
 
 `dotagents sync` writes each agent's native MCP config. The managed command runs the repo copy through `~/.agents`:
 
@@ -54,10 +49,9 @@ This may ask for phone, Telegram code, and 2FA password. Type them yourself.
 4. Sync/restart the agent client:
 
 `cd ~/.agents`
-`go run ./skills/dotagents/tools/dotagents sync --agents=hermes`
-`hermes gateway restart`
+`go run ./skills/dotagents/tools/dotagents sync`
 
-For other agents, run `dotagents sync` for that agent and restart/reload the client so it rediscovers MCP servers.
+Restart/reload the client so it rediscovers MCP servers.
 
 ## Runtime state
 
