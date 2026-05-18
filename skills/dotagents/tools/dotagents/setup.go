@@ -301,8 +301,14 @@ func runPull(opts runOptions) error {
 type cronOptions struct {
 	runOptions
 	Remove   bool
+	Deps     bool
 	Interval string
 }
+
+const (
+	cronIntervalDefault = "30m"
+	cronIntervalWeekly  = "weekly"
+)
 
 func runCron(opts cronOptions) error {
 	repoRoot, _, _, _, err := loadContext(opts.runOptions)
@@ -315,13 +321,28 @@ func runCron(opts cronOptions) error {
 		return fmt.Errorf("go not found on PATH: %w", err)
 	}
 
-	toolPath := filepath.Join(repoRoot, "skills", "dotagents", "tools", "dotagents")
-	cronCmd := fmt.Sprintf(". \"$HOME/.profile\" 2>/dev/null; cd %s && %s run %s pull", repoRoot, goPath, toolPath)
+	cronCmd, interval := cronCommandForOptions(repoRoot, goPath, opts)
 
 	if opts.Remove {
 		return removeCronEntry(cronCmd)
 	}
-	return installCronEntry(cronCmd, opts.Interval)
+	return installCronEntry(cronCmd, interval)
+}
+
+func cronCommandForOptions(repoRoot string, goPath string, opts cronOptions) (string, string) {
+	toolPath := filepath.Join(repoRoot, "skills", "dotagents", "tools", "dotagents")
+	mode := "pull"
+	interval := opts.Interval
+	if opts.Deps {
+		mode = "deps update"
+		if interval == "" || interval == cronIntervalDefault {
+			interval = cronIntervalWeekly
+		}
+	}
+	if interval == "" {
+		interval = cronIntervalDefault
+	}
+	return fmt.Sprintf(". \"$HOME/.profile\" 2>/dev/null; cd %q && %q run %q %s", repoRoot, goPath, toolPath, mode), interval
 }
 
 func installCronEntry(cronCmd string, interval string) error {
@@ -331,7 +352,7 @@ func installCronEntry(cronCmd string, interval string) error {
 	existing, _ := exec.Command("crontab", "-l").Output()
 	lines := strings.Split(string(existing), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, "dotagents") && strings.Contains(line, "pull") {
+		if strings.Contains(line, cronCmd) {
 			fmt.Println("cron entry already exists:")
 			fmt.Printf("  %s\n", line)
 			return nil
@@ -364,7 +385,7 @@ func removeCronEntry(cronCmd string) error {
 	var kept []string
 	removed := 0
 	for _, line := range strings.Split(string(existing), "\n") {
-		if strings.Contains(line, "dotagents") && strings.Contains(line, "pull") {
+		if strings.Contains(line, cronCmd) {
 			fmt.Printf("removed: %s\n", line)
 			removed++
 			continue
@@ -389,7 +410,7 @@ func intervalToSchedule(interval string) string {
 		return "*/5 * * * *"
 	case "15m":
 		return "*/15 * * * *"
-	case "30m":
+	case cronIntervalDefault:
 		return "*/30 * * * *"
 	case "1h", "hourly":
 		return "0 * * * *"
@@ -399,6 +420,8 @@ func intervalToSchedule(interval string) string {
 		return "0 */12 * * *"
 	case "daily":
 		return "0 4 * * *"
+	case cronIntervalWeekly:
+		return "0 4 * * 1"
 	default:
 		return "*/30 * * * *"
 	}

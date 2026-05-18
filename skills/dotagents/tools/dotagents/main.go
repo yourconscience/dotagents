@@ -69,8 +69,9 @@ func isDetected(agent agentConfig) bool {
 }
 
 type runOptions struct {
-	ConfigPath string
-	Agents     string
+	ConfigPath     string
+	Agents         string
+	SkipPackageAge bool
 }
 
 func main() {
@@ -117,6 +118,8 @@ func run(args []string) error {
 			return err
 		}
 		return runCron(opts)
+	case "deps":
+		return runDeps(args[1:])
 	case "memsearch":
 		return runMemsearch(args[1:])
 	case "mcp":
@@ -153,6 +156,7 @@ func parseSubcommandFlags(name string, args []string) (runOptions, error) {
 	var opts runOptions
 	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
 	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names to use for this run")
+	fs.BoolVar(&opts.SkipPackageAge, "skip-package-age", false, "Skip external package publish-age checks")
 
 	if err := fs.Parse(args); err != nil {
 		return runOptions{}, err
@@ -172,7 +176,8 @@ func parseCronFlags(args []string) (cronOptions, error) {
 	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
 	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names")
 	fs.BoolVar(&opts.Remove, "remove", false, "Remove the cron entry instead of installing")
-	fs.StringVar(&opts.Interval, "interval", "30m", "Pull interval: 5m, 15m, 30m, 1h, 6h, 12h, daily")
+	fs.BoolVar(&opts.Deps, "deps", false, "Install dependency maintenance cron instead of auto-pull")
+	fs.StringVar(&opts.Interval, "interval", cronIntervalDefault, "Pull interval: 5m, 15m, 30m, 1h, 6h, 12h, daily, weekly")
 
 	if err := fs.Parse(args); err != nil {
 		return cronOptions{}, err
@@ -189,7 +194,10 @@ func printUsage() {
 	fmt.Println("  dotagents sync      [--agents ...]           Sync managed skills and MCP config to detected agents")
 	fmt.Println("  dotagents pull      [--agents ...]           Git pull + sync (for cron use)")
 	fmt.Println("  dotagents cron      [--interval 30m]         Install a crontab entry for auto-pull")
+	fmt.Println("  dotagents cron      --deps --interval weekly Install weekly dependency maintenance")
 	fmt.Println("  dotagents cron      --remove                 Remove the crontab entry")
+	fmt.Println("  dotagents deps check [--skip-package-age]    Check external package publish age")
+	fmt.Println("  dotagents deps update                        Update repo dependencies, then check age")
 	fmt.Println("  dotagents memsearch setup [--vault ...]      Bootstrap knowledge vault + memsearch config")
 	fmt.Println("  dotagents memsearch status                   Show memsearch configuration")
 	fmt.Println("  dotagents mcp list                           List canonical managed MCP servers")
@@ -198,6 +206,6 @@ func printUsage() {
 	fmt.Println("  dotagents mcp remove <name>                  Remove canonical managed MCP")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
-	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes")
+	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes, package age")
 	fmt.Println("  dotagents dogfood       [--agents ...]           End-to-end self-test: sync + status + doctor")
 }
