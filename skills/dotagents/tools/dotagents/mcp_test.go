@@ -292,7 +292,7 @@ func TestClaudeMCPReadProjectScopedConfig(t *testing.T) {
 	}
 }
 
-func TestClaudeMCPReadMCPJSONBeforeUserConfig(t *testing.T) {
+func TestClaudeMCPReadLocalConfigBeforeMCPJSONAndUserConfig(t *testing.T) {
 	home := t.TempDir()
 	projectDir := filepath.Join(t.TempDir(), "repo")
 	subdir := filepath.Join(projectDir, "subdir")
@@ -300,6 +300,56 @@ func TestClaudeMCPReadMCPJSONBeforeUserConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Chdir(subdir)
+	if err := os.WriteFile(filepath.Join(projectDir, ".mcp.json"), []byte(`{
+  "mcpServers": {
+    "imported": {
+      "type": "stdio",
+      "command": "wrong-project-command",
+      "args": ["wrong-project.js"]
+    }
+  }
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(home, ".claude.json")
+	if err := os.WriteFile(configPath, []byte(fmt.Sprintf(`{
+  "mcpServers": {
+    "imported": {
+      "type": "stdio",
+      "command": "wrong-user-command",
+      "args": ["wrong-user.js"]
+    }
+  },
+  "projects": {
+    %q: {
+      "mcpServers": {
+        "imported": {
+          "type": "stdio",
+          "command": %q,
+          "args": ["local.js"]
+        }
+      }
+    }
+  }
+}`, projectDir, mcpTestNodeCommand)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	server, err := readNativeMCPServer(agentClaudeCode, "imported", home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.Name != "imported" || server.Command != mcpTestNodeCommand || !stringSlicesEqual(server.Args, []string{"local.js"}) {
+		t.Fatalf("unexpected local-scoped server: %#v", server)
+	}
+}
+
+func TestClaudeMCPReadMCPJSONWithoutClaudeJSON(t *testing.T) {
+	home := t.TempDir()
+	projectDir := filepath.Join(t.TempDir(), "repo")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(projectDir)
 	if err := os.WriteFile(filepath.Join(projectDir, ".mcp.json"), []byte(fmt.Sprintf(`{
   "mcpServers": {
     "imported": {
@@ -309,18 +359,6 @@ func TestClaudeMCPReadMCPJSONBeforeUserConfig(t *testing.T) {
     }
   }
 }`, mcpTestNodeCommand)), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	configPath := filepath.Join(home, ".claude.json")
-	if err := os.WriteFile(configPath, []byte(`{
-  "mcpServers": {
-    "imported": {
-      "type": "stdio",
-      "command": "wrong-user-command",
-      "args": ["wrong-user.js"]
-    }
-  }
-}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	server, err := readNativeMCPServer(agentClaudeCode, "imported", home)
