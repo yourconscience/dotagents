@@ -18,6 +18,8 @@ const defaultPackageAgeMinimum = 7 * 24 * time.Hour
 const (
 	packageVersionLatest = "latest"
 	packageCommandUVX    = "uvx"
+	ecosystemPyPI        = "pypi"
+	ecosystemNPM         = "npm"
 )
 
 var timeNow = time.Now
@@ -158,20 +160,32 @@ func packageReferencesFromCommand(command string, args []string, source string) 
 			return nil
 		}
 		pkg, version := splitPyPISpec(args[0])
-		return []packageReference{{Ecosystem: "pypi", Package: pkg, Version: version, Source: source}}
+		return []packageReference{{Ecosystem: ecosystemPyPI, Package: pkg, Version: version, Source: source}}
 	case "uv":
 		if len(args) >= 3 && args[0] == "tool" && args[1] == "install" {
-			pkg, version := splitPyPISpec(args[2])
-			return []packageReference{{Ecosystem: "pypi", Package: pkg, Version: version, Source: source}}
+			var refs []packageReference
+			for _, arg := range args[2:] {
+				if strings.HasPrefix(arg, "-") {
+					continue
+				}
+				pkg, version := splitPyPISpec(arg)
+				refs = append(refs, packageReference{Ecosystem: ecosystemPyPI, Package: pkg, Version: version, Source: source})
+			}
+			return refs
 		}
 	case "npx", "pnpm", "npm":
+		var refs []packageReference
 		for _, arg := range args {
 			if strings.HasPrefix(arg, "-") || arg == "install" || arg == "add" || arg == "dlx" || arg == "-g" {
 				continue
 			}
 			pkg, version := splitNPMSpec(arg)
-			return []packageReference{{Ecosystem: "npm", Package: pkg, Version: version, Source: source}}
+			refs = append(refs, packageReference{Ecosystem: ecosystemNPM, Package: pkg, Version: version, Source: source})
+			if cmd == "npx" {
+				break
+			}
 		}
+		return refs
 	}
 	return nil
 }
@@ -187,19 +201,19 @@ func packageReferencesFromText(text string, source string) []packageReference {
 	var refs []packageReference
 	for _, match := range uvToolInstallPattern.FindAllStringSubmatch(text, -1) {
 		pkg, version := splitPyPISpec(match[1])
-		refs = append(refs, packageReference{Ecosystem: "pypi", Package: pkg, Version: version, Source: source})
+		refs = append(refs, packageReference{Ecosystem: ecosystemPyPI, Package: pkg, Version: version, Source: source})
 	}
 	for _, match := range uvxPattern.FindAllStringSubmatch(text, -1) {
 		pkg, version := splitPyPISpec(match[1])
-		refs = append(refs, packageReference{Ecosystem: "pypi", Package: pkg, Version: version, Source: source})
+		refs = append(refs, packageReference{Ecosystem: ecosystemPyPI, Package: pkg, Version: version, Source: source})
 	}
 	for _, match := range npmInstallPattern.FindAllStringSubmatch(text, -1) {
 		pkg, version := splitNPMSpec(match[1])
-		refs = append(refs, packageReference{Ecosystem: "npm", Package: pkg, Version: version, Source: source})
+		refs = append(refs, packageReference{Ecosystem: ecosystemNPM, Package: pkg, Version: version, Source: source})
 	}
 	for _, match := range pnpmPattern.FindAllStringSubmatch(text, -1) {
 		pkg, version := splitNPMSpec(match[1])
-		refs = append(refs, packageReference{Ecosystem: "npm", Package: pkg, Version: version, Source: source})
+		refs = append(refs, packageReference{Ecosystem: ecosystemNPM, Package: pkg, Version: version, Source: source})
 	}
 	return refs
 }
@@ -236,9 +250,9 @@ func splitNPMSpec(spec string) (string, string) {
 
 func resolvePackageRelease(ref packageReference) (packageRelease, error) {
 	switch ref.Ecosystem {
-	case "pypi":
+	case ecosystemPyPI:
 		return resolvePyPIRelease(ref)
-	case "npm":
+	case ecosystemNPM:
 		return resolveNPMRelease(ref)
 	default:
 		return packageRelease{}, fmt.Errorf("unsupported ecosystem %q", ref.Ecosystem)
