@@ -292,6 +292,21 @@ func TestClaudeMCPReadProjectScopedConfig(t *testing.T) {
 	}
 }
 
+func TestPathInProjectResolvesSymlinks(t *testing.T) {
+	root := t.TempDir()
+	realProject := filepath.Join(root, "real", "repo")
+	if err := os.MkdirAll(filepath.Join(realProject, "subdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	linkProject := filepath.Join(root, "link")
+	if err := os.Symlink(realProject, linkProject); err != nil {
+		t.Fatal(err)
+	}
+	if !pathInProject(filepath.Join(linkProject, "subdir"), realProject) {
+		t.Fatal("symlinked cwd should match real project path")
+	}
+}
+
 func TestClaudeMCPReadLocalConfigBeforeMCPJSONAndUserConfig(t *testing.T) {
 	home := t.TempDir()
 	projectDir := filepath.Join(t.TempDir(), "repo")
