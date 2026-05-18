@@ -13,14 +13,14 @@ This repo is under active development and currently holds shared rules, cross-to
 Use the repo-owned CLI directly without any agent:
 
 ```bash
-go run ./skills/dotagents/tools/dotagents status
-go run ./skills/dotagents/tools/dotagents deps check
+go run ./cmd/dotagents status
+go run ./cmd/dotagents deps check
 ```
 
 To install a standalone `dotagents` binary on your `PATH`, run:
 
 ```bash
-go install ./skills/dotagents/tools/dotagents
+go install ./cmd/dotagents
 ```
 
 ## Agents

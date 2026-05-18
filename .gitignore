@@ -11,13 +11,16 @@ __pycache__/
 
 # Local binaries and generated data
 /dotagents
+skills/dotagents/tools/dotagents/dotagents
 memsearch.conf
 mcp/*/.env
 mcp/*/.venv/
 memory/local/
 memory/apply-local.sh
+skills/gws/google_doc_markdown
 skills/jobs/data/
 skills/jobs/portals-scan
 skills/jobs/tools/portals-scan/portals-scan
+skills/remote-access/tools/remote-access-bridge/remote-access-bridge
 skills/handoff/bin/
 research/

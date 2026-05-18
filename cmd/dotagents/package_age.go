@@ -92,7 +92,7 @@ func collectPackageReferences(repoRoot string, cfg config) ([]packageReference, 
 		if !server.Enabled {
 			continue
 		}
-		for _, ref := range packageReferencesFromCommand(server.Command, server.Args, "skills/dotagents/dotagents.yaml:"+server.Name) {
+		for _, ref := range packageReferencesFromCommand(server.Command, server.Args, "dotagents.yaml:"+server.Name) {
 			add(ref)
 		}
 	}

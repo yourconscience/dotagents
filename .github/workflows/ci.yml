@@ -47,7 +47,7 @@ jobs:
       fail-fast: false
       matrix:
         module:
-          - skills/dotagents/tools/dotagents
+          - cmd/dotagents
           - skills/gws
           - skills/jobs/tools/portals-scan
           - skills/remote-access/tools/remote-access-bridge

@@ -24,7 +24,7 @@ Make the 7-day external package age rule visible to all ongoing agent work throu
 
 - Unit tests cover package reference parsing, fresh-package failure, old-package pass, registry outage behavior, and skip flag behavior.
 - End-to-end tests cover cron entry rendering for weekly dependency updates without modifying the real crontab.
-- `go test ./skills/dotagents/tools/dotagents` passes.
+- `go test ./cmd/dotagents` passes.
 - `dotagents doctor` and `dotagents dogfood` are run locally; VPS verification is attempted if a reachable VPS target is available.
 
 ## Constraints
