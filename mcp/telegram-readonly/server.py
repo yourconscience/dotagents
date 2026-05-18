@@ -17,6 +17,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from telethon import TelegramClient
+from telethon.utils import get_peer_id
 from telethon.tl.types import User, Chat, Channel
 
 ROOT = Path(__file__).resolve().parent
@@ -139,7 +140,8 @@ async def list_dialogs(limit: int = 50, query: str | None = None) -> list[dict[s
             continue
         entity = dialog.entity
         out.append({
-            "id": getattr(entity, "id", None),
+            "id": dialog.id,
+            "raw_id": getattr(entity, "id", None),
             "name": dialog.name,
             "kind": _entity_kind(entity),
             "username": getattr(entity, "username", None),
@@ -178,7 +180,8 @@ async def get_chat_info(chat: str) -> dict[str, Any]:
     """Get metadata for one Telegram chat/user/channel."""
     entity = await _resolve_chat(chat)
     return {
-        "id": getattr(entity, "id", None),
+        "id": get_peer_id(entity),
+        "raw_id": getattr(entity, "id", None),
         "name": _entity_name(entity),
         "kind": _entity_kind(entity),
         "username": getattr(entity, "username", None),
