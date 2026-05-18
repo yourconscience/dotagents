@@ -17,6 +17,7 @@
 
 - Never guess numerical values. Measure or say it needs measurement.
 - Validate at small scale before scaling. When scaling, change only the scale parameter.
+- For new external package/tool references in ongoing projects, use versions published at least 7 days earlier. Verify publish age from the registry or say it still needs measurement.
 
 # Environment
 

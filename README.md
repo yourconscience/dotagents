@@ -8,6 +8,21 @@ This repo is under active development and currently holds shared rules, cross-to
 
 [`AGENTS.md`](./AGENTS.md) is the canonical instruction file. [`CLAUDE.md`](./CLAUDE.md) is only a compatibility shim for agents that look for Claude-style project memory.
 
+## CLI
+
+Use the repo-owned CLI directly without any agent:
+
+```bash
+go run ./skills/dotagents/tools/dotagents status
+go run ./skills/dotagents/tools/dotagents deps check
+```
+
+To install a standalone `dotagents` binary on your `PATH`, run:
+
+```bash
+go install ./skills/dotagents/tools/dotagents
+```
+
 ## Agents
 
 Reusable agent role definitions for agent-native subagents. Canonical roles live in `agents/*.yaml`; `dotagents sync` renders them to each configured native format:
