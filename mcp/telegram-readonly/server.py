@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import shlex
 from datetime import timezone
 from pathlib import Path
 from typing import Any
@@ -22,21 +23,60 @@ from telethon.tl.types import User, Chat, Channel
 
 ROOT = Path(__file__).resolve().parent
 ENV_PATH = Path(os.getenv("TELEGRAM_READONLY_ENV", str(ROOT / ".env"))).expanduser()
+ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 mcp = FastMCP("telegram-readonly")
 _client: TelegramClient | None = None
 _lock = asyncio.Lock()
 
 
+def _strip_unquoted_comment(value: str) -> str:
+    quote = ""
+    escaped = False
+    for i, char in enumerate(value):
+        if escaped:
+            escaped = False
+            continue
+        if quote and char == "\\":
+            escaped = True
+            continue
+        if char in "'\"" and not quote:
+            quote = char
+            continue
+        if char == quote:
+            quote = ""
+            continue
+        if char == "#" and not quote and (i == 0 or value[i - 1].isspace()):
+            return value[:i]
+    return value
+
+
+def _parse_env_line(line: str) -> tuple[str, str] | None:
+    line = line.strip()
+    if not line or line.startswith("#"):
+        return None
+    if line.startswith("export "):
+        line = line[len("export ") :].lstrip()
+    if "=" not in line:
+        return None
+    key, value = line.split("=", 1)
+    key = key.strip()
+    if not ENV_KEY_RE.fullmatch(key):
+        return None
+    parts = shlex.split(_strip_unquoted_comment(value), comments=False, posix=True)
+    return key, " ".join(parts)
+
+
 def _load_env() -> None:
     if ENV_PATH.exists():
-        for line in ENV_PATH.read_text().splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
+        for line_no, line in enumerate(ENV_PATH.read_text().splitlines(), 1):
+            try:
+                parsed = _parse_env_line(line)
+            except ValueError as err:
+                raise RuntimeError(f"Invalid .env line {line_no} in {ENV_PATH}: {err}") from err
+            if parsed is None:
                 continue
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip("'\"")
+            key, value = parsed
             os.environ.setdefault(key, value)
 
 
