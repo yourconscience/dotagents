@@ -48,6 +48,7 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkREADMESkillList(repoRoot))
 	results = append(results, checkMemsearchIndex(home))
 	results = append(results, checkHermesHooks(home, cfg))
+	results = append(results, checkExternalPackageAge(repoRoot, cfg, opts.SkipPackageAge, timeNow()))
 
 	fmt.Println("checks:")
 	labelWidth := 0
