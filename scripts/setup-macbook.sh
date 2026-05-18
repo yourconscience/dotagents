@@ -96,7 +96,7 @@ fi
 log "Setting up Python environment..."
 run_as_user uv python install 3.12
 run_as_user uv tool install ipython
-run_as_user uv tool install ruff
+run_as_user uv tool install ruff==0.15.12
 
 # --- Coding agents ---
 if [[ "$SKIP_CLAUDE" == false ]]; then
@@ -139,7 +139,7 @@ run_as_user go run ./skills/dotagents/tools/dotagents setup
 
 # --- Knowledge vault + memsearch ---
 log "Setting up knowledge vault + memsearch..."
-run_as_user uv tool install memsearch || warn "memsearch install failed"
+run_as_user uv tool install memsearch==0.4.2 || warn "memsearch install failed"
 run_as_user go run ./skills/dotagents/tools/dotagents memsearch setup --vault "$TARGET_HOME/Workspace/knowledge" || warn "memsearch setup failed (non-critical)"
 
 log "Installing dotagents auto-pull cron (every 30m)..."
