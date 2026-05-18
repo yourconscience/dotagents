@@ -262,6 +262,14 @@ func readClaudeMCPServer(target mcpTarget, name string, home string) (mcpServerC
 	if err != nil {
 		return mcpServerConfig{}, fmt.Errorf("resolve cwd: %w", err)
 	}
+	if entry, ok, err := claudeMCPJSONEntry(name, cwd); err != nil {
+		return mcpServerConfig{}, err
+	} else if ok {
+		if err := validateNativeDefaults(target, entry); err != nil {
+			return mcpServerConfig{}, err
+		}
+		return mcpServerFromMap(name, entry)
+	}
 	if entry, ok := claudeProjectMCPEntry(raw, name, cwd); ok {
 		if err := validateNativeDefaults(target, entry); err != nil {
 			return mcpServerConfig{}, err
@@ -275,6 +283,30 @@ func readClaudeMCPServer(target mcpTarget, name string, home string) (mcpServerC
 		return mcpServerFromMap(name, entry)
 	}
 	return mcpServerConfig{}, fmt.Errorf("MCP server %q not found in %s", name, target.agentName)
+}
+
+func claudeMCPJSONEntry(name string, cwd string) (map[string]interface{}, bool, error) {
+	dir := filepath.Clean(cwd)
+	for {
+		configPath := filepath.Join(dir, ".mcp.json")
+		data, err := os.ReadFile(configPath)
+		if err == nil {
+			var raw map[string]interface{}
+			if err := parseJSONConfig(configPath, data, &raw); err != nil {
+				return nil, false, fmt.Errorf("parse %s: %w", configPath, err)
+			}
+			if entry, ok := mapMCPEntry(raw, "mcpServers", name); ok {
+				return entry, true, nil
+			}
+		} else if !os.IsNotExist(err) {
+			return nil, false, fmt.Errorf("read %s: %w", configPath, err)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return nil, false, nil
+		}
+		dir = parent
+	}
 }
 
 func inspectYAMLMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {
