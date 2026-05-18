@@ -447,8 +447,17 @@ func claudeProjectMCPEntry(raw map[string]interface{}, name string, cwd string) 
 }
 
 func pathInProject(cwd string, projectPath string) bool {
-	projectPath = filepath.Clean(projectPath)
+	cwd = canonicalPath(cwd)
+	projectPath = canonicalPath(projectPath)
 	return cwd == projectPath || strings.HasPrefix(cwd, projectPath+string(os.PathSeparator))
+}
+
+func canonicalPath(path string) string {
+	path = filepath.Clean(path)
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	return path
 }
 
 func upsertMapMCPServer(raw map[string]interface{}, rootKey string, server mcpServerConfig, defaults map[string]interface{}) {
