@@ -10,17 +10,19 @@ This repo is under active development and currently holds shared rules, cross-to
 
 ## CLI
 
-Use the repo-owned CLI directly without any agent:
-
-```bash
-go run ./cmd/dotagents status
-go run ./cmd/dotagents deps check
-```
-
-To install a standalone `dotagents` binary on your `PATH`, run:
+Install the repo-owned CLI:
 
 ```bash
 go install ./cmd/dotagents
+```
+
+Ensure the Go install directory is on `PATH`. If `go env GOBIN` is non-empty, add that directory; otherwise add `$(go env GOPATH)/bin`.
+
+After that, use `dotagents` directly:
+
+```bash
+dotagents status
+dotagents deps check
 ```
 
 ## Agents

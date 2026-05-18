@@ -49,7 +49,7 @@ This may ask for phone, Telegram code, and 2FA password. Type them yourself.
 4. Sync/restart the agent client:
 
 `cd ~/.agents`
-`go run ./cmd/dotagents sync`
+`dotagents sync`
 
 Restart/reload the client so it rediscovers MCP servers.
 
