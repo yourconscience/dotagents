@@ -221,7 +221,7 @@ func TestClaudeMCPPatchCreatesMissingConfig(t *testing.T) {
 	if state != stateSynced {
 		t.Fatalf("inspect after create = %q, want %q", state, stateSynced)
 	}
-	out, err := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+	out, err := os.ReadFile(filepath.Join(home, ".claude.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,8 +231,8 @@ func TestClaudeMCPPatchCreatesMissingConfig(t *testing.T) {
 	}
 	servers, _ := asMap(raw["mcpServers"])
 	linkedin, _ := asMap(servers["linkedin"])
-	if _, ok := linkedin["type"]; ok {
-		t.Fatalf("claude config should not get droid type default: %#v", linkedin)
+	if linkedin["type"] != "stdio" {
+		t.Fatalf("claude config should get stdio type default: %#v", linkedin)
 	}
 	if _, ok := linkedin["disabled"]; ok {
 		t.Fatalf("claude config should not get droid disabled default: %#v", linkedin)
