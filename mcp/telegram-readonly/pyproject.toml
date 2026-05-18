@@ -1,0 +1,12 @@
+[project]
+name = "telegram-readonly-mcp"
+version = "0.1.0"
+description = "Read-only Telegram MTProto MCP server for Hermes"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp>=1.13.0",
+  "telethon>=1.41.0",
+]
+
+[tool.uv]
+package = false
