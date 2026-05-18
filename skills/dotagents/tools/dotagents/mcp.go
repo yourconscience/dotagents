@@ -258,13 +258,17 @@ func readClaudeMCPServer(target mcpTarget, name string, home string) (mcpServerC
 	if err := parseJSONConfig(configPath, data, &raw); err != nil {
 		return mcpServerConfig{}, fmt.Errorf("parse %s: %w", configPath, err)
 	}
-	if entry, ok := mapMCPEntry(raw, target.rootKey, name); ok {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return mcpServerConfig{}, fmt.Errorf("resolve cwd: %w", err)
+	}
+	if entry, ok := claudeProjectMCPEntry(raw, name, cwd); ok {
 		if err := validateNativeDefaults(target, entry); err != nil {
 			return mcpServerConfig{}, err
 		}
 		return mcpServerFromMap(name, entry)
 	}
-	if entry, ok := claudeProjectMCPEntry(raw, name); ok {
+	if entry, ok := mapMCPEntry(raw, target.rootKey, name); ok {
 		if err := validateNativeDefaults(target, entry); err != nil {
 			return mcpServerConfig{}, err
 		}
@@ -374,7 +378,7 @@ func mapMCPEntry(raw map[string]interface{}, rootKey string, name string) (map[s
 	return entry, ok
 }
 
-func claudeProjectMCPEntry(raw map[string]interface{}, name string) (map[string]interface{}, bool) {
+func claudeProjectMCPEntry(raw map[string]interface{}, name string, cwd string) (map[string]interface{}, bool) {
 	projectsRaw, ok := raw["projects"]
 	if !ok {
 		return nil, false
@@ -383,7 +387,21 @@ func claudeProjectMCPEntry(raw map[string]interface{}, name string) (map[string]
 	if !ok {
 		return nil, false
 	}
-	for _, projectRaw := range projects {
+	cwd = filepath.Clean(cwd)
+	var projectKeys []string
+	for projectPath := range projects {
+		if pathInProject(cwd, projectPath) {
+			projectKeys = append(projectKeys, projectPath)
+		}
+	}
+	sort.Slice(projectKeys, func(i, j int) bool {
+		if len(projectKeys[i]) == len(projectKeys[j]) {
+			return projectKeys[i] < projectKeys[j]
+		}
+		return len(projectKeys[i]) > len(projectKeys[j])
+	})
+	for _, projectPath := range projectKeys {
+		projectRaw := projects[projectPath]
 		project, ok := asMap(projectRaw)
 		if !ok {
 			continue
@@ -393,6 +411,11 @@ func claudeProjectMCPEntry(raw map[string]interface{}, name string) (map[string]
 		}
 	}
 	return nil, false
+}
+
+func pathInProject(cwd string, projectPath string) bool {
+	projectPath = filepath.Clean(projectPath)
+	return cwd == projectPath || strings.HasPrefix(cwd, projectPath+string(os.PathSeparator))
 }
 
 func upsertMapMCPServer(raw map[string]interface{}, rootKey string, server mcpServerConfig, defaults map[string]interface{}) {
