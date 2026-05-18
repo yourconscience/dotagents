@@ -49,6 +49,8 @@ jobs:
         module:
           - skills/dotagents/tools/dotagents
           - skills/gws
+          - skills/jobs/tools/portals-scan
+          - skills/remote-access/tools/remote-access-bridge
     steps:
       - uses: actions/checkout@v4
 
@@ -66,7 +68,7 @@ jobs:
         run: go vet ./...
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          version: v2.12.2
           working-directory: ${{ matrix.module }}
