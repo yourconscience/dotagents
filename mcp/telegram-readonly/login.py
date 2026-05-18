@@ -10,66 +10,19 @@ from __future__ import annotations
 
 import asyncio
 import os
-import re
-import shlex
 from pathlib import Path
 
+from dotenv import load_dotenv
 from telethon import TelegramClient
 
 ROOT = Path(__file__).resolve().parent
 ENV_PATH = Path(os.getenv("TELEGRAM_READONLY_ENV", str(ROOT / ".env"))).expanduser()
-ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-
-def strip_unquoted_comment(value: str) -> str:
-    quote = ""
-    escaped = False
-    for i, char in enumerate(value):
-        if escaped:
-            escaped = False
-            continue
-        if quote and char == "\\":
-            escaped = True
-            continue
-        if char in "'\"" and not quote:
-            quote = char
-            continue
-        if char == quote:
-            quote = ""
-            continue
-        if char == "#" and not quote and (i == 0 or value[i - 1].isspace()):
-            return value[:i]
-    return value
-
-
-def parse_env_line(line: str) -> tuple[str, str] | None:
-    line = line.strip()
-    if not line or line.startswith("#"):
-        return None
-    if line.startswith("export "):
-        line = line[len("export ") :].lstrip()
-    if "=" not in line:
-        return None
-    key, value = line.split("=", 1)
-    key = key.strip()
-    if not ENV_KEY_RE.fullmatch(key):
-        return None
-    parts = shlex.split(strip_unquoted_comment(value), comments=False, posix=True)
-    return key, " ".join(parts)
 
 
 def load_env() -> None:
     if not ENV_PATH.exists():
         raise SystemExit(f"Missing {ENV_PATH}. Copy .env.example to .env and fill it.")
-    for line_no, line in enumerate(ENV_PATH.read_text().splitlines(), 1):
-        try:
-            parsed = parse_env_line(line)
-        except ValueError as err:
-            raise SystemExit(f"Invalid .env line {line_no} in {ENV_PATH}: {err}") from err
-        if parsed is None:
-            continue
-        key, value = parsed
-        os.environ.setdefault(key, value)
+    load_dotenv(ENV_PATH, override=False)
 
 
 async def main() -> None:
