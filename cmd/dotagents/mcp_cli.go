@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -228,13 +227,13 @@ func loadEditableMCPConfig(overridePath string) (config, string, error) {
 	if err != nil {
 		return config{}, "", fmt.Errorf("resolve home: %w", err)
 	}
-	_, skillRoot, err := findRoots()
+	repoRoot, _, err := findRoots()
 	if err != nil {
 		return config{}, "", err
 	}
 	path := overridePath
 	if strings.TrimSpace(path) == "" {
-		path = filepath.Join(skillRoot, "dotagents.yaml")
+		path = defaultConfigPath(repoRoot)
 	}
 	path = expandPath(path, home)
 	data, err := os.ReadFile(path)
