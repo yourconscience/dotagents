@@ -75,7 +75,10 @@ func discoverExternalSkills(sources []externalSkillSource, home string) (map[str
 		skillBase := filepath.Join(cachePath, src.SkillDir)
 
 		if !hasDir(skillBase) {
-			continue
+			if !hasDir(filepath.Join(cachePath, ".git")) {
+				return nil, fmt.Errorf("external source %s not cloned; run dotagents sync", src.URL)
+			}
+			return nil, fmt.Errorf("skill_dir %q not found in cloned external source %s", src.SkillDir, src.URL)
 		}
 
 		if hasFile(filepath.Join(skillBase, "SKILL.md")) {
