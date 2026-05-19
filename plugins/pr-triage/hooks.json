@@ -1,0 +1,12 @@
+{
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "command": "~/.agents/skills/pr-triage/hooks/stop.sh",
+          "timeout": 30
+        }
+      ]
+    }
+  ]
+}

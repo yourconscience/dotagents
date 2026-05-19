@@ -28,6 +28,17 @@ agents:
     detect: openclaw
     skill_root: ~/.openclaw/skills
 mcp_servers:
+  - name: github
+    enabled: true
+    command: sh
+    args:
+      - -lc
+      - exec ~/.agents/mcp/github/server.sh
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
+    agents:
+      - claude-code
+      - codex
   - name: linkedin
     enabled: true
     command: uvx
@@ -53,3 +64,33 @@ mcp_servers:
       - amp
       - hermes
       - droid
+hooks:
+  - name: memory-session-start
+    enabled: true
+    event: SessionStart
+    command: ~/.agents/memory/hooks/session-start.sh
+    timeout: 15
+    agents:
+      - claude-code
+  - name: memory-stop
+    enabled: true
+    event: Stop
+    command: ~/.agents/memory/hooks/stop.sh
+    timeout: 15
+    agents:
+      - claude-code
+  - name: memory-session-end
+    enabled: true
+    event: SessionEnd
+    command: ~/.agents/memory/hooks/session-end.sh
+    timeout: 30
+    agents:
+      - claude-code
+      - hermes
+  - name: pr-triage-stop
+    enabled: true
+    event: Stop
+    command: ~/.agents/skills/pr-triage/hooks/stop.sh
+    timeout: 30
+    agents:
+      - claude-code

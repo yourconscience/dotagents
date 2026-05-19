@@ -1,0 +1,37 @@
+{
+  "name": "pr-triage",
+  "version": "0.1.0",
+  "description": "PR triage workflow for GitHub checks, review threads, hooks, and guarded merge gates.",
+  "author": {
+    "name": "dotagents",
+    "url": "https://github.com/yourconscience/dotagents"
+  },
+  "homepage": "https://github.com/yourconscience/dotagents/tree/main/skills/pr-triage",
+  "repository": "https://github.com/yourconscience/dotagents",
+  "license": "Private",
+  "keywords": [
+    "github",
+    "pull-request",
+    "code-review"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks.json",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "PR Triage",
+    "shortDescription": "Inspect GitHub PR checks and review threads before merge.",
+    "longDescription": "Packages the dotagents pr-triage skill, GitHub MCP entry, and read-only stop hook scaffold. Canonical source remains skills/pr-triage, dotagents.yaml, and memory/hooks.",
+    "developerName": "dotagents",
+    "category": "Developer Tools",
+    "capabilities": [
+      "GitHub",
+      "MCP",
+      "Hooks"
+    ],
+    "websiteURL": "https://github.com/yourconscience/dotagents",
+    "defaultPrompt": [
+      "Use pr-triage to inspect this pull request before merge.",
+      "Check failed CI and unresolved review threads for this PR."
+    ]
+  }
+}

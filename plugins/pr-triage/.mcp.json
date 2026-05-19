@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "sh",
+      "args": [
+        "-lc",
+        "exec ~/.agents/mcp/github/server.sh"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    }
+  }
+}
