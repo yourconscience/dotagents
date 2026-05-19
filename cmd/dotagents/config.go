@@ -97,6 +97,28 @@ func validateConfig(cfg *config, home string, expand bool) error {
 		seen[cfg.Agents[i].Name] = struct{}{}
 	}
 
+	seenExt := make(map[string]struct{})
+	for i := range cfg.ExternalSkills {
+		cfg.ExternalSkills[i].URL = strings.TrimSpace(cfg.ExternalSkills[i].URL)
+		if cfg.ExternalSkills[i].URL == "" {
+			return errors.New("config external_skills entry has empty url")
+		}
+		if cfg.ExternalSkills[i].Branch == "" {
+			cfg.ExternalSkills[i].Branch = "main"
+		}
+		if cfg.ExternalSkills[i].SkillDir == "" {
+			cfg.ExternalSkills[i].SkillDir = "skills"
+		}
+		name := repoName(cfg.ExternalSkills[i].URL)
+		if name == "" {
+			return fmt.Errorf("config external_skills: cannot derive repo name from %q", cfg.ExternalSkills[i].URL)
+		}
+		if _, ok := seenExt[name]; ok {
+			return fmt.Errorf("config external_skills repo %q is duplicated", name)
+		}
+		seenExt[name] = struct{}{}
+	}
+
 	seenMCP := make(map[string]struct{})
 	for i := range cfg.MCPServers {
 		cfg.MCPServers[i].Name = strings.TrimSpace(cfg.MCPServers[i].Name)

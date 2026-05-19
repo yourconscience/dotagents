@@ -18,7 +18,7 @@ const (
 	stateDrifted  = "drifted"
 )
 
-func expectedSkills(repoRoot string, home string) (map[string]string, error) {
+func expectedSkills(repoRoot string, home string, cfg config) (map[string]string, error) {
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
@@ -40,6 +40,18 @@ func expectedSkills(repoRoot string, home string) (map[string]string, error) {
 		}
 		expected[name] = filepath.Join(agentsSkillRoot, name)
 	}
+
+	external, err := discoverExternalSkills(cfg.ExternalSkills, home)
+	if err != nil {
+		return nil, err
+	}
+	for name, path := range external {
+		if _, exists := expected[name]; exists {
+			return nil, fmt.Errorf("external skill %q collides with local skill", name)
+		}
+		expected[name] = path
+	}
+
 	return expected, nil
 }
 
@@ -174,7 +186,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 				if err != nil {
 					return agentReport{}, fmt.Errorf("readlink %s: %w", path, err)
 				}
-				if isManagedSkillLink(path, rawTarget, repoRoot, agentsSkillRoot) {
+				if isManagedSkillLink(path, rawTarget, repoRoot, agentsSkillRoot) || isExternalSkillLink(path, rawTarget, home) {
 					report.StaleManaged = append(report.StaleManaged, name)
 					report.Removes = append(report.Removes, name)
 					continue

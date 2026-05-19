@@ -3,11 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
 
-func printReport(mode string, repoRoot string, repoReport repoLinkReport, reports []agentReport) {
+func printReport(mode string, repoRoot string, repoReport repoLinkReport, reports []agentReport, extSources ...[]externalSkillSource) {
 	fmt.Printf("dotagents %s\n", mode)
 	fmt.Printf("repo: %s\n", repoRoot)
 	fmt.Printf("~/.agents: %s", repoReport.State)
@@ -19,6 +20,22 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 			fmt.Printf(", actual %s", repoReport.ActualTarget)
 		}
 		fmt.Printf(")\n")
+	}
+	if len(extSources) > 0 && len(extSources[0]) > 0 {
+		home, _ := os.UserHomeDir()
+		cacheRoot := externalCacheDir(home)
+		fmt.Println()
+		fmt.Println("external sources:")
+		for _, src := range extSources[0] {
+			name := repoName(src.URL)
+			cachePath := filepath.Join(cacheRoot, name)
+			state := "not cloned"
+			if hasDir(filepath.Join(cachePath, ".git")) {
+				commit := externalSkillCommit(cachePath)
+				state = fmt.Sprintf("synced (%s)", commit)
+			}
+			fmt.Printf("  %s  %s  %s\n", name, src.URL, state)
+		}
 	}
 	fmt.Println()
 
