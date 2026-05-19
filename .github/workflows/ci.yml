@@ -47,7 +47,7 @@ jobs:
       fail-fast: false
       matrix:
         module:
-          - skills/dotagents/tools/dotagents
+          - cmd/dotagents
           - skills/gws
           - skills/jobs/tools/portals-scan
           - skills/remote-access/tools/remote-access-bridge
@@ -58,6 +58,10 @@ jobs:
         with:
           go-version: "1.24"
           cache: false
+
+      - name: Test
+        working-directory: ${{ matrix.module }}
+        run: go test ./...
 
       - name: Build
         working-directory: ${{ matrix.module }}

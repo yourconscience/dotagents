@@ -133,17 +133,21 @@ else
   run_as_user git clone https://github.com/yourconscience/dotagents.git "$DOTAGENTS_DIR"
 fi
 
-log "Running dotagents setup..."
+log "Installing dotagents CLI..."
 cd "$DOTAGENTS_DIR"
-run_as_user go run ./skills/dotagents/tools/dotagents setup
+run_as_user go install ./cmd/dotagents
+DOTAGENTS_BIN=$(run_as_user sh -c 'gobin="$(go env GOBIN)"; if [ -n "$gobin" ]; then printf "%s/dotagents" "$gobin"; else printf "%s/bin/dotagents" "$(go env GOPATH)"; fi')
+
+log "Running dotagents setup..."
+run_as_user "$DOTAGENTS_BIN" setup
 
 # --- Knowledge vault + memsearch ---
 log "Setting up knowledge vault + memsearch..."
 run_as_user uv tool install memsearch==0.4.2 || warn "memsearch install failed"
-run_as_user go run ./skills/dotagents/tools/dotagents memsearch setup --vault "$TARGET_HOME/Workspace/knowledge" || warn "memsearch setup failed (non-critical)"
+run_as_user "$DOTAGENTS_BIN" memsearch setup --vault "$TARGET_HOME/Workspace/knowledge" || warn "memsearch setup failed (non-critical)"
 
 log "Installing dotagents auto-pull cron (every 30m)..."
-run_as_user go run ./skills/dotagents/tools/dotagents cron --interval 30m
+run_as_user "$DOTAGENTS_BIN" cron --interval 30m
 
 # --- Shell config ---
 log "Configuring shell aliases and integrations..."
