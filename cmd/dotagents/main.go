@@ -9,9 +9,16 @@ import (
 )
 
 type config struct {
-	Version    int               `yaml:"version"`
-	Agents     []agentConfig     `yaml:"agents"`
-	MCPServers []mcpServerConfig `yaml:"mcp_servers"`
+	Version        int                   `yaml:"version"`
+	Agents         []agentConfig         `yaml:"agents"`
+	MCPServers     []mcpServerConfig     `yaml:"mcp_servers"`
+	ExternalSkills []externalSkillSource `yaml:"external_skills"`
+}
+
+type externalSkillSource struct {
+	URL      string `yaml:"url"`
+	SkillDir string `yaml:"skill_dir"`
+	Branch   string `yaml:"branch"`
 }
 
 type agentConfig struct {

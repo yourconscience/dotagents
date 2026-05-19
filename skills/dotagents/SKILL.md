@@ -65,6 +65,8 @@ Reports sync state for each detected agent. Agents whose binary is not on PATH s
 
 Creates, updates, or removes skill symlinks in each detected agent's skill root for agents that use managed mirrors. Non-repo skills are reported as `external` and left untouched. Amp and Hermes are special-cased: `sync` verifies their config-driven shared-skill integrations and does not try to mirror repo skills into separate native skill roots.
 
+For external skills (declared under `external_skills` in `dotagents.yaml`), `sync` clones or updates the remote git repos into `~/.agents/external/<repo-name>/`, discovers skills under the configured `skill_dir`, and symlinks them into agent skill roots alongside local skills.
+
 For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target all configured agents with MCP support (`amp`, `claude-code`, `codex`, `hermes`, `droid`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
 
 For repo-owned local MCP servers, prefer `mcp/<server-name>/` plus a canonical `dotagents.yaml` entry using `sh -lc 'exec ...'`, with local secrets/state outside git.
