@@ -39,19 +39,6 @@ var hookTargets = map[string]hookTarget{
 
 func desiredHooksForAgent(cfg config, agentName string) ([]hookConfig, bool) {
 	agentName = normalizeAgentName(agentName)
-	_, supported := hookTargets[agentName]
-	if !supported {
-		var targeted []hookConfig
-		for _, hook := range cfg.Hooks {
-			if !hook.Enabled {
-				continue
-			}
-			if len(hook.Agents) == 0 || stringInSlice(agentName, hook.Agents) {
-				targeted = append(targeted, hook)
-			}
-		}
-		return targeted, false
-	}
 	var hooks []hookConfig
 	for _, hook := range cfg.Hooks {
 		if !hook.Enabled {
@@ -61,7 +48,8 @@ func desiredHooksForAgent(cfg config, agentName string) ([]hookConfig, bool) {
 			hooks = append(hooks, hook)
 		}
 	}
-	return hooks, true
+	_, supported := hookTargets[agentName]
+	return hooks, supported
 }
 
 func augmentHookReport(report *agentReport, agent agentConfig, cfg config, home string) error {
@@ -90,6 +78,8 @@ func augmentHookReport(report *agentReport, agent agentConfig, cfg config, home 
 		case stateDrifted:
 			report.DriftedHook = append(report.DriftedHook, hook.Name)
 			report.UpdatesHook = append(report.UpdatesHook, hook.Name)
+		case stateUnsupported:
+			report.UnsupportedHook = append(report.UnsupportedHook, hook.Name)
 		default:
 			return fmt.Errorf("unsupported hook inspect state %q for %s/%s", state, agent.Name, hook.Name)
 		}
@@ -169,7 +159,7 @@ func patchClaudeHook(hook hookConfig, home string) error {
 func inspectHermesHook(hook hookConfig, home string) (string, error) {
 	nativeEvent, ok := hermesHookEvent(hook.Event)
 	if !ok {
-		return stateMissing, nil
+		return stateUnsupported, nil
 	}
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
@@ -265,15 +255,34 @@ func upsertClaudeHookMap(raw map[string]interface{}, hook hookConfig) {
 	if len(groups) == 0 {
 		groups = []interface{}{map[string]interface{}{"hooks": []interface{}{}}}
 	}
-	group, _ := groups[0].(map[string]interface{})
-	if group == nil {
-		group = map[string]interface{}{}
-		groups[0] = group
+	targetIndex := 0
+	for i, groupRaw := range groups {
+		group, ok := groupRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		items, _ := group["hooks"].([]interface{})
+		if containsHookCommand(items, hook.Command) {
+			targetIndex = i
+			break
+		}
 	}
-	items, _ := group["hooks"].([]interface{})
-	items = removeHookCommand(items, hook.Command)
-	items = append(items, renderHookEntry(hook))
-	group["hooks"] = items
+	for i, groupRaw := range groups {
+		group, _ := groupRaw.(map[string]interface{})
+		if group == nil {
+			if i != targetIndex {
+				continue
+			}
+			group = map[string]interface{}{}
+			groups[i] = group
+		}
+		items, _ := group["hooks"].([]interface{})
+		items = removeHookCommand(items, hook.Command)
+		if i == targetIndex {
+			items = append(items, renderHookEntry(hook))
+		}
+		group["hooks"] = items
+	}
 	hooksRoot[hook.Event] = groups
 }
 
@@ -333,6 +342,16 @@ func removeHookCommand(items []interface{}, command string) []interface{} {
 		out = append(out, itemRaw)
 	}
 	return out
+}
+
+func containsHookCommand(items []interface{}, command string) bool {
+	for _, itemRaw := range items {
+		item, ok := itemRaw.(map[string]interface{})
+		if ok && item["command"] == command {
+			return true
+		}
+	}
+	return false
 }
 
 func hookTimeoutMatches(item map[string]interface{}, timeout int) bool {

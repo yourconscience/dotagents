@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -52,7 +53,7 @@ type hookResponse struct {
 	Message        string `json:"message,omitempty"`
 }
 
-var botAuthor = regexp.MustCompile(`(?i)^(gemini|copilot|cursor|claude|codex|coderabbitai)`)
+var botAuthor = regexp.MustCompile(`(?i)^(chatgpt-codex|gemini|copilot|cursor|claude|codex|coderabbitai)`)
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -149,7 +150,7 @@ func inspectPR(prArg string) (inspection, error) {
 	if err := json.Unmarshal([]byte(out), &raw); err != nil {
 		return inspection{}, fmt.Errorf("parse gh pr view: %w", err)
 	}
-	threads, err := reviewThreads(prArg)
+	threads, err := reviewThreads(raw.Number)
 	if err != nil {
 		return inspection{}, err
 	}
@@ -175,7 +176,7 @@ func inspectPR(prArg string) (inspection, error) {
 	return result, nil
 }
 
-func reviewThreads(prArg string) ([]thread, error) {
+func reviewThreads(prNumber int) ([]thread, error) {
 	ownerRepo, err := runGH("repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name")
 	if err != nil {
 		return nil, err
@@ -185,7 +186,7 @@ func reviewThreads(prArg string) ([]thread, error) {
 		return nil, fmt.Errorf("unexpected gh repo owner/name: %q", ownerRepo)
 	}
 	query := `query($owner:String!, $repo:String!, $number:Int!){ repository(owner:$owner, name:$repo){ pullRequest(number:$number){ reviewThreads(first:100){ nodes { id isResolved isOutdated path line comments(first:20){ nodes { author{ login } body url createdAt } } } } } } }`
-	out, err := runGH("api", "graphql", "-F", "owner="+parts[0], "-F", "repo="+parts[1], "-F", "number="+prArg, "-f", "query="+query, "--jq", `[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false and .isOutdated==false) | {id, path, line, author: .comments.nodes[0].author.login, url: .comments.nodes[0].url, body: .comments.nodes[0].body}]`)
+	out, err := runGH("api", "graphql", "-F", "owner="+parts[0], "-F", "repo="+parts[1], "-F", "number="+strconv.Itoa(prNumber), "-f", "query="+query, "--jq", `[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false and .isOutdated==false) | {id, path, line, author: .comments.nodes[0].author.login, url: .comments.nodes[0].url, body: .comments.nodes[0].body}]`)
 	if err != nil {
 		return nil, err
 	}

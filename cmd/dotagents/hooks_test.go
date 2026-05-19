@@ -83,6 +83,52 @@ func TestClaudeHookPatchPreservesUnrelatedHooks(t *testing.T) {
 	}
 }
 
+func TestClaudeHookPatchUpdatesExistingHookInLaterGroup(t *testing.T) {
+	raw := map[string]interface{}{
+		"hooks": map[string]interface{}{
+			"Stop": []interface{}{
+				map[string]interface{}{
+					"matcher": "first",
+					"hooks": []interface{}{
+						map[string]interface{}{"command": "echo keep", "timeout": 1},
+					},
+				},
+				map[string]interface{}{
+					"matcher": "second",
+					"hooks": []interface{}{
+						map[string]interface{}{"command": "~/.agents/memory/hooks/stop.sh", "timeout": 3},
+					},
+				},
+			},
+		},
+	}
+
+	upsertClaudeHookMap(raw, testHook())
+
+	groups := raw["hooks"].(map[string]interface{})["Stop"].([]interface{})
+	managedCount := 0
+	for i, groupRaw := range groups {
+		group := groupRaw.(map[string]interface{})
+		items := group["hooks"].([]interface{})
+		for _, itemRaw := range items {
+			item := itemRaw.(map[string]interface{})
+			if item["command"] != "~/.agents/memory/hooks/stop.sh" {
+				continue
+			}
+			managedCount++
+			if i != 1 {
+				t.Fatalf("managed hook moved to group %d, want group 1", i)
+			}
+			if item["timeout"].(int) != 15 {
+				t.Fatalf("managed hook timeout = %#v, want 15", item["timeout"])
+			}
+		}
+	}
+	if managedCount != 1 {
+		t.Fatalf("managed hook count = %d, want 1: %#v", managedCount, groups)
+	}
+}
+
 func TestHermesHookPatchSessionEnd(t *testing.T) {
 	home := t.TempDir()
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
@@ -125,6 +171,28 @@ func TestHermesHookPatchSessionEnd(t *testing.T) {
 	items := root["on_session_finalize"].([]interface{})
 	if len(items) != 2 {
 		t.Fatalf("unexpected hermes hooks: %#v", items)
+	}
+}
+
+func TestHermesUnsupportedHookEventIsNotQueuedForSync(t *testing.T) {
+	cfg := config{
+		Hooks: []hookConfig{{
+			Name:    "memory-stop",
+			Enabled: true,
+			Event:   "Stop",
+			Command: "~/.agents/memory/hooks/stop.sh",
+			Agents:  []string{agentHermes},
+		}},
+	}
+	report := agentReport{Name: agentHermes, Detected: true}
+	if err := augmentHookReport(&report, agentConfig{Name: agentHermes}, cfg, t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.UnsupportedHook) != 1 || report.UnsupportedHook[0] != "memory-stop" {
+		t.Fatalf("unsupported hooks = %#v, want memory-stop", report.UnsupportedHook)
+	}
+	if len(report.AddsHook) != 0 || len(report.MissingHook) != 0 {
+		t.Fatalf("unsupported hook should not queue sync: adds=%#v missing=%#v", report.AddsHook, report.MissingHook)
 	}
 }
 
