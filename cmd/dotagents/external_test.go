@@ -25,6 +25,13 @@ func TestRepoName(t *testing.T) {
 	}
 }
 
+func makeGitDir(t *testing.T, cachePath string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(cachePath, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestDiscoverExternalSkillsSingleSkill(t *testing.T) {
 	home := t.TempDir()
 	cacheRoot := filepath.Join(home, ".agents", "external")
@@ -33,6 +40,7 @@ func TestDiscoverExternalSkillsSingleSkill(t *testing.T) {
 	if err := os.MkdirAll(repoDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	makeGitDir(t, filepath.Join(cacheRoot, "dotknow"))
 	if err := os.WriteFile(filepath.Join(repoDir, "SKILL.md"), []byte("---\nname: dotknow\n---\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -60,6 +68,7 @@ func TestDiscoverExternalSkillsMultiSkill(t *testing.T) {
 	home := t.TempDir()
 	cacheRoot := filepath.Join(home, ".agents", "external")
 
+	makeGitDir(t, filepath.Join(cacheRoot, "shared-skills"))
 	skillsDir := filepath.Join(cacheRoot, "shared-skills", "skills")
 	for _, name := range []string{"alpha", "beta"} {
 		dir := filepath.Join(skillsDir, name)
@@ -94,6 +103,7 @@ func TestDiscoverExternalSkillsCollision(t *testing.T) {
 	cacheRoot := filepath.Join(home, ".agents", "external")
 
 	for _, repo := range []string{"repo-a", "repo-b"} {
+		makeGitDir(t, filepath.Join(cacheRoot, repo))
 		dir := filepath.Join(cacheRoot, repo, "skills", "samename")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
@@ -143,6 +153,45 @@ func TestDiscoverExternalSkillsBadSkillDir(t *testing.T) {
 	_, err := discoverExternalSkills(sources, home)
 	if err == nil {
 		t.Fatal("expected error for bad skill_dir, got nil")
+	}
+}
+
+func TestDiscoverExternalSkillsZeroSkills(t *testing.T) {
+	home := t.TempDir()
+	cacheRoot := filepath.Join(home, ".agents", "external")
+
+	repoDir := filepath.Join(cacheRoot, "empty-repo")
+	makeGitDir(t, repoDir)
+	if err := os.MkdirAll(filepath.Join(repoDir, "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	sources := []externalSkillSource{
+		{URL: "https://github.com/user/empty-repo", SkillDir: "skills", Branch: "main"},
+	}
+
+	_, err := discoverExternalSkills(sources, home)
+	if err == nil {
+		t.Fatal("expected error for zero skills, got nil")
+	}
+}
+
+func TestDiscoverExternalSkillsNonGitDir(t *testing.T) {
+	home := t.TempDir()
+	cacheRoot := filepath.Join(home, ".agents", "external")
+
+	repoDir := filepath.Join(cacheRoot, "not-a-repo", "skill")
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	sources := []externalSkillSource{
+		{URL: "https://github.com/user/not-a-repo", SkillDir: "skill", Branch: "main"},
+	}
+
+	_, err := discoverExternalSkills(sources, home)
+	if err == nil {
+		t.Fatal("expected error for non-git directory, got nil")
 	}
 }
 
