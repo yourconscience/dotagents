@@ -48,12 +48,19 @@ func runSync(opts runOptions) error {
 		return err
 	}
 
-	if err := syncExternalRepos(cfg.ExternalSkills, home); err != nil {
+	repoReport, err := inspectRepoLink(repoRoot, home)
+	if err != nil {
+		return err
+	}
+	if repoReport.State == stateConflict {
+		printReport("sync", repoRoot, repoReport, nil, home, cfg.ExternalSkills)
+		return fmt.Errorf("sync aborted due to conflicts: repo link: %s", repoReport.Path)
+	}
+	if err := applyRepoLink(repoReport); err != nil {
 		return err
 	}
 
-	repoReport, err := inspectRepoLink(repoRoot, home)
-	if err != nil {
+	if err := syncExternalRepos(cfg.ExternalSkills, home); err != nil {
 		return err
 	}
 
@@ -68,9 +75,6 @@ func runSync(opts runOptions) error {
 	preflight := cloneReports(reports)
 
 	var conflicts []string
-	if repoReport.State == stateConflict {
-		conflicts = append(conflicts, fmt.Sprintf("repo link: %s", repoReport.Path))
-	}
 	for _, report := range reports {
 		for _, conflict := range report.Conflicts {
 			conflicts = append(conflicts, fmt.Sprintf("%s: %s", report.Name, conflict))
@@ -79,10 +83,6 @@ func runSync(opts runOptions) error {
 	if len(conflicts) > 0 {
 		printReport("sync", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
 		return fmt.Errorf("sync aborted due to conflicts: %s", strings.Join(conflicts, "; "))
-	}
-
-	if err := applyRepoLink(repoReport); err != nil {
-		return err
 	}
 	if err := applyAgentSync(reports, expected); err != nil {
 		return err
