@@ -36,6 +36,12 @@ func TestHardBlockersIncludesHumanThreadsAndHighBot(t *testing.T) {
 	}
 }
 
+func TestBotAuthorIncludesHostedCodexConnector(t *testing.T) {
+	if !botAuthor.MatchString("chatgpt-codex-connector") {
+		t.Fatal("chatgpt-codex-connector should be treated as a bot reviewer")
+	}
+}
+
 func TestRenderMarkdownIncludesRecommendedNext(t *testing.T) {
 	result := inspection{PR: 42, Mergeable: "MERGEABLE", MergeState: "CLEAN", RecommendedNext: "no hard blockers found"}
 	out := renderMarkdown(result)

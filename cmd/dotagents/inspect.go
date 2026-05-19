@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	stateMissing  = "missing"
-	stateConflict = "conflict"
-	stateSynced   = "synced"
-	stateDrifted  = "drifted"
+	stateMissing     = "missing"
+	stateConflict    = "conflict"
+	stateSynced      = "synced"
+	stateDrifted     = "drifted"
+	stateUnsupported = "unsupported"
 )
 
 func expectedSkills(repoRoot string, home string) (map[string]string, error) {
