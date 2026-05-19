@@ -12,6 +12,7 @@ type config struct {
 	Version    int               `yaml:"version"`
 	Agents     []agentConfig     `yaml:"agents"`
 	MCPServers []mcpServerConfig `yaml:"mcp_servers"`
+	Hooks      []hookConfig      `yaml:"hooks,omitempty"`
 }
 
 type agentConfig struct {
@@ -30,34 +31,40 @@ type repoLinkReport struct {
 }
 
 type agentReport struct {
-	Name         string
-	SkillRoot    string
-	AgentRoot    string
-	Detected     bool
-	RootPath     string
-	RootExpected string
-	RootActual   string
-	RootState    string
-	Managed      []string
-	ManagedAgent []string
-	ManagedMCP   []string
-	Drifted      []string
-	DriftedAgent []string
-	DriftedMCP   []string
-	Missing      []string
-	MissingAgent []string
-	MissingMCP   []string
-	Conflicts    []string
-	StaleManaged []string
-	External     []string
-	Adds         []string
-	AddsAgent    []string
-	AddsMCP      []string
-	Updates      []string
-	UpdatesAgent []string
-	UpdatesMCP   []string
-	Removes      []string
-	Synced       bool
+	Name            string
+	SkillRoot       string
+	AgentRoot       string
+	Detected        bool
+	RootPath        string
+	RootExpected    string
+	RootActual      string
+	RootState       string
+	Managed         []string
+	ManagedAgent    []string
+	ManagedMCP      []string
+	ManagedHook     []string
+	Drifted         []string
+	DriftedAgent    []string
+	DriftedMCP      []string
+	DriftedHook     []string
+	Missing         []string
+	MissingAgent    []string
+	MissingMCP      []string
+	MissingHook     []string
+	UnsupportedHook []string
+	Conflicts       []string
+	StaleManaged    []string
+	External        []string
+	Adds            []string
+	AddsAgent       []string
+	AddsMCP         []string
+	AddsHook        []string
+	Updates         []string
+	UpdatesAgent    []string
+	UpdatesMCP      []string
+	UpdatesHook     []string
+	Removes         []string
+	Synced          bool
 }
 
 func isDetected(agent agentConfig) bool {

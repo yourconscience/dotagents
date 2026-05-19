@@ -89,6 +89,9 @@ func runSync(opts runOptions) error {
 	if err := applyAgentMCPSync(reports, cfg, home); err != nil {
 		return err
 	}
+	if err := applyAgentHookSync(reports, cfg, home); err != nil {
+		return err
+	}
 	if err := applyAgentRootInstructionSync(reports); err != nil {
 		return err
 	}

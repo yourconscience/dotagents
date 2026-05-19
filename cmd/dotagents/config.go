@@ -122,6 +122,33 @@ func validateConfig(cfg *config, home string, expand bool) error {
 		}
 	}
 
+	seenHooks := make(map[string]struct{})
+	for i := range cfg.Hooks {
+		cfg.Hooks[i].Name = strings.TrimSpace(cfg.Hooks[i].Name)
+		cfg.Hooks[i].Event = strings.TrimSpace(cfg.Hooks[i].Event)
+		cfg.Hooks[i].Command = strings.TrimSpace(cfg.Hooks[i].Command)
+		if cfg.Hooks[i].Name == "" {
+			return errors.New("config hook name cannot be empty")
+		}
+		if cfg.Hooks[i].Event == "" {
+			return fmt.Errorf("config hook %s is missing event", cfg.Hooks[i].Name)
+		}
+		if cfg.Hooks[i].Command == "" {
+			return fmt.Errorf("config hook %s is missing command", cfg.Hooks[i].Name)
+		}
+		if _, ok := seenHooks[cfg.Hooks[i].Name]; ok {
+			return fmt.Errorf("config hook %s is duplicated", cfg.Hooks[i].Name)
+		}
+		seenHooks[cfg.Hooks[i].Name] = struct{}{}
+		for j := range cfg.Hooks[i].Agents {
+			cfg.Hooks[i].Agents[j] = normalizeAgentName(cfg.Hooks[i].Agents[j])
+			agentName := cfg.Hooks[i].Agents[j]
+			if _, ok := seen[agentName]; !ok {
+				return fmt.Errorf("config hook %s targets unknown agent %q", cfg.Hooks[i].Name, agentName)
+			}
+		}
+	}
+
 	return nil
 }
 
