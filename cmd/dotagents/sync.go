@@ -29,7 +29,7 @@ func runStatus(opts runOptions) error {
 		return err
 	}
 
-	printReport("status", repoRoot, repoReport, reports, cfg.ExternalSkills)
+	printReport("status", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
 	if repoReport.State != stateSynced {
 		return errors.New("dotagents is not fully synced")
 	}
@@ -77,7 +77,7 @@ func runSync(opts runOptions) error {
 		}
 	}
 	if len(conflicts) > 0 {
-		printReport("sync", repoRoot, repoReport, reports, cfg.ExternalSkills)
+		printReport("sync", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
 		return fmt.Errorf("sync aborted due to conflicts: %s", strings.Join(conflicts, "; "))
 	}
 
@@ -107,7 +107,7 @@ func runSync(opts runOptions) error {
 	}
 	restoreSyncActions(reports, preflight)
 
-	printReport("sync", repoRoot, repoReport, reports, cfg.ExternalSkills)
+	printReport("sync", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
 	return nil
 }
 
