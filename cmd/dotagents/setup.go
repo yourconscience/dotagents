@@ -20,6 +20,10 @@ func runSetup(opts runOptions) error {
 	fmt.Println("dotagents setup")
 	fmt.Printf("repo: %s\n\n", repoRoot)
 
+	if err := installDotagentsBinary(repoRoot); err != nil {
+		return err
+	}
+
 	// 1. Fix ~/.agents symlink
 	repoReport, err := inspectRepoLink(repoRoot, home)
 	if err != nil {
@@ -62,6 +66,63 @@ func runSetup(opts runOptions) error {
 
 	// 3. Run sync
 	return runSync(opts)
+}
+
+func installDotagentsBinary(repoRoot string) error {
+	goPath, err := exec.LookPath("go")
+	if err != nil {
+		return fmt.Errorf("go not found on PATH: %w", err)
+	}
+
+	cmd := exec.Command(goPath, "install", "-modcacherw", "./cmd/dotagents")
+	cmd.Dir = repoRoot
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("go install ./cmd/dotagents: %w", err)
+	}
+
+	binDir, err := goBinDir(goPath)
+	if err != nil {
+		fmt.Printf("dotagents binary: installed (could not determine Go bin dir: %v)\n\n", err)
+		return nil
+	}
+	if pathContainsDir(os.Getenv("PATH"), binDir) {
+		fmt.Printf("dotagents binary: installed to %s\n\n", binDir)
+	} else {
+		fmt.Printf("dotagents binary: installed to %s, but that directory is not on PATH\n\n", binDir)
+	}
+	return nil
+}
+
+func goBinDir(goPath string) (string, error) {
+	out, err := exec.Command(goPath, "env", "GOBIN").Output()
+	if err != nil {
+		return "", fmt.Errorf("go env GOBIN: %w", err)
+	}
+	if goBinValue := strings.TrimSpace(string(out)); goBinValue != "" {
+		return goBinValue, nil
+	}
+	out, err = exec.Command(goPath, "env", "GOPATH").Output()
+	if err != nil {
+		return "", fmt.Errorf("go env GOPATH: %w", err)
+	}
+	goPathValue := strings.TrimSpace(string(out))
+	if goPathValue == "" {
+		return "", fmt.Errorf("go env GOPATH returned empty output")
+	}
+	first := strings.Split(goPathValue, string(os.PathListSeparator))[0]
+	return filepath.Join(first, "bin"), nil
+}
+
+func pathContainsDir(pathValue string, dir string) bool {
+	dir = filepath.Clean(dir)
+	for _, entry := range filepath.SplitList(pathValue) {
+		if entry != "" && filepath.Clean(entry) == dir {
+			return true
+		}
+	}
+	return false
 }
 
 func patchAgentConfig(agent agentConfig, home string) (bool, error) {
@@ -330,7 +391,7 @@ func runCron(opts cronOptions) error {
 }
 
 func cronCommandForOptions(repoRoot string, goPath string, opts cronOptions) (string, string) {
-	toolPath := filepath.Join(repoRoot, "skills", "dotagents", "tools", "dotagents")
+	toolPath := filepath.Join(repoRoot, "cmd", "dotagents")
 	mode := "pull"
 	interval := opts.Interval
 	if opts.Deps {

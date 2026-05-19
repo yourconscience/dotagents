@@ -17,12 +17,12 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 		return "", "", config{}, nil, fmt.Errorf("resolve home: %w", err)
 	}
 
-	repoRoot, skillRoot, err := findRoots()
+	repoRoot, _, err := findRoots()
 	if err != nil {
 		return "", "", config{}, nil, err
 	}
 
-	cfg, err := loadConfig(skillRoot, home, opts.ConfigPath)
+	cfg, err := loadConfig(repoRoot, home, opts.ConfigPath)
 	if err != nil {
 		return "", "", config{}, nil, err
 	}
@@ -35,10 +35,10 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 	return repoRoot, home, cfg, selected, nil
 }
 
-func loadConfig(skillRoot string, home string, overridePath string) (config, error) {
+func loadConfig(repoRoot string, home string, overridePath string) (config, error) {
 	configPath := overridePath
 	if strings.TrimSpace(configPath) == "" {
-		configPath = filepath.Join(skillRoot, "dotagents.yaml")
+		configPath = defaultConfigPath(repoRoot)
 	}
 	configPath = expandPath(configPath, home)
 
@@ -56,6 +56,18 @@ func loadConfig(skillRoot string, home string, overridePath string) (config, err
 	}
 
 	return cfg, nil
+}
+
+func defaultConfigPath(repoRoot string) string {
+	path := filepath.Join(repoRoot, "dotagents.yaml")
+	if hasFile(path) {
+		return path
+	}
+	legacyPath := filepath.Join(repoRoot, "skills", "dotagents", "dotagents.yaml")
+	if hasFile(legacyPath) {
+		return legacyPath
+	}
+	return path
 }
 
 func validateConfig(cfg *config, home string, expand bool) error {
@@ -162,14 +174,14 @@ func findRoots() (string, string, error) {
 	}
 
 	toolDir := filepath.Dir(file)
-	skillRoot := filepath.Clean(filepath.Join(toolDir, "..", ".."))
-	repoRoot := filepath.Clean(filepath.Join(skillRoot, "..", ".."))
+	repoRoot := filepath.Clean(filepath.Join(toolDir, "..", ".."))
+	skillRoot := filepath.Join(repoRoot, "skills", "dotagents")
 
-	if !hasFile(filepath.Join(skillRoot, "SKILL.md")) {
-		return "", "", fmt.Errorf("skill root not found from %s", toolDir)
-	}
 	if !hasDir(filepath.Join(repoRoot, "skills")) || !hasFile(filepath.Join(repoRoot, "AGENTS.md")) {
 		return "", "", fmt.Errorf("repo root not found from %s", toolDir)
+	}
+	if !hasFile(filepath.Join(skillRoot, "SKILL.md")) {
+		return "", "", fmt.Errorf("skill root not found from %s", repoRoot)
 	}
 
 	return repoRoot, skillRoot, nil
