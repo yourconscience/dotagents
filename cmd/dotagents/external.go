@@ -34,6 +34,10 @@ func syncExternalRepos(sources []externalSkillSource, home string) error {
 		name := repoName(src.URL)
 		cachePath := filepath.Join(cacheRoot, name)
 		if hasDir(filepath.Join(cachePath, ".git")) {
+			setURL := exec.Command("git", "-C", cachePath, "remote", "set-url", "origin", src.URL)
+			if err := setURL.Run(); err != nil {
+				return fmt.Errorf("update remote URL for %s: %w", name, err)
+			}
 			if err := gitFetchReset(cachePath, src.Branch); err != nil {
 				return fmt.Errorf("update external %s: %w", name, err)
 			}
@@ -83,7 +87,7 @@ func discoverExternalSkills(sources []externalSkillSource, home string) (map[str
 
 		if hasFile(filepath.Join(skillBase, "SKILL.md")) {
 			if _, exists := result[name]; exists {
-				return nil, fmt.Errorf("external skill %q from %s collides with another external skill", name, src.URL)
+				return nil, fmt.Errorf("external skill %q from %s collides with a skill already discovered from another source", name, src.URL)
 			}
 			result[name] = skillBase
 			continue
@@ -102,7 +106,7 @@ func discoverExternalSkills(sources []externalSkillSource, home string) (map[str
 				continue
 			}
 			if _, exists := result[entry.Name()]; exists {
-				return nil, fmt.Errorf("external skill %q from %s collides with another external skill", entry.Name(), src.URL)
+				return nil, fmt.Errorf("external skill %q from %s collides with a skill already discovered from another source", entry.Name(), src.URL)
 			}
 			result[entry.Name()] = skillPath
 		}

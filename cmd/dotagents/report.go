@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func printReport(mode string, repoRoot string, repoReport repoLinkReport, reports []agentReport, extSources ...[]externalSkillSource) {
+func printReport(mode string, repoRoot string, repoReport repoLinkReport, reports []agentReport, home string, extSources []externalSkillSource) {
 	fmt.Printf("dotagents %s\n", mode)
 	fmt.Printf("repo: %s\n", repoRoot)
 	fmt.Printf("~/.agents: %s", repoReport.State)
@@ -21,12 +21,11 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		}
 		fmt.Printf(")\n")
 	}
-	if len(extSources) > 0 && len(extSources[0]) > 0 {
-		home, _ := os.UserHomeDir()
+	if len(extSources) > 0 {
 		cacheRoot := externalCacheDir(home)
 		fmt.Println()
 		fmt.Println("external sources:")
-		for _, src := range extSources[0] {
+		for _, src := range extSources {
 			name := repoName(src.URL)
 			cachePath := filepath.Join(cacheRoot, name)
 			state := "not cloned"
