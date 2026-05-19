@@ -114,19 +114,35 @@ func TestDiscoverExternalSkillsCollision(t *testing.T) {
 	}
 }
 
-func TestDiscoverExternalSkillsMissing(t *testing.T) {
+func TestDiscoverExternalSkillsNotCloned(t *testing.T) {
 	home := t.TempDir()
 
 	sources := []externalSkillSource{
 		{URL: "https://github.com/user/nonexistent", SkillDir: "skill", Branch: "main"},
 	}
 
-	result, err := discoverExternalSkills(sources, home)
-	if err != nil {
+	_, err := discoverExternalSkills(sources, home)
+	if err == nil {
+		t.Fatal("expected error for not-cloned external source, got nil")
+	}
+}
+
+func TestDiscoverExternalSkillsBadSkillDir(t *testing.T) {
+	home := t.TempDir()
+	cacheRoot := filepath.Join(home, ".agents", "external")
+
+	repoDir := filepath.Join(cacheRoot, "dotknow")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if len(result) != 0 {
-		t.Fatalf("expected 0 skills for missing cache, got %d", len(result))
+
+	sources := []externalSkillSource{
+		{URL: "https://github.com/yourconscience/dotknow", SkillDir: "wrong-dir", Branch: "main"},
+	}
+
+	_, err := discoverExternalSkills(sources, home)
+	if err == nil {
+		t.Fatal("expected error for bad skill_dir, got nil")
 	}
 }
 
