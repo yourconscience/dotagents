@@ -78,37 +78,42 @@ func discoverExternalSkills(sources []externalSkillSource, home string) (map[str
 		cachePath := filepath.Join(cacheRoot, name)
 		skillBase := filepath.Join(cachePath, src.SkillDir)
 
+		if !hasDir(filepath.Join(cachePath, ".git")) {
+			return nil, fmt.Errorf("external source %s not cloned; run dotagents sync", src.URL)
+		}
 		if !hasDir(skillBase) {
-			if !hasDir(filepath.Join(cachePath, ".git")) {
-				return nil, fmt.Errorf("external source %s not cloned; run dotagents sync", src.URL)
-			}
 			return nil, fmt.Errorf("skill_dir %q not found in cloned external source %s", src.SkillDir, src.URL)
 		}
+
+		countBefore := len(result)
 
 		if hasFile(filepath.Join(skillBase, "SKILL.md")) {
 			if _, exists := result[name]; exists {
 				return nil, fmt.Errorf("external skill %q from %s collides with a skill already discovered from another source", name, src.URL)
 			}
 			result[name] = skillBase
-			continue
+		} else {
+			entries, err := os.ReadDir(skillBase)
+			if err != nil {
+				return nil, fmt.Errorf("read %s: %w", skillBase, err)
+			}
+			for _, entry := range entries {
+				if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+					continue
+				}
+				skillPath := filepath.Join(skillBase, entry.Name())
+				if !hasFile(filepath.Join(skillPath, "SKILL.md")) {
+					continue
+				}
+				if _, exists := result[entry.Name()]; exists {
+					return nil, fmt.Errorf("external skill %q from %s collides with a skill already discovered from another source", entry.Name(), src.URL)
+				}
+				result[entry.Name()] = skillPath
+			}
 		}
 
-		entries, err := os.ReadDir(skillBase)
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", skillBase, err)
-		}
-		for _, entry := range entries {
-			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-				continue
-			}
-			skillPath := filepath.Join(skillBase, entry.Name())
-			if !hasFile(filepath.Join(skillPath, "SKILL.md")) {
-				continue
-			}
-			if _, exists := result[entry.Name()]; exists {
-				return nil, fmt.Errorf("external skill %q from %s collides with a skill already discovered from another source", entry.Name(), src.URL)
-			}
-			result[entry.Name()] = skillPath
+		if len(result) == countBefore {
+			return nil, fmt.Errorf("external source %s: no skills found in %q", src.URL, src.SkillDir)
 		}
 	}
 	return result, nil
