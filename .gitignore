@@ -2,6 +2,7 @@
 tmp/
 
 # Local agent runtime state
+external/
 .claude/
 .amp/
 .hermes/
