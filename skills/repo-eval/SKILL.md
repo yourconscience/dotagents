@@ -111,6 +111,12 @@ Analyze:
 - Look for red flags: vendored secrets, excessive permissions, suspicious install scripts
 - If user provided a specific concern, search the codebase for it
 
+For ML/model repos, also check model-distribution surfaces without executing anything:
+- Hugging Face model/dataset API if the README links weights or datasets: `https://huggingface.co/api/models/<org>/<model>` or dataset equivalent. Capture public/private state, downloads/likes, tags, lastModified, and file list.
+- Artifact safety: flag pickle / arbitrary-code-loading formats as trusted-code artifacts; do not load them during eval.
+- Setup scripts: read shell/bootstrap scripts for side effects such as `sudo`, package-manager changes, modprobe/kernel tweaks, telemetry/API-key prompts, or accelerator-specific installs. Report these as operational concerns, not necessarily malicious findings.
+- Versioning: note missing releases/tags and recommend pinning by commit SHA when no release exists.
+
 Do NOT install or run the tool. Analysis is read-only.
 
 ### 4. Output
@@ -134,6 +140,8 @@ README quality, dependencies, red flags, concern-specific findings.
 Worth adopting / Proceed with caution / Avoid. One paragraph explaining why.
 ```
 
+If the user asks for a file/report, write Markdown under `~/Workspace/reports/` with a descriptive date-stamped filename, then verify the file exists and report its absolute path. Include a concise executive verdict near the top, source list, direct links, and explicit caveats for skipped sources.
+
 ### 5. Offer setup
 
 After presenting the verdict and the user indicates which repo they want, **ask whether they want you to set it up**. The evaluation was read-only; now the user needs the tool running. Do not wait for them to ask — they often assume setup follows evaluation.
@@ -141,6 +149,7 @@ After presenting the verdict and the user indicates which repo they want, **ask 
 ## Rules
 
 - Always include direct links. Never fabricate quotes or links.
+- If the user asks to evaluate an announcement/post/article that contains a GitHub link, keep the announcement's claims and discussion as the primary object. Use `/repo-eval` on the linked repo as supporting evidence only. Do not reframe the whole task as repo adoption unless the user explicitly asks to adopt/vet that repo.
 - Run `gh api` calls in parallel where possible.
 - Clone to ~/Public, not to the current working directory.
 - **During evaluation (steps 1-4):** Never install or execute code from evaluated repos. Analysis is read-only.

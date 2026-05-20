@@ -30,7 +30,7 @@ func TestAmpMemoryHookE2EWritesSessionDigest(t *testing.T) {
   "session_id":"T-amp-e2e",
   "session_start":"2026-05-17T01:02:03+04:00",
   "messages":[
-    {"role":"user","content":"wire Amp memory from /Users/conscience/Workspace/dotagents"},
+    {"role":"user","content":"wire Amp memory from $DOTAGENTS_REPO"},
     {"role":"assistant","content":"done"}
   ]
 }`
