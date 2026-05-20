@@ -1,0 +1,5 @@
+#!/bin/sh
+# Strip Co-authored-by trailers added by coding agents (Droid, Copilot, etc.).
+# Git hook: cp hooks/commit-msg .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
+# Or symlink into any repo's .git/hooks/ to enforce the same policy.
+sed -i.bak '/^[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:/d' "$1" && rm -f "$1.bak"
