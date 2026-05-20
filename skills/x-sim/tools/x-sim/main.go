@@ -343,6 +343,12 @@ func ingestJSON(db *sql.DB, src source, raw []byte, cutoff time.Time) (int, erro
 		return 0, err
 	}
 	tweets := extractTweets(payload, src, time.Now().UTC())
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
 	count := 0
 	for _, tw := range tweets {
 		if tw.ID == "" || tw.Text == "" || tw.PostedAt.Before(cutoff) {
@@ -351,7 +357,7 @@ func ingestJSON(db *sql.DB, src source, raw []byte, cutoff time.Time) (int, erro
 		if tw.PostedAt.IsZero() {
 			tw.PostedAt = time.Now().UTC()
 		}
-		_, err := db.Exec(`
+		_, err := tx.Exec(`
 			INSERT INTO tweets(id, source_id, author_handle, author_name, text, url, posted_at, like_count, repost_count, reply_count, quote_count, raw_json, fetched_at)
 			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
@@ -375,6 +381,9 @@ func ingestJSON(db *sql.DB, src source, raw []byte, cutoff time.Time) (int, erro
 			return count, err
 		}
 		count++
+	}
+	if err := tx.Commit(); err != nil {
+		return count, err
 	}
 	return count, nil
 }
@@ -728,18 +737,22 @@ type scoreScanner struct {
 }
 
 func (s scoreScanner) Scan(src any) error {
+	var n int
+	var err error
 	switch x := src.(type) {
 	case int64:
-		s.scores[s.key] = int(x)
+		n = int(x)
 	case int:
-		s.scores[s.key] = x
+		n = x
 	case []byte:
-		n, _ := strconv.Atoi(string(x))
-		s.scores[s.key] = n
+		n, err = strconv.Atoi(string(x))
 	default:
-		n, _ := strconv.Atoi(fmt.Sprint(x))
-		s.scores[s.key] = n
+		n, err = strconv.Atoi(fmt.Sprint(x))
 	}
+	if err != nil {
+		return err
+	}
+	s.scores[s.key] = n
 	return nil
 }
 
