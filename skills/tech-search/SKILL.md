@@ -165,9 +165,12 @@ For authoritative sources: `site:simonwillison.net`, `site:jvns.ca`, `site:danlu
 [High/Medium/Low] based on volume and agreement.
 ```
 
+If combined with `/repo-eval` or if the user requests a `.md` report, produce a Markdown report under `~/Workspace/reports/` and verify it exists before finalizing. Preserve source-specific sections, include direct thread/post links, distinguish amplification from substantive critique, and explicitly state when a source was skipped because credentials such as `DISCORD_TOKEN` were unavailable.
+
 ## Rules
 
 - Always include direct links. Never fabricate quotes or links.
+- If the topic is a specific post/announcement that links to a repo, product, or paper, structure the report around the post's claims and public discussion first. Treat linked artifacts as evidence, not as the primary subject, unless the user explicitly asks for adoption-focused eval.
 - Prefer recent results (last 6 months).
 - Run searches in parallel. Cap at ~12 total calls.
 - Deduplicate cross-platform mentions.

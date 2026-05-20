@@ -45,7 +45,7 @@ for f in new_facts:
     print(f"  [{len(f)} chars] {f}")
 ```
 
-**Fix**: Consolidate redundant entries in Hermes memory using the `memory` tool. Merge related facts (e.g., all Inworld layoff details into one entry). Remove one-time facts (e.g., "backup complete"). Then re-run `sync.py memory-to-vault` to re-export. Verify with `hermes hooks doctor`.
+**Fix**: Consolidate redundant entries in Hermes memory using the `memory` tool. Merge related facts (e.g., all project transition details into one entry). Remove one-time facts (e.g., "backup complete"). Then re-run `sync.py memory-to-vault` and force-push the corrected vault branch. Verify with `hermes hooks doctor`.
 
 ## Hook approval loop
 
