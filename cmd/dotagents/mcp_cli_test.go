@@ -32,9 +32,6 @@ agents:
   - name: droid
     enabled: true
     skill_root: ~/.factory/skills
-  - name: openclaw
-    enabled: true
-    skill_root: ~/.openclaw/skills
 mcp_servers: []
 `)
 	if err := os.WriteFile(path, data, 0o644); err != nil {
@@ -247,7 +244,7 @@ env = { TOKEN = 'secret', HASH = 'keep#value' }
 func TestMCPCLIRejectsUnsupportedAgent(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "dotagents.yaml")
 	writeTestDotagentsConfig(t, configPath)
-	if err := runMCP([]string{"add", "bad", "--command", mcpTestUVXCommand, "--agents", "openclaw", "--config", configPath}); err == nil {
-		t.Fatal("mcp add with openclaw succeeded, want error")
+	if err := runMCP([]string{"add", "bad", "--command", mcpTestUVXCommand, "--agents", "unsupported-agent", "--config", configPath}); err == nil {
+		t.Fatal("mcp add with unknown agent succeeded, want error")
 	}
 }
