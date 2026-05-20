@@ -2,7 +2,7 @@
 
 Private repo for my shared authored `~/.agents` layer.
 
-This repo is under active development and currently holds shared rules, cross-tool skills, and small agent-native config parity such as managed MCP entries for Amp, Claude Code, Codex, Hermes Agent, Factory Droid, and OpenClaw.
+This repo is under active development and currently holds shared rules, cross-tool skills, lifecycle hooks, and small agent-native config parity such as managed MCP entries for Amp, Claude Code, Codex, Hermes Agent, and Factory Droid.
 
 ## Agent instructions
 
@@ -46,7 +46,7 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `tmux` - generic tmux reference for sessions, windows, panes, screen capture, and input.
 - `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
 - `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
-- `gws` - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex/OpenClaw and CLI helpers.
+- `gws` - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex and CLI helpers.
 - `humanizer` - final-pass rewriting for concise writing that keeps the user's voice.
 - `jobs` - track job search pipeline, analyze fit for postings, generate interview quizzes, grade answers.
 - `remote-access` - search local Droid/Codex sessions and send scoped continuation instructions through the Mac bridge from mobile.
@@ -74,14 +74,14 @@ external_skills:
 
 Dotagents keeps `~/.agents` as the source of truth and adapts each agent through symlinks, targeted config patches, or generated native files. Do not commit agent-specific project runtime directories such as `.amp/` or `.hermes/` to this repo.
 
-| Agent | Shared skills | Native subagents | MCP sync | Root instructions | Integration notes |
-|---|---|---|---|---|---|
-| Claude Code | Symlink mirror to `~/.claude/skills` | Generated to `~/.claude/agents` | `~/.claude/settings.json` | `CLAUDE.md` shim points to `AGENTS.md` | Full managed mirror for skills and roles. |
-| Codex | Symlink mirror to `~/.codex/skills` | Generated to `~/.codex/agents` | `~/.codex/config.toml` | Reads `AGENTS.md` | Full managed mirror for skills and roles. |
-| Amp | Config path to `~/.agents/skills` | Not managed | Amp settings `amp.mcpServers` | Reads `AGENTS.md` | Uses `amp.skills.path`; patches an existing ignored workspace `.amp/settings.*` only when Amp would give it precedence. |
-| Hermes | Config path to `~/.agents/skills` | Not managed | `~/.hermes/config.yaml` | Reads configured Hermes context | Uses `skills.external_dirs`; do not mirror into `~/.hermes/skills` because bundled categories can collide. |
-| Factory Droid | Symlink mirror to `~/.factory/skills` | Generated to `~/.factory/droids` | `~/.factory/mcp.json` | `~/.factory/AGENTS.md` symlink | Full managed mirror for skills and roles. |
-| OpenClaw | Symlink mirror to `~/.openclaw/skills` | Not managed | Not managed | Reads its own config | Skills only today. |
+| Agent | Shared skills | Native subagents | MCP sync | Hook sync | Root instructions | Integration notes |
+|---|---|---|---|---|---|---|
+| Claude Code | Symlink mirror to `~/.claude/skills` | Generated to `~/.claude/agents` | `~/.claude/settings.json` | `~/.claude/settings.json` | `CLAUDE.md` shim points to `AGENTS.md` | Full managed mirror for skills, roles, MCP, and supported hooks. |
+| Codex | Symlink mirror to `~/.codex/skills` | Generated to `~/.codex/agents` | `~/.codex/config.toml` | Not managed | Reads `AGENTS.md` | Full managed mirror for skills and roles; hooks are not managed until Codex exposes a supported hook surface. |
+| Amp | Config path to `~/.agents/skills` | Not managed | Amp settings `amp.mcpServers` | Not managed | Reads `AGENTS.md` | Uses `amp.skills.path`; patches an existing ignored workspace `.amp/settings.*` only when Amp would give it precedence. |
+| Hermes | Config path to `~/.agents/skills` | Not managed | `~/.hermes/config.yaml` | `~/.hermes/config.yaml` for known lifecycle hooks | Reads configured Hermes context | Uses `skills.external_dirs`; do not mirror into `~/.hermes/skills` because bundled categories can collide. |
+| Factory Droid | Symlink mirror to `~/.factory/skills` | Generated to `~/.factory/droids` | `~/.factory/mcp.json` | Not managed | `~/.factory/AGENTS.md` symlink | Full managed mirror for skills and roles. |
+Managed hook declarations live in `dotagents.yaml`. `dotagents sync` may patch supported hook config, but it never approves hook execution. Host-specific hook approval remains manual and lifecycle-sensitive.
 
 ## Experimental
 

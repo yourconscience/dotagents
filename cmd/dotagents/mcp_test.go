@@ -550,11 +550,11 @@ func TestAmpSettingsPathPrefersExistingWorkspaceSettings(t *testing.T) {
 
 func TestUnsupportedMCPAgentErrors(t *testing.T) {
 	home := t.TempDir()
-	if _, err := inspectMCPServer("openclaw", testMCPServer(), home); err == nil {
-		t.Fatal("inspectMCPServer(openclaw) succeeded, want error")
+	if _, err := inspectMCPServer("unsupported-agent", testMCPServer(), home); err == nil {
+		t.Fatal("inspectMCPServer(unsupported-agent) succeeded, want error")
 	}
-	if err := patchMCPServer("openclaw", testMCPServer(), home); err == nil {
-		t.Fatal("patchMCPServer(openclaw) succeeded, want error")
+	if err := patchMCPServer("unsupported-agent", testMCPServer(), home); err == nil {
+		t.Fatal("patchMCPServer(unsupported-agent) succeeded, want error")
 	}
 }
 
@@ -572,8 +572,8 @@ func TestDesiredMCPServersEmptyAgentsOnlyTargetsSupportedAgents(t *testing.T) {
 	if got := desiredMCPServersForAgent(cfg, agentClaudeCode); len(got) != 1 || got[0].Name != "default" {
 		t.Fatalf("desiredMCPServersForAgent(%q) = %#v, want default server", agentClaudeCode, got)
 	}
-	if got := desiredMCPServersForAgent(cfg, "openclaw"); len(got) != 0 {
-		t.Fatalf("desiredMCPServersForAgent(openclaw) = %#v, want no servers", got)
+	if got := desiredMCPServersForAgent(cfg, "unsupported-agent"); len(got) != 0 {
+		t.Fatalf("desiredMCPServersForAgent(unsupported-agent) = %#v, want no servers", got)
 	}
 }
 
