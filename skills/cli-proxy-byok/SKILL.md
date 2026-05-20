@@ -16,13 +16,13 @@ Local cli-proxy models are user-authenticated through local provider credentials
 ## Discovery
 
 1. Read `~/.cli-proxy-api/merged-config.yaml` for `host`, `port`, and `auth-dir`.
-2. Query the OpenAI-compatible model surface:
+2. Query the OpenAI-compatible model surface using the discovered `host` and `port`:
 
 ```bash
-curl -s "http://127.0.0.1:8318/v1/models"
+curl -s "http://<host>:<port>/v1/models"
 ```
 
-3. Inspect only metadata from `~/.cli-proxy-api/*.json`:
+3. Inspect only metadata from the discovered `<auth-dir>/*.json`:
    - `type`
    - `email`
    - `disabled`
@@ -55,7 +55,9 @@ The `id` can be misleading. For example, a `claude-*` or `gpt-*` model with `own
 
 ## Current expected BYOK families
 
-Gemini BYOK examples observed from cli-proxy:
+These are examples observed from a local cli-proxy instance. Do not treat them as a public vendor catalog, and prefer the live `/v1/models` result when it differs.
+
+Gemini BYOK examples:
 
 ```text
 gemini-2.5-flash
@@ -67,7 +69,7 @@ gemini-3.1-flash-lite-preview
 gemini-3.1-pro-preview
 ```
 
-Antigravity BYOK examples observed from cli-proxy:
+Antigravity BYOK examples:
 
 ```text
 claude-opus-4-6-thinking
@@ -83,8 +85,6 @@ gemini-3.5-flash-low
 gemini-pro-agent
 gpt-oss-120b-medium
 ```
-
-Prefer the live `/v1/models` result over this static list when they differ.
 
 ## Reporting
 
