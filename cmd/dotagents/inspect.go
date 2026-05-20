@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	stateMissing  = "missing"
-	stateConflict = "conflict"
-	stateSynced   = "synced"
-	stateDrifted  = "drifted"
+	stateMissing     = "missing"
+	stateConflict    = "conflict"
+	stateSynced      = "synced"
+	stateDrifted     = "drifted"
+	stateUnsupported = "unsupported"
 )
 
 func expectedSkills(repoRoot string, home string, cfg config) (map[string]string, error) {
@@ -199,6 +200,9 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
 		return agentReport{}, err
 	}
+	if err := augmentHookReport(&report, agent, cfg, home); err != nil {
+		return agentReport{}, err
+	}
 	if err := inspectAgentRoles(&report, repoRoot, agent); err != nil {
 		return agentReport{}, err
 	}
@@ -218,6 +222,9 @@ func isReportSynced(report agentReport) bool {
 		return false
 	}
 	if len(report.MissingMCP) > 0 || len(report.DriftedMCP) > 0 || len(report.MissingAgent) > 0 || len(report.DriftedAgent) > 0 {
+		return false
+	}
+	if len(report.MissingHook) > 0 || len(report.DriftedHook) > 0 {
 		return false
 	}
 	return report.RootState == "" || report.RootState == stateSynced
@@ -279,9 +286,12 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
 		return agentReport{}, err
 	}
+	if err := augmentHookReport(&report, agent, cfg, home); err != nil {
+		return agentReport{}, err
+	}
 
 	sortReportLists(&report)
-	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0
+	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0 && len(report.MissingHook) == 0 && len(report.DriftedHook) == 0
 	return report, nil
 }
 
@@ -338,9 +348,12 @@ func inspectHermesAgent(agent agentConfig, agentsSkillRoot string, cfg config, h
 	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
 		return agentReport{}, err
 	}
+	if err := augmentHookReport(&report, agent, cfg, home); err != nil {
+		return agentReport{}, err
+	}
 
 	sortReportLists(&report)
-	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0
+	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0 && len(report.MissingHook) == 0 && len(report.DriftedHook) == 0
 	return report, nil
 }
 
