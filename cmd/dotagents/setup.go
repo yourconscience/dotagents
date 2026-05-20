@@ -131,8 +131,6 @@ func patchAgentConfig(agent agentConfig, home string) (bool, error) {
 		return patchAmpConfig(home)
 	case agentHermes:
 		return patchHermesConfig(home)
-	case "openclaw":
-		return patchOpenClawConfig(home)
 	default:
 		return false, nil
 	}
@@ -274,69 +272,6 @@ func patchHermesConfig(home string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("marshal: %w", err)
 	}
-	if err := os.WriteFile(configPath, out, 0o644); err != nil {
-		return false, fmt.Errorf("write %s: %w", configPath, err)
-	}
-	return true, nil
-}
-
-func patchOpenClawConfig(home string) (bool, error) {
-	configPath := filepath.Join(home, ".openclaw", "openclaw.json")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("read %s: %w", configPath, err)
-	}
-
-	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return false, fmt.Errorf("parse %s: %w", configPath, err)
-	}
-
-	skillsRaw, ok := raw["skills"]
-	if !ok {
-		skillsRaw = map[string]interface{}{}
-		raw["skills"] = skillsRaw
-	}
-	skills, ok := skillsRaw.(map[string]interface{})
-	if !ok {
-		return false, fmt.Errorf("skills key in %s is not a map", configPath)
-	}
-
-	loadRaw, ok := skills["load"]
-	if !ok {
-		loadRaw = map[string]interface{}{}
-		skills["load"] = loadRaw
-	}
-	load, ok := loadRaw.(map[string]interface{})
-	if !ok {
-		return false, fmt.Errorf("skills.load in %s is not a map", configPath)
-	}
-
-	dirsRaw, ok := load["extraDirs"]
-	if ok {
-		dirs, ok := dirsRaw.([]interface{})
-		if ok {
-			for _, d := range dirs {
-				if s, ok := d.(string); ok && s == ampSkillsPath {
-					return false, nil
-				}
-			}
-			load["extraDirs"] = append(dirs, ampSkillsPath)
-		} else {
-			load["extraDirs"] = []interface{}{ampSkillsPath}
-		}
-	} else {
-		load["extraDirs"] = []interface{}{ampSkillsPath}
-	}
-
-	out, err := json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		return false, fmt.Errorf("marshal: %w", err)
-	}
-	out = append(out, '\n')
 	if err := os.WriteFile(configPath, out, 0o644); err != nil {
 		return false, fmt.Errorf("write %s: %w", configPath, err)
 	}
