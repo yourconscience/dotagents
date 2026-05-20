@@ -99,7 +99,7 @@ Produce:
 - Gap questions: ask what the user has actually done (separate experience gaps from profile keyword gaps)
 - Concrete items to add to resume and LinkedIn profile
 
-Be specific. Not "highlight leadership" but "add the Inworld eval pipeline ownership story with team adoption metrics."
+Be specific. Not "highlight leadership" but "add the eval pipeline ownership story with team adoption metrics."
 
 ### 3. Comp research
 
@@ -167,4 +167,4 @@ Do not pull new evidence.
 
 ## User Context
 
-Bias fit-gap analysis toward the candidate's profile and job search direction in `~/Workspace/knowledge/profile/USER.md`.
+Bias fit-gap analysis toward the candidate's profile and job search direction in `$KNOWLEDGE_DIR/profile/USER.md`.
