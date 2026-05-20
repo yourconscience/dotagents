@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -46,8 +45,12 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(repoLink, "dotagents") {
-		t.Fatalf("~/.agents target = %q, want dotagents repo", repoLink)
+	repoRoot, _, err := findRoots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Clean(repoLink) != filepath.Clean(repoRoot) {
+		t.Fatalf("~/.agents target = %q, want %q", repoLink, repoRoot)
 	}
 
 	settingsPath := filepath.Join(home, ".config", "amp", "settings.json")
