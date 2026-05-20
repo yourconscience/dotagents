@@ -57,6 +57,19 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
 
+## External Skills
+
+Skills from external git repos can be synced alongside local skills. Declare sources in `dotagents.yaml`:
+
+```yaml
+external_skills:
+  - url: https://github.com/yourconscience/dotknow
+    skill_dir: skill
+    branch: main
+```
+
+`dotagents sync` clones or updates each repo into `~/.agents/external/<repo-name>/` and symlinks discovered skills into agent skill roots. `dotagents status` shows external sources with their commit hash. `dotagents doctor` validates that clones exist and contain valid skills.
+
 ## Agent Integration Status
 
 Dotagents keeps `~/.agents` as the source of truth and adapts each agent through symlinks, targeted config patches, or generated native files. Do not commit agent-specific project runtime directories such as `.amp/` or `.hermes/` to this repo.

@@ -55,6 +55,7 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkMemsearchIndex(home))
 	results = append(results, checkHermesHooks(home, cfg))
 	results = append(results, checkExternalPackageAge(repoRoot, cfg, opts.SkipPackageAge, timeNow()))
+	results = append(results, checkExternalSkillSources(cfg, home))
 
 	fmt.Println("checks:")
 	labelWidth := 0
@@ -441,4 +442,47 @@ func checkHermesHooks(home string, cfg config) checkResult {
 		return checkResult{"hermes hooks", checkStatusWarn, "hooks section present but empty"}
 	}
 	return checkResult{"hermes hooks", checkStatusPass, fmt.Sprintf("%d hook configured", count)}
+}
+
+func checkExternalSkillSources(cfg config, home string) checkResult {
+	if len(cfg.ExternalSkills) == 0 {
+		return checkResult{"external skills", checkStatusPass, "none configured"}
+	}
+	cacheRoot := externalCacheDir(home)
+	var issues []string
+	valid := 0
+	for _, src := range cfg.ExternalSkills {
+		name := repoName(src.URL)
+		cachePath := filepath.Join(cacheRoot, name)
+		if !hasDir(filepath.Join(cachePath, ".git")) {
+			issues = append(issues, fmt.Sprintf("%s not cloned", name))
+			continue
+		}
+		skillBase := filepath.Join(cachePath, src.SkillDir)
+		if !hasDir(skillBase) {
+			issues = append(issues, fmt.Sprintf("%s missing skill_dir %s", name, src.SkillDir))
+			continue
+		}
+		hasSkill := hasFile(filepath.Join(skillBase, "SKILL.md"))
+		if !hasSkill {
+			entries, err := os.ReadDir(skillBase)
+			if err == nil {
+				for _, e := range entries {
+					if e.IsDir() && hasFile(filepath.Join(skillBase, e.Name(), "SKILL.md")) {
+						hasSkill = true
+						break
+					}
+				}
+			}
+		}
+		if !hasSkill {
+			issues = append(issues, fmt.Sprintf("%s has no SKILL.md in %s", name, src.SkillDir))
+			continue
+		}
+		valid++
+	}
+	if len(issues) > 0 {
+		return checkResult{"external skills", checkStatusWarn, strings.Join(issues, "; ")}
+	}
+	return checkResult{"external skills", checkStatusPass, fmt.Sprintf("%d sources valid", valid)}
 }

@@ -27,6 +27,10 @@ agents:
     enabled: true
     detect: openclaw
     skill_root: ~/.openclaw/skills
+external_skills:
+  - url: https://github.com/yourconscience/dotknow
+    skill_dir: skill
+    branch: main
 mcp_servers:
   - name: linkedin
     enabled: true

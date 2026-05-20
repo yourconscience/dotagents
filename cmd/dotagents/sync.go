@@ -20,7 +20,7 @@ func runStatus(opts runOptions) error {
 		return err
 	}
 
-	expected, err := expectedSkills(repoRoot, home)
+	expected, err := expectedSkills(repoRoot, home, cfg)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func runStatus(opts runOptions) error {
 		return err
 	}
 
-	printReport("status", repoRoot, repoReport, reports)
+	printReport("status", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
 	if repoReport.State != stateSynced {
 		return errors.New("dotagents is not fully synced")
 	}
@@ -52,8 +52,19 @@ func runSync(opts runOptions) error {
 	if err != nil {
 		return err
 	}
+	if repoReport.State == stateConflict {
+		printReport("sync", repoRoot, repoReport, nil, home, cfg.ExternalSkills)
+		return fmt.Errorf("sync aborted due to conflicts: repo link: %s", repoReport.Path)
+	}
+	if err := applyRepoLink(repoReport); err != nil {
+		return err
+	}
 
-	expected, err := expectedSkills(repoRoot, home)
+	if err := syncExternalRepos(cfg.ExternalSkills, home); err != nil {
+		return err
+	}
+
+	expected, err := expectedSkills(repoRoot, home, cfg)
 	if err != nil {
 		return err
 	}
@@ -64,21 +75,14 @@ func runSync(opts runOptions) error {
 	preflight := cloneReports(reports)
 
 	var conflicts []string
-	if repoReport.State == stateConflict {
-		conflicts = append(conflicts, fmt.Sprintf("repo link: %s", repoReport.Path))
-	}
 	for _, report := range reports {
 		for _, conflict := range report.Conflicts {
 			conflicts = append(conflicts, fmt.Sprintf("%s: %s", report.Name, conflict))
 		}
 	}
 	if len(conflicts) > 0 {
-		printReport("sync", repoRoot, repoReport, reports)
+		printReport("sync", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
 		return fmt.Errorf("sync aborted due to conflicts: %s", strings.Join(conflicts, "; "))
-	}
-
-	if err := applyRepoLink(repoReport); err != nil {
-		return err
 	}
 	if err := applyAgentSync(reports, expected); err != nil {
 		return err
@@ -103,7 +107,7 @@ func runSync(opts runOptions) error {
 	}
 	restoreSyncActions(reports, preflight)
 
-	printReport("sync", repoRoot, repoReport, reports)
+	printReport("sync", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
 	return nil
 }
 
