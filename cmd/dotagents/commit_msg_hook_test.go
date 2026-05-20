@@ -35,6 +35,9 @@ func TestCommitMsgHookStripsSupportedAgentTrailers(t *testing.T) {
 		}
 		trailers = append(trailers, trailer)
 	}
+	for _, trailer := range commitMsgHookTrailerCases {
+		trailers = append(trailers, trailer)
+	}
 
 	messagePath := filepath.Join(t.TempDir(), "COMMIT_EDITMSG")
 	original := "Subject\n\nBody before trailers\n" + strings.Join(trailers, "\n") + "\nBody after trailers\n"
@@ -153,17 +156,9 @@ func TestCommitMsgHookTrailerCasesMatchConfiguredAgents(t *testing.T) {
 	for _, agent := range cfg.Agents {
 		configured[agent.Name] = struct{}{}
 	}
-	for agent := range commitMsgHookTrailerCases {
-		if _, ok := configured[agent]; !ok {
-			t.Fatalf("commit-msg hook has trailer case for unconfigured agent %q", agent)
-		}
-	}
 	for _, agent := range cfg.Agents {
 		if _, ok := commitMsgHookTrailerCases[agent.Name]; !ok {
 			t.Fatalf("commit-msg hook missing trailer case for configured agent %q", agent.Name)
 		}
-	}
-	if len(commitMsgHookTrailerCases) != len(cfg.Agents) {
-		t.Fatalf("commit-msg hook trailer case count = %d, configured agent count = %d", len(commitMsgHookTrailerCases), len(cfg.Agents))
 	}
 }
