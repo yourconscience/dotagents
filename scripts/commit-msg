@@ -1,0 +1,5 @@
+#!/bin/sh
+# Strip Co-authored-by trailers added by coding agents (Droid, Copilot, etc.).
+# Install: cp scripts/commit-msg .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
+# Or symlink into any repo's .git/hooks/ to enforce the same policy.
+sed -i.bak '/^Co-authored-by:/d' "$1" && rm -f "$1.bak"
