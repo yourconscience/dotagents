@@ -80,7 +80,7 @@ Next action: <single command or instruction>
 - Droid: `droid search --json`, `~/.factory/sessions/**`, `droid exec --session-id`, `droid exec --fork`
 - Codex: `~/.codex` history/session stores and local continuation commands when available
 - Git: `git status --short --branch`, `git diff --stat`, recent commits
-- Cached fallback: synced knowledge vault at `~/Workspace/knowledge`
+- Cached fallback: synced knowledge vault at `$KNOWLEDGE_DIR`
 
 ## Bridge maintenance
 
