@@ -1,13 +1,100 @@
 ---
 name: remote-access
-description: Search local Droid/Codex sessions and send scoped continuation instructions through the Mac bridge when using Hermes from mobile.
+description: Use mobile-friendly remote coding access, preferring Untether for multi-agent Telegram control and the Mac bridge for read-only local Droid/Codex inspection from Hermes.
 ---
 
 # remote-access
 
-Use this when the user is on mobile and wants Hermes on the VPS to inspect or lightly continue local Mac agent work.
+Use this when the user is on mobile and wants to inspect, continue, or control coding agents remotely.
 
-Do not use this for session transfer, live terminal sharing, tmux, Warp/TUI scraping, or unrestricted shell access.
+Prefer **Untether** when the request is to run or control agents from a phone. Untether is the first-class mobile control plane for provider-agnostic agent work because it bridges Telegram to Claude Code, Codex, OpenCode, Pi, Gemini CLI, and Amp.
+
+Use the **Mac bridge** path when Hermes on the VPS needs to inspect or lightly continue existing local Mac Droid/Codex work without exposing a terminal.
+
+Do not use the Mac bridge for session transfer, live terminal sharing, tmux, Warp/TUI scraping, or unrestricted shell access. For live phone control, use Untether, mobile SSH, or a web terminal instead of extending the Mac bridge beyond its narrow inspection/ask API.
+
+## Choose the path
+
+| Need | Use | Notes |
+|---|---|---|
+| Start/control agents from phone | Untether | Best default for mobile. Telegram text/voice, progress streaming, approvals, `/health`, `/stats`, `/continue`. |
+| Provider-agnostic mobile workflow | Untether | Supports Claude Code, Codex, OpenCode, Pi, Gemini CLI, and Amp. |
+| Inspect local Mac sessions from Hermes/VPS | Mac bridge | Read-only status/search plus scoped Droid continuation instructions. |
+| Full live terminal on phone | Mobile SSH / ttyd / WeTTY | Keep tmux as truth; do not use the Mac bridge for this. |
+| Desktop visual cockpit | cmux / tmux | Useful locally; not the preferred phone access layer. |
+
+## Untether mobile control plane
+
+Untether is appropriate when the user asks for `/mobile-access`, phone control, Telegram control, Takopi-style workflows, or multi-agent mobile access.
+
+Install or update:
+
+```bash
+uv tool install untether
+uv tool upgrade untether
+```
+
+Initial setup:
+
+```bash
+untether --onboard
+```
+
+Register a project from the repo root:
+
+```bash
+untether init <alias>
+untether init <alias> --default
+```
+
+Important hardening before using it for real work:
+
+```toml
+[transports.telegram]
+allowed_user_ids = [123456789]
+
+[engines.amp]
+dangerously_allow_all = false
+```
+
+Use `untether chat-id` to capture the Telegram user/chat IDs. Protect the config because it contains the Telegram bot token:
+
+```bash
+chmod 600 ~/.untether/untether.toml
+```
+
+Run diagnostics:
+
+```bash
+untether doctor
+untether plugins --load
+```
+
+Useful Telegram commands:
+
+```text
+/agent              show or set engine
+/claude ...         run Claude Code
+/codex ...          run Codex
+/amp ...            run Amp
+/continue ...       resume latest local CLI session where supported
+/health             process and trigger health
+/stats              per-engine run counts and durations
+/usage              usage/cost where supported
+/cancel             stop current run
+/config             inline settings
+```
+
+Security notes:
+
+- Empty `allowed_user_ids` means anyone who discovers the bot can start runs.
+- Untether runs engine CLIs on the host; project allowlists and conservative engine approval settings matter.
+- Claude/Pi have subprocess environment allowlisting in Untether v0.35.2; Codex/Gemini/OpenCode/Amp may inherit more parent environment, so do not run it from a shell containing broad secrets.
+- Amp support is useful but should not default to all-access mode.
+
+Untether complements cmux/tmux rather than replacing them: use cmux/tmux as the local cockpit and Untether as the phone-native control plane.
+
+## Mac bridge inspection path
 
 ## What it does
 
