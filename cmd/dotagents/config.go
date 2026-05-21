@@ -171,6 +171,41 @@ func validateConfig(cfg *config, home string, expand bool) error {
 		}
 	}
 
+	seenPlugins := make(map[string]struct{})
+	for i := range cfg.Plugins {
+		cfg.Plugins[i].Name = strings.TrimSpace(cfg.Plugins[i].Name)
+		cfg.Plugins[i].Source = strings.TrimSpace(cfg.Plugins[i].Source)
+		cfg.Plugins[i].Format = normalizePluginFormat(cfg.Plugins[i].Format)
+		cfg.Plugins[i].Description = strings.TrimSpace(cfg.Plugins[i].Description)
+		cfg.Plugins[i].Review = strings.TrimSpace(cfg.Plugins[i].Review)
+		if cfg.Plugins[i].Name == "" {
+			return errors.New("config plugin name cannot be empty")
+		}
+		if cfg.Plugins[i].Enabled && cfg.Plugins[i].Source == "" {
+			return fmt.Errorf("config plugin %s is enabled but missing source", cfg.Plugins[i].Name)
+		}
+		if _, ok := seenPlugins[cfg.Plugins[i].Name]; ok {
+			return fmt.Errorf("config plugin %s is duplicated", cfg.Plugins[i].Name)
+		}
+		seenPlugins[cfg.Plugins[i].Name] = struct{}{}
+		if !isSupportedPluginFormat(cfg.Plugins[i].Format) {
+			return fmt.Errorf("config plugin %s has unsupported format %q", cfg.Plugins[i].Name, cfg.Plugins[i].Format)
+		}
+		for j := range cfg.Plugins[i].Surfaces {
+			cfg.Plugins[i].Surfaces[j] = normalizePluginSurface(cfg.Plugins[i].Surfaces[j])
+			if !isSupportedPluginSurface(cfg.Plugins[i].Surfaces[j]) {
+				return fmt.Errorf("config plugin %s has unsupported surface %q", cfg.Plugins[i].Name, cfg.Plugins[i].Surfaces[j])
+			}
+		}
+		for j := range cfg.Plugins[i].Agents {
+			cfg.Plugins[i].Agents[j] = normalizeAgentName(cfg.Plugins[i].Agents[j])
+			agentName := cfg.Plugins[i].Agents[j]
+			if _, ok := seen[agentName]; !ok {
+				return fmt.Errorf("config plugin %s targets unknown agent %q", cfg.Plugins[i].Name, agentName)
+			}
+		}
+	}
+
 	return nil
 }
 

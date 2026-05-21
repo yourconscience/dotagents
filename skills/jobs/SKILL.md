@@ -167,4 +167,4 @@ Do not pull new evidence.
 
 ## User Context
 
-Bias fit-gap analysis toward the candidate's profile and job search direction in `~/Workspace/knowledge/profile/USER.md`.
+Bias fit-gap analysis toward the candidate's profile and job search direction in `$KNOWLEDGE_DIR/profile/USER.md`.
