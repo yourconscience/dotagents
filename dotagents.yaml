@@ -23,15 +23,156 @@ agents:
     detect: droid
     skill_root: ~/.factory/skills
     agent_root: ~/.factory/droids
-  - name: openclaw
-    enabled: true
-    detect: openclaw
-    skill_root: ~/.openclaw/skills
 external_skills:
   - url: https://github.com/yourconscience/dotknow
     skill_dir: skill
     branch: main
+plugins:
+  - name: browser
+    enabled: true
+    source: codex:openai-bundled/browser
+    format: codex-plugin
+    description: Codex in-app browser automation.
+    surfaces:
+      - skills
+    agents:
+      - claude-code
+      - codex
+      - hermes
+      - droid
+    review: First enabled plugin. Dotagents syncs the skill surface to Claude Code/Codex/Droid and asks Hermes to load the plugin skills dir through external_dirs.
+  - name: chrome
+    enabled: false
+    source: codex:openai-bundled/chrome
+    format: codex-plugin
+    description: Codex Chrome automation with local browser state.
+    surfaces:
+      - skills
+      - native-plugin
+    agents:
+      - claude-code
+      - codex
+      - amp
+      - hermes
+      - droid
+    review: Native in Codex; cross-agent use needs a separate Chrome automation tool or MCP surface.
+  - name: build-ios-apps
+    enabled: true
+    source: codex:openai-curated/build-ios-apps
+    format: codex-plugin
+    description: Codex workflows for iOS App Intents, SwiftUI, profiling, leaks, and simulator debugging.
+    surfaces:
+      - skills
+    agents:
+      - claude-code
+      - codex
+      - hermes
+      - droid
+    review: First enabled plugin. Only the skill surface is enabled first; XcodeBuildMCP/native plugin wiring stays review-only.
+  - name: game-studio
+    enabled: false
+    source: codex:openai-curated/game-studio
+    format: codex-plugin
+    description: Codex browser-game design, implementation, asset, and playtest workflows.
+    surfaces:
+      - skills
+      - native-plugin
+    agents:
+      - claude-code
+      - codex
+      - amp
+      - hermes
+      - droid
+    review: Mostly portable as skills; native Codex plugin metadata is not portable.
+  - name: feature-dev
+    enabled: false
+    source: claude:claude-plugins-official/feature-dev
+    format: claude-plugin
+    description: Claude Code feature development workflow with exploration, architecture, and review agents.
+    surfaces:
+      - skills
+      - agents
+      - commands
+      - native-plugin
+    agents:
+      - claude-code
+      - codex
+      - amp
+      - hermes
+      - droid
+    review: Native in Claude Code; agent roles can be translated for Codex/Droid, while commands need explicit adapters.
+  - name: code-review
+    enabled: false
+    source: claude:claude-plugins-official/code-review
+    format: claude-plugin
+    description: Claude Code pull-request review command.
+    surfaces:
+      - commands
+      - native-plugin
+    agents:
+      - claude-code
+      - codex
+      - amp
+      - hermes
+      - droid
+    review: Native command surface is Claude-only; dotagents should model review as skills, hooks, MCP, or a CLI before enabling broadly.
+  - name: pr-review-toolkit
+    enabled: false
+    source: claude:claude-plugins-official/pr-review-toolkit
+    format: claude-plugin
+    description: Claude Code PR review agents for tests, comments, errors, type design, and simplification.
+    surfaces:
+      - agents
+      - commands
+      - native-plugin
+    agents:
+      - claude-code
+      - codex
+      - amp
+      - hermes
+      - droid
+    review: Agent roles are partly portable to Codex/Droid; command orchestration remains Claude-specific.
+  - name: plugin-dev
+    enabled: false
+    source: claude:claude-plugins-official/plugin-dev
+    format: claude-plugin
+    description: Claude Code toolkit for creating plugins, skills, agents, hooks, and MCP integrations.
+    surfaces:
+      - agents
+      - commands
+      - native-plugin
+    agents:
+      - claude-code
+      - codex
+      - amp
+      - hermes
+      - droid
+    review: Useful reference plugin; dotagents should keep the canonical contract in repo-owned YAML and generated adapters.
+  - name: frontend-design
+    enabled: true
+    source: claude:claude-plugins-official/frontend-design
+    format: claude-plugin
+    description: Claude Code frontend design skill for UI and UX implementation.
+    surfaces:
+      - skills
+    agents:
+      - claude-code
+      - codex
+      - hermes
+      - droid
+    review: First enabled Claude plugin. Dotagents treats it as a portable skill surface for Claude Code, Codex, Droid, and Hermes.
 mcp_servers:
+  - name: github
+    enabled: true
+    command: sh
+    args:
+      - -lc
+      - exec ~/.agents/mcp/github/server.sh
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
+    agents:
+      - claude-code
+      - codex
   - name: linkedin
     enabled: true
     command: uvx
@@ -57,3 +198,33 @@ mcp_servers:
       - amp
       - hermes
       - droid
+hooks:
+  - name: memory-session-start
+    enabled: true
+    event: SessionStart
+    command: ~/.agents/memory/hooks/session-start.sh
+    timeout: 15
+    agents:
+      - claude-code
+  - name: memory-stop
+    enabled: true
+    event: Stop
+    command: ~/.agents/memory/hooks/stop.sh
+    timeout: 15
+    agents:
+      - claude-code
+  - name: memory-session-end
+    enabled: true
+    event: SessionEnd
+    command: ~/.agents/memory/hooks/session-end.sh
+    timeout: 30
+    agents:
+      - claude-code
+      - hermes
+  - name: pr-triage-stop
+    enabled: true
+    event: Stop
+    command: ~/.agents/skills/pr-triage/hooks/stop.sh
+    timeout: 30
+    agents:
+      - claude-code

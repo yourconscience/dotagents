@@ -144,6 +144,68 @@ func validateConfig(cfg *config, home string, expand bool) error {
 		}
 	}
 
+	seenHooks := make(map[string]struct{})
+	for i := range cfg.Hooks {
+		cfg.Hooks[i].Name = strings.TrimSpace(cfg.Hooks[i].Name)
+		cfg.Hooks[i].Event = strings.TrimSpace(cfg.Hooks[i].Event)
+		cfg.Hooks[i].Command = strings.TrimSpace(cfg.Hooks[i].Command)
+		if cfg.Hooks[i].Name == "" {
+			return errors.New("config hook name cannot be empty")
+		}
+		if cfg.Hooks[i].Event == "" {
+			return fmt.Errorf("config hook %s is missing event", cfg.Hooks[i].Name)
+		}
+		if cfg.Hooks[i].Command == "" {
+			return fmt.Errorf("config hook %s is missing command", cfg.Hooks[i].Name)
+		}
+		if _, ok := seenHooks[cfg.Hooks[i].Name]; ok {
+			return fmt.Errorf("config hook %s is duplicated", cfg.Hooks[i].Name)
+		}
+		seenHooks[cfg.Hooks[i].Name] = struct{}{}
+		for j := range cfg.Hooks[i].Agents {
+			cfg.Hooks[i].Agents[j] = normalizeAgentName(cfg.Hooks[i].Agents[j])
+			agentName := cfg.Hooks[i].Agents[j]
+			if _, ok := seen[agentName]; !ok {
+				return fmt.Errorf("config hook %s targets unknown agent %q", cfg.Hooks[i].Name, agentName)
+			}
+		}
+	}
+
+	seenPlugins := make(map[string]struct{})
+	for i := range cfg.Plugins {
+		cfg.Plugins[i].Name = strings.TrimSpace(cfg.Plugins[i].Name)
+		cfg.Plugins[i].Source = strings.TrimSpace(cfg.Plugins[i].Source)
+		cfg.Plugins[i].Format = normalizePluginFormat(cfg.Plugins[i].Format)
+		cfg.Plugins[i].Description = strings.TrimSpace(cfg.Plugins[i].Description)
+		cfg.Plugins[i].Review = strings.TrimSpace(cfg.Plugins[i].Review)
+		if cfg.Plugins[i].Name == "" {
+			return errors.New("config plugin name cannot be empty")
+		}
+		if cfg.Plugins[i].Enabled && cfg.Plugins[i].Source == "" {
+			return fmt.Errorf("config plugin %s is enabled but missing source", cfg.Plugins[i].Name)
+		}
+		if _, ok := seenPlugins[cfg.Plugins[i].Name]; ok {
+			return fmt.Errorf("config plugin %s is duplicated", cfg.Plugins[i].Name)
+		}
+		seenPlugins[cfg.Plugins[i].Name] = struct{}{}
+		if !isSupportedPluginFormat(cfg.Plugins[i].Format) {
+			return fmt.Errorf("config plugin %s has unsupported format %q", cfg.Plugins[i].Name, cfg.Plugins[i].Format)
+		}
+		for j := range cfg.Plugins[i].Surfaces {
+			cfg.Plugins[i].Surfaces[j] = normalizePluginSurface(cfg.Plugins[i].Surfaces[j])
+			if !isSupportedPluginSurface(cfg.Plugins[i].Surfaces[j]) {
+				return fmt.Errorf("config plugin %s has unsupported surface %q", cfg.Plugins[i].Name, cfg.Plugins[i].Surfaces[j])
+			}
+		}
+		for j := range cfg.Plugins[i].Agents {
+			cfg.Plugins[i].Agents[j] = normalizeAgentName(cfg.Plugins[i].Agents[j])
+			agentName := cfg.Plugins[i].Agents[j]
+			if _, ok := seen[agentName]; !ok {
+				return fmt.Errorf("config plugin %s targets unknown agent %q", cfg.Plugins[i].Name, agentName)
+			}
+		}
+	}
+
 	return nil
 }
 

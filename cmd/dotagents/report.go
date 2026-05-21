@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func printReport(mode string, repoRoot string, repoReport repoLinkReport, reports []agentReport, home string, extSources []externalSkillSource) {
+func printReport(mode string, repoRoot string, repoReport repoLinkReport, reports []agentReport, home string, cfg config) {
 	fmt.Printf("dotagents %s\n", mode)
 	fmt.Printf("repo: %s\n", repoRoot)
 	fmt.Printf("~/.agents: %s", repoReport.State)
@@ -21,11 +21,11 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		}
 		fmt.Printf(")\n")
 	}
-	if len(extSources) > 0 {
+	if len(cfg.ExternalSkills) > 0 {
 		cacheRoot := externalCacheDir(home)
 		fmt.Println()
 		fmt.Println("external sources:")
-		for _, src := range extSources {
+		for _, src := range cfg.ExternalSkills {
 			name := repoName(src.URL)
 			cachePath := filepath.Join(cacheRoot, name)
 			state := "not cloned"
@@ -34,6 +34,21 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 				state = fmt.Sprintf("synced (%s)", commit)
 			}
 			fmt.Printf("  %s  %s  %s\n", name, src.URL, state)
+		}
+	}
+	if len(cfg.Plugins) > 0 {
+		fmt.Println()
+		fmt.Println("plugins:")
+		for _, plugin := range cfg.Plugins {
+			state := "example"
+			if plugin.Enabled {
+				state = "enabled"
+			}
+			fmt.Printf("  %s  %s  %s  %s\n", plugin.Name, state, plugin.Format, strings.Join(plugin.Surfaces, ","))
+			fmt.Printf("    compatibility: %s\n", pluginCompatibilitySummary(plugin))
+			if plugin.Review != "" {
+				fmt.Printf("    review: %s\n", plugin.Review)
+			}
 		}
 	}
 	fmt.Println()
@@ -80,6 +95,9 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		if len(report.ManagedMCP)+len(report.MissingMCP)+len(report.DriftedMCP) > 0 {
 			fmt.Printf("  mcp managed (%d): %s\n", len(report.ManagedMCP), displayList(report.ManagedMCP))
 		}
+		if len(report.ManagedHook)+len(report.MissingHook)+len(report.DriftedHook)+len(report.UnsupportedHook) > 0 {
+			fmt.Printf("  hook managed (%d): %s\n", len(report.ManagedHook), displayList(report.ManagedHook))
+		}
 		if len(report.Missing) > 0 {
 			fmt.Printf("  missing (%d): %s\n", len(report.Missing), displayList(report.Missing))
 		}
@@ -88,6 +106,9 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		}
 		if len(report.MissingMCP) > 0 {
 			fmt.Printf("  mcp missing (%d): %s\n", len(report.MissingMCP), displayList(report.MissingMCP))
+		}
+		if len(report.MissingHook) > 0 {
+			fmt.Printf("  hook missing (%d): %s\n", len(report.MissingHook), displayList(report.MissingHook))
 		}
 		if len(report.Drifted) > 0 {
 			fmt.Printf("  drifted (%d): %s\n", len(report.Drifted), displayList(report.Drifted))
@@ -98,6 +119,12 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		if len(report.DriftedMCP) > 0 {
 			fmt.Printf("  mcp drifted (%d): %s\n", len(report.DriftedMCP), displayList(report.DriftedMCP))
 		}
+		if len(report.DriftedHook) > 0 {
+			fmt.Printf("  hook drifted (%d): %s\n", len(report.DriftedHook), displayList(report.DriftedHook))
+		}
+		if len(report.UnsupportedHook) > 0 {
+			fmt.Printf("  hook unsupported (%d): %s\n", len(report.UnsupportedHook), displayList(report.UnsupportedHook))
+		}
 		if len(report.StaleManaged) > 0 {
 			fmt.Printf("  stale managed (%d): %s\n", len(report.StaleManaged), displayList(report.StaleManaged))
 		}
@@ -105,7 +132,7 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 			fmt.Printf("  conflicts (%d): %s\n", len(report.Conflicts), displayList(report.Conflicts))
 		}
 		if mode == "sync" {
-			fmt.Printf("  sync actions: add=%d update=%d remove=%d agent-add=%d agent-update=%d mcp-add=%d mcp-update=%d\n", len(report.Adds), len(report.Updates), len(report.Removes), len(report.AddsAgent), len(report.UpdatesAgent), len(report.AddsMCP), len(report.UpdatesMCP))
+			fmt.Printf("  sync actions: add=%d update=%d remove=%d agent-add=%d agent-update=%d mcp-add=%d mcp-update=%d hook-add=%d hook-update=%d\n", len(report.Adds), len(report.Updates), len(report.Removes), len(report.AddsAgent), len(report.UpdatesAgent), len(report.AddsMCP), len(report.UpdatesMCP), len(report.AddsHook), len(report.UpdatesHook))
 		}
 		fmt.Println()
 	}
@@ -122,21 +149,27 @@ func sortReportLists(report *agentReport) {
 	sort.Strings(report.Managed)
 	sort.Strings(report.ManagedAgent)
 	sort.Strings(report.ManagedMCP)
+	sort.Strings(report.ManagedHook)
 	sort.Strings(report.Drifted)
 	sort.Strings(report.DriftedAgent)
 	sort.Strings(report.DriftedMCP)
+	sort.Strings(report.DriftedHook)
 	sort.Strings(report.Missing)
 	sort.Strings(report.MissingAgent)
 	sort.Strings(report.MissingMCP)
+	sort.Strings(report.MissingHook)
+	sort.Strings(report.UnsupportedHook)
 	sort.Strings(report.Conflicts)
 	sort.Strings(report.StaleManaged)
 	sort.Strings(report.External)
 	sort.Strings(report.Adds)
 	sort.Strings(report.AddsAgent)
 	sort.Strings(report.AddsMCP)
+	sort.Strings(report.AddsHook)
 	sort.Strings(report.Updates)
 	sort.Strings(report.UpdatesAgent)
 	sort.Strings(report.UpdatesMCP)
+	sort.Strings(report.UpdatesHook)
 	sort.Strings(report.Removes)
 }
 
@@ -156,9 +189,11 @@ func restoreSyncActions(current []agentReport, preflight []agentReport) {
 			current[i].Adds = append([]string{}, original.Adds...)
 			current[i].AddsAgent = append([]string{}, original.AddsAgent...)
 			current[i].AddsMCP = append([]string{}, original.AddsMCP...)
+			current[i].AddsHook = append([]string{}, original.AddsHook...)
 			current[i].Updates = append([]string{}, original.Updates...)
 			current[i].UpdatesAgent = append([]string{}, original.UpdatesAgent...)
 			current[i].UpdatesMCP = append([]string{}, original.UpdatesMCP...)
+			current[i].UpdatesHook = append([]string{}, original.UpdatesHook...)
 			current[i].Removes = append([]string{}, original.Removes...)
 		}
 	}

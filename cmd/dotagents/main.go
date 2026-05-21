@@ -13,6 +13,19 @@ type config struct {
 	Agents         []agentConfig         `yaml:"agents"`
 	MCPServers     []mcpServerConfig     `yaml:"mcp_servers"`
 	ExternalSkills []externalSkillSource `yaml:"external_skills"`
+	Plugins        []pluginConfig        `yaml:"plugins,omitempty"`
+	Hooks          []hookConfig          `yaml:"hooks,omitempty"`
+}
+
+type pluginConfig struct {
+	Name        string   `yaml:"name"`
+	Enabled     bool     `yaml:"enabled"`
+	Source      string   `yaml:"source,omitempty"`
+	Format      string   `yaml:"format,omitempty"`
+	Description string   `yaml:"description,omitempty"`
+	Surfaces    []string `yaml:"surfaces,omitempty"`
+	Agents      []string `yaml:"agents,omitempty"`
+	Review      string   `yaml:"review,omitempty"`
 }
 
 type externalSkillSource struct {
@@ -37,34 +50,41 @@ type repoLinkReport struct {
 }
 
 type agentReport struct {
-	Name         string
-	SkillRoot    string
-	AgentRoot    string
-	Detected     bool
-	RootPath     string
-	RootExpected string
-	RootActual   string
-	RootState    string
-	Managed      []string
-	ManagedAgent []string
-	ManagedMCP   []string
-	Drifted      []string
-	DriftedAgent []string
-	DriftedMCP   []string
-	Missing      []string
-	MissingAgent []string
-	MissingMCP   []string
-	Conflicts    []string
-	StaleManaged []string
-	External     []string
-	Adds         []string
-	AddsAgent    []string
-	AddsMCP      []string
-	Updates      []string
-	UpdatesAgent []string
-	UpdatesMCP   []string
-	Removes      []string
-	Synced       bool
+	Name            string
+	SkillRoot       string
+	AgentRoot       string
+	ExpectedSkills  map[string]string
+	Detected        bool
+	RootPath        string
+	RootExpected    string
+	RootActual      string
+	RootState       string
+	Managed         []string
+	ManagedAgent    []string
+	ManagedMCP      []string
+	ManagedHook     []string
+	Drifted         []string
+	DriftedAgent    []string
+	DriftedMCP      []string
+	DriftedHook     []string
+	Missing         []string
+	MissingAgent    []string
+	MissingMCP      []string
+	MissingHook     []string
+	UnsupportedHook []string
+	Conflicts       []string
+	StaleManaged    []string
+	External        []string
+	Adds            []string
+	AddsAgent       []string
+	AddsMCP         []string
+	AddsHook        []string
+	Updates         []string
+	UpdatesAgent    []string
+	UpdatesMCP      []string
+	UpdatesHook     []string
+	Removes         []string
+	Synced          bool
 }
 
 func isDetected(agent agentConfig) bool {
