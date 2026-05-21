@@ -29,7 +29,7 @@ func runStatus(opts runOptions) error {
 		return err
 	}
 
-	printReport("status", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
+	printReport("status", repoRoot, repoReport, reports, home, cfg)
 	if repoReport.State != stateSynced {
 		return errors.New("dotagents is not fully synced")
 	}
@@ -53,7 +53,7 @@ func runSync(opts runOptions) error {
 		return err
 	}
 	if repoReport.State == stateConflict {
-		printReport("sync", repoRoot, repoReport, nil, home, cfg.ExternalSkills)
+		printReport("sync", repoRoot, repoReport, nil, home, cfg)
 		return fmt.Errorf("sync aborted due to conflicts: repo link: %s", repoReport.Path)
 	}
 	if err := applyRepoLink(repoReport); err != nil {
@@ -81,10 +81,10 @@ func runSync(opts runOptions) error {
 		}
 	}
 	if len(conflicts) > 0 {
-		printReport("sync", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
+		printReport("sync", repoRoot, repoReport, reports, home, cfg)
 		return fmt.Errorf("sync aborted due to conflicts: %s", strings.Join(conflicts, "; "))
 	}
-	if err := applyAgentSync(reports, expected); err != nil {
+	if err := applyAgentSync(reports); err != nil {
 		return err
 	}
 	if err := applyAgentRoleSync(reports, selected, repoRoot); err != nil {
@@ -110,7 +110,7 @@ func runSync(opts runOptions) error {
 	}
 	restoreSyncActions(reports, preflight)
 
-	printReport("sync", repoRoot, repoReport, reports, home, cfg.ExternalSkills)
+	printReport("sync", repoRoot, repoReport, reports, home, cfg)
 	return nil
 }
 
@@ -160,7 +160,7 @@ func applyRepoLink(report repoLinkReport) error {
 	}
 }
 
-func applyAgentSync(reports []agentReport, expected map[string]string) error {
+func applyAgentSync(reports []agentReport) error {
 	for _, report := range reports {
 		if !report.Detected {
 			continue
@@ -192,8 +192,12 @@ func applyAgentSync(reports []agentReport, expected map[string]string) error {
 			} else if !errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("stat %s: %w", path, err)
 			}
-			if err := os.Symlink(expected[name], path); err != nil {
-				return fmt.Errorf("symlink %s -> %s: %w", path, expected[name], err)
+			target, ok := report.ExpectedSkills[name]
+			if !ok {
+				return fmt.Errorf("%s expected skill %q has no target", report.Name, name)
+			}
+			if err := os.Symlink(target, path); err != nil {
+				return fmt.Errorf("symlink %s -> %s: %w", path, target, err)
 			}
 		}
 	}

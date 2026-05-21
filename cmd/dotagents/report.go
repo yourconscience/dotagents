@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func printReport(mode string, repoRoot string, repoReport repoLinkReport, reports []agentReport, home string, extSources []externalSkillSource) {
+func printReport(mode string, repoRoot string, repoReport repoLinkReport, reports []agentReport, home string, cfg config) {
 	fmt.Printf("dotagents %s\n", mode)
 	fmt.Printf("repo: %s\n", repoRoot)
 	fmt.Printf("~/.agents: %s", repoReport.State)
@@ -21,11 +21,11 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		}
 		fmt.Printf(")\n")
 	}
-	if len(extSources) > 0 {
+	if len(cfg.ExternalSkills) > 0 {
 		cacheRoot := externalCacheDir(home)
 		fmt.Println()
 		fmt.Println("external sources:")
-		for _, src := range extSources {
+		for _, src := range cfg.ExternalSkills {
 			name := repoName(src.URL)
 			cachePath := filepath.Join(cacheRoot, name)
 			state := "not cloned"
@@ -34,6 +34,21 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 				state = fmt.Sprintf("synced (%s)", commit)
 			}
 			fmt.Printf("  %s  %s  %s\n", name, src.URL, state)
+		}
+	}
+	if len(cfg.Plugins) > 0 {
+		fmt.Println()
+		fmt.Println("plugins:")
+		for _, plugin := range cfg.Plugins {
+			state := "example"
+			if plugin.Enabled {
+				state = "enabled"
+			}
+			fmt.Printf("  %s  %s  %s  %s\n", plugin.Name, state, plugin.Format, strings.Join(plugin.Surfaces, ","))
+			fmt.Printf("    compatibility: %s\n", pluginCompatibilitySummary(plugin))
+			if plugin.Review != "" {
+				fmt.Printf("    review: %s\n", plugin.Review)
+			}
 		}
 	}
 	fmt.Println()
