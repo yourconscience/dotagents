@@ -207,7 +207,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		report.Updates = append(report.Updates, name)
 	}
 
-	pluginSkillBases, err := pluginSkillBasesForAgent(cfg.Plugins, home, agent.Name)
+	pluginSkillBases, err := allPluginSkillBasesForAgent(cfg.Plugins, home, agent.Name)
 	if err != nil {
 		return agentReport{}, err
 	}

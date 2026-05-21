@@ -116,9 +116,23 @@ func discoverPluginSkills(plugins []pluginConfig, home string, agentName string)
 }
 
 func pluginSkillBasesForAgent(plugins []pluginConfig, home string, agentName string) ([]string, error) {
+	return pluginSkillBasesForAgentMode(plugins, home, agentName, true)
+}
+
+func allPluginSkillBasesForAgent(plugins []pluginConfig, home string, agentName string) ([]string, error) {
+	return pluginSkillBasesForAgentMode(plugins, home, agentName, false)
+}
+
+func pluginSkillBasesForAgentMode(plugins []pluginConfig, home string, agentName string, enabledOnly bool) ([]string, error) {
 	var bases []string
 	for _, plugin := range plugins {
-		if !plugin.Enabled || !pluginTargetsAgent(plugin, agentName) || !pluginHasSurface(plugin, pluginSurfaceSkills) {
+		if enabledOnly && !plugin.Enabled {
+			continue
+		}
+		if !enabledOnly && strings.TrimSpace(plugin.Source) == "" {
+			continue
+		}
+		if !pluginTargetsAgent(plugin, agentName) || !pluginHasSurface(plugin, pluginSurfaceSkills) {
 			continue
 		}
 		base, err := pluginSkillBase(plugin, home)
@@ -157,10 +171,74 @@ func pluginSkillBase(plugin pluginConfig, home string) (string, error) {
 		return filepath.Join(candidates[0], "skills"), nil
 	}
 	if len(candidates) > 1 {
-		sort.Strings(candidates)
+		sort.Slice(candidates, func(i, j int) bool {
+			return comparePluginVersionDirs(filepath.Base(candidates[i]), filepath.Base(candidates[j])) < 0
+		})
 		return filepath.Join(candidates[len(candidates)-1], "skills"), nil
 	}
 	return "", fmt.Errorf("plugin %s source %s has no skills directory", plugin.Name, source)
+}
+
+func comparePluginVersionDirs(a string, b string) int {
+	aVersion, aOK := parsePluginVersion(a)
+	bVersion, bOK := parsePluginVersion(b)
+	if aOK && bOK {
+		return comparePluginVersions(aVersion, bVersion)
+	}
+	if aOK != bOK {
+		if aOK {
+			return 1
+		}
+		return -1
+	}
+	return strings.Compare(a, b)
+}
+
+func parsePluginVersion(value string) ([]int, bool) {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "v")
+	if value == "" {
+		return nil, false
+	}
+	parts := strings.Split(value, ".")
+	version := make([]int, len(parts))
+	for i, part := range parts {
+		if part == "" {
+			return nil, false
+		}
+		n := 0
+		for _, r := range part {
+			if r < '0' || r > '9' {
+				return nil, false
+			}
+			n = n*10 + int(r-'0')
+		}
+		version[i] = n
+	}
+	return version, true
+}
+
+func comparePluginVersions(a []int, b []int) int {
+	maxLen := len(a)
+	if len(b) > maxLen {
+		maxLen = len(b)
+	}
+	for i := 0; i < maxLen; i++ {
+		aPart := 0
+		if i < len(a) {
+			aPart = a[i]
+		}
+		bPart := 0
+		if i < len(b) {
+			bPart = b[i]
+		}
+		if aPart < bPart {
+			return -1
+		}
+		if aPart > bPart {
+			return 1
+		}
+	}
+	return 0
 }
 
 func pluginSourcePath(plugin pluginConfig, home string) (string, error) {
@@ -336,7 +414,11 @@ func checkFirstPartyPlugins(cfg config) checkResult {
 			examples++
 			continue
 		}
-		for _, agent := range plugin.Agents {
+		agents := plugin.Agents
+		if len(agents) == 0 {
+			agents = []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid}
+		}
+		for _, agent := range agents {
 			state, detail := pluginCompatibility(plugin, agent)
 			if state == "unsupported" {
 				if detail != "" {

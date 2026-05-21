@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -139,8 +140,8 @@ func TestDiscoverPluginSkillsSelectsDeterministicVersion(t *testing.T) {
 	pluginRoot := filepath.Join(home, "plugin-cache")
 	t.Setenv("DOTAGENTS_CODEX_PLUGIN_ROOT", pluginRoot)
 	source := filepath.Join(pluginRoot, "openai-bundled", "browser")
-	oldSkillDir := filepath.Join(source, "0.1.0", "skills", "browser")
-	newSkillDir := filepath.Join(source, "0.2.0", "skills", "browser")
+	oldSkillDir := filepath.Join(source, "0.9.0", "skills", "browser")
+	newSkillDir := filepath.Join(source, "0.10.0", "skills", "browser")
 	for _, dir := range []string{oldSkillDir, newSkillDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
@@ -164,6 +165,61 @@ func TestDiscoverPluginSkillsSelectsDeterministicVersion(t *testing.T) {
 	}
 	if skills["browser"] != newSkillDir {
 		t.Fatalf("browser skill = %q, want %q", skills["browser"], newSkillDir)
+	}
+}
+
+func TestInspectAgentRemovesDisabledPluginSkillLinks(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	agentsSkillRoot := filepath.Join(home, ".agents", "skills")
+	source := filepath.Join(home, "plugins", "browser")
+	skillDir := filepath.Join(source, "skills", "browser")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: browser\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	agentSkillRoot := filepath.Join(home, ".codex", "skills")
+	if err := os.MkdirAll(agentSkillRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(skillDir, filepath.Join(agentSkillRoot, "browser")); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config{Plugins: []pluginConfig{{
+		Name:     "browser",
+		Enabled:  false,
+		Source:   source,
+		Surfaces: []string{pluginSurfaceSkills},
+		Agents:   []string{agentCodex},
+	}}}
+	report, err := inspectAgent(agentConfig{Name: agentCodex, SkillRoot: agentSkillRoot}, map[string]string{}, repoRoot, agentsSkillRoot, cfg, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.StaleManaged) != 1 || report.StaleManaged[0] != "browser" {
+		t.Fatalf("stale managed = %#v, want browser", report.StaleManaged)
+	}
+	if len(report.Removes) != 1 || report.Removes[0] != "browser" {
+		t.Fatalf("removes = %#v, want browser", report.Removes)
+	}
+}
+
+func TestCheckFirstPartyPluginsValidatesAllAgentTargets(t *testing.T) {
+	result := checkFirstPartyPlugins(config{Plugins: []pluginConfig{{
+		Name:     "native-codex",
+		Enabled:  true,
+		Format:   pluginFormatCodex,
+		Surfaces: []string{pluginSurfaceNative},
+	}}})
+	if result.status != checkStatusWarn {
+		t.Fatalf("status = %q, want %q", result.status, checkStatusWarn)
+	}
+	if !strings.Contains(result.detail, "native-codex:claude-code") || !strings.Contains(result.detail, "native-codex:amp") {
+		t.Fatalf("detail = %q, want unsupported all-agent targets", result.detail)
 	}
 }
 
