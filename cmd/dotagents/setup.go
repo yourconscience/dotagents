@@ -12,7 +12,7 @@ import (
 )
 
 func runSetup(opts runOptions) error {
-	repoRoot, home, _, selected, err := loadContext(opts)
+	repoRoot, home, cfg, selected, err := loadContext(opts)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func runSetup(opts runOptions) error {
 			fmt.Printf("%s: not detected, skipping\n", agent.Name)
 			continue
 		}
-		patched, err := patchAgentConfig(agent, home)
+		patched, err := patchAgentConfig(agent, home, cfg)
 		if err != nil {
 			fmt.Printf("%s: config patch failed: %v\n", agent.Name, err)
 			continue
@@ -125,12 +125,12 @@ func pathContainsDir(pathValue string, dir string) bool {
 	return false
 }
 
-func patchAgentConfig(agent agentConfig, home string) (bool, error) {
+func patchAgentConfig(agent agentConfig, home string, cfg config) (bool, error) {
 	switch agent.Name {
 	case agentAmp:
 		return patchAmpConfig(home)
 	case agentHermes:
-		return patchHermesConfig(home)
+		return patchHermesConfig(home, cfg)
 	default:
 		return false, nil
 	}
@@ -225,7 +225,7 @@ func appendAmpSkillsPath(raw string) string {
 	return strings.TrimRight(raw, ":") + ":" + ampSkillsPath
 }
 
-func patchHermesConfig(home string) (bool, error) {
+func patchHermesConfig(home string, cfg config) (bool, error) {
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -247,26 +247,39 @@ func patchHermesConfig(home string) (bool, error) {
 		return false, fmt.Errorf("skills key in %s is not a map", configPath)
 	}
 
-	targetExpanded := filepath.Join(home, ".agents", "skills")
+	targets := []string{filepath.Join(home, ".agents", "skills")}
+	pluginTargets, err := pluginSkillBasesForAgent(cfg.Plugins, home, agentHermes)
+	if err != nil {
+		return false, err
+	}
+	targets = append(targets, pluginTargets...)
+
+	existing := make(map[string]bool)
 	dirsRaw, ok := skills["external_dirs"]
+	var dirs []interface{}
 	if ok {
-		dirs, ok := dirsRaw.([]interface{})
-		if ok {
+		if existingDirs, ok := dirsRaw.([]interface{}); ok {
+			dirs = append(dirs, existingDirs...)
 			for _, d := range dirs {
 				if s, ok := d.(string); ok {
 					expanded := expandPath(strings.TrimSpace(s), home)
-					if s == ampSkillsPath || expanded == targetExpanded {
-						return false, nil
-					}
+					existing[expanded] = true
 				}
 			}
-			skills["external_dirs"] = append(dirs, ampSkillsPath)
-		} else {
-			skills["external_dirs"] = []interface{}{ampSkillsPath}
 		}
-	} else {
-		skills["external_dirs"] = []interface{}{ampSkillsPath}
 	}
+	changed := !ok
+	for _, target := range targets {
+		if existing[target] {
+			continue
+		}
+		dirs = append(dirs, hermesExternalDirValue(home, target))
+		changed = true
+	}
+	if !changed {
+		return false, nil
+	}
+	skills["external_dirs"] = dirs
 
 	out, err := yaml.Marshal(raw)
 	if err != nil {
@@ -276,6 +289,13 @@ func patchHermesConfig(home string) (bool, error) {
 		return false, fmt.Errorf("write %s: %w", configPath, err)
 	}
 	return true, nil
+}
+
+func hermesExternalDirValue(home string, target string) string {
+	if target == filepath.Join(home, ".agents", "skills") {
+		return ampSkillsPath
+	}
+	return target
 }
 
 func runPull(opts runOptions) error {
