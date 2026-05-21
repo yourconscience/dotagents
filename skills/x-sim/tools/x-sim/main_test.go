@@ -54,3 +54,26 @@ func TestEvalCommandStoresReport(t *testing.T) {
 		t.Fatalf("unexpected report:\n%s", data)
 	}
 }
+
+func TestParseWindowCutoffNormalizesUTC(t *testing.T) {
+	loc := time.FixedZone("GET", 4*60*60)
+	now := time.Date(2026, 5, 21, 12, 0, 0, 0, loc)
+	cutoff, err := parseWindowCutoff("30d", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cutoff.Location() != time.UTC {
+		t.Fatalf("cutoff location = %v, want UTC", cutoff.Location())
+	}
+	if got, want := cutoff.Format(time.RFC3339), "2026-04-21T08:00:00Z"; got != want {
+		t.Fatalf("cutoff = %s, want %s", got, want)
+	}
+}
+
+func TestParseWindowCutoffRejectsMalformedSuffix(t *testing.T) {
+	for _, raw := range []string{"1yd", "1dm", "d", "30"} {
+		if _, err := parseWindowCutoff(raw, time.Date(2026, 5, 21, 0, 0, 0, 0, time.UTC)); err == nil {
+			t.Fatalf("parseWindowCutoff(%q) succeeded, want error", raw)
+		}
+	}
+}

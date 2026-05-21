@@ -347,7 +347,9 @@ func ingestJSON(db *sql.DB, src source, raw []byte, cutoff time.Time) (int, erro
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	count := 0
 	for _, tw := range tweets {
@@ -898,7 +900,7 @@ func topTerms(tweets []tweet, n int) []string {
 
 func splitTerms(text string) []string {
 	return strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
-		return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-')
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '-'
 	})
 }
 
@@ -932,18 +934,23 @@ func parseWindowCutoff(raw string, now time.Time) (time.Time, error) {
 	if raw == "" {
 		raw = defaultRetention
 	}
-	n, err := strconv.Atoi(strings.TrimRight(raw, "dmyw"))
+	now = now.UTC()
+	if len(raw) < 2 {
+		return time.Time{}, fmt.Errorf("invalid window %q", raw)
+	}
+	unit := raw[len(raw)-1]
+	n, err := strconv.Atoi(raw[:len(raw)-1])
 	if err != nil || n <= 0 {
 		return time.Time{}, fmt.Errorf("invalid window %q", raw)
 	}
-	switch {
-	case strings.HasSuffix(raw, "d"):
+	switch unit {
+	case 'd':
 		return now.AddDate(0, 0, -n), nil
-	case strings.HasSuffix(raw, "w"):
+	case 'w':
 		return now.AddDate(0, 0, -7*n), nil
-	case strings.HasSuffix(raw, "m"):
+	case 'm':
 		return now.AddDate(0, -n, 0), nil
-	case strings.HasSuffix(raw, "y"):
+	case 'y':
 		return now.AddDate(-n, 0, 0), nil
 	default:
 		return time.Time{}, fmt.Errorf("invalid window %q; use d, w, m, or y", raw)

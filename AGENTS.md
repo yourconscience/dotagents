@@ -31,8 +31,8 @@
 - `~/.agents` is symlinked to this repo. Edit this repo, not generated mirrors.
 - Skills live under `skills/`.
 - Use the `dotagents` skill/tool for status and sync across Claude Code, Codex, Hermes, Droid, and OpenClaw.
-- Knowledge vault: `~/Workspace/knowledge/` (local git, no remote).
-- User profile: `~/Workspace/knowledge/profile/`.
+- Knowledge vault: `$KNOWLEDGE_DIR`.
+- User profile: `$KNOWLEDGE_DIR/profile/`.
 - Search index: `memsearch` collection `ai`; markdown is canonical, index is derived.
 
 # Local Sync
@@ -50,8 +50,8 @@
 
 - Preserve unrelated worktree changes: inspect `git -C <target> status` and `git worktree list` before removing, pruning, or switching worktrees, and only touch worktrees explicitly in scope.
 - Create new git worktrees only under the repository root's `.worktrees/<task-or-branch-name>`; do not use `/tmp`, `/private/tmp`, sibling workspace dirs, or tool-specific worktree dirs unless explicitly requested.
-- Commit messages: short single line; no `Co-Authored-By`.
-- Use the configured git identity.
+- Commit messages: short single line; no `Co-Authored-By` or `Co-authored-by` trailers. Agents must not add bot co-author trailers to commits. Install `hooks/commit-msg` as a git hook to strip them automatically.
+- Use the configured git identity. Do not override author or committer fields.
 - Push only when asked.
 - PR work defaults to `/pr-triage`: inspect comments/checks, fix valid feedback, and stop before merge unless merge is explicitly approved.
 - Do not post GitHub issue/PR comments directly by default. Draft, copy, and open the URL for user review, except direct replies to bot comments are allowed.
