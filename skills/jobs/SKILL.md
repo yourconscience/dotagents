@@ -99,7 +99,7 @@ Produce:
 - Gap questions: ask what the user has actually done (separate experience gaps from profile keyword gaps)
 - Concrete items to add to resume and LinkedIn profile
 
-Be specific. Not "highlight leadership" but "add the Inworld eval pipeline ownership story with team adoption metrics."
+Be specific. Not "highlight leadership" but "add the eval pipeline ownership story with team adoption metrics."
 
 ### 3. Comp research
 
