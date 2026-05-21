@@ -50,7 +50,7 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `gws` - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex and CLI helpers.
 - `humanizer` - final-pass rewriting for concise writing that keeps the user's voice.
 - `jobs` - track job search pipeline, analyze fit for postings, generate interview quizzes, grade answers.
-- `remote-access` - search local Droid/Codex sessions and send scoped continuation instructions through the Mac bridge from mobile.
+- `remote-access` - mobile-friendly agent access: prefer Untether for Telegram control of Claude Code/Codex/OpenCode/Pi/Gemini/Amp, and use the Mac bridge for read-only local Droid/Codex inspection from Hermes.
 - `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
 - `repo-eval` - find, triage, and deep-evaluate GitHub repos for a given need.
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
