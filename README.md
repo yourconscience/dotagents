@@ -1,8 +1,8 @@
 # dotagents
 
-Private repo for my shared authored `~/.agents` layer.
+Cross-agent sync CLI for managing shared skills, agent roles, and MCP servers across Claude Code, Codex, Factory Droid, Amp, Hermes, and OpenClaw from one YAML config.
 
-This repo is under active development and currently holds shared rules, cross-tool skills, lifecycle hooks, and small agent-native config parity such as managed MCP entries for Amp, Claude Code, Codex, Hermes Agent, and Factory Droid.
+This repo is the canonical `~/.agents` layer. It detects installed agent platforms, syncs shared skills and MCP entries to each platform's native format, validates drift, and self-tests.
 
 ## Agent instructions
 
@@ -42,6 +42,7 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 
 ## Skills
 
+- `bittorrent` - manage legal BitTorrent downloads, magnet links, metadata inspection, and client diagnostics.
 - `cmux` - control cmux workspaces, panes, terminal/browser surfaces, markdown viewers, and visible agent workspaces.
 - `tmux` - generic tmux reference for sessions, windows, panes, screen capture, and input.
 - `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
