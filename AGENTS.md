@@ -31,8 +31,8 @@
 - `~/.agents` is symlinked to this repo. Edit this repo, not generated mirrors.
 - Skills live under `skills/`.
 - Use the `dotagents` skill/tool for status and sync across Claude Code, Codex, Hermes, and Droid.
-- Knowledge vault: `~/Workspace/knowledge/` (local git, no remote).
-- User profile: `~/Workspace/knowledge/profile/`.
+- Knowledge vault: `$KNOWLEDGE_DIR`.
+- User profile: `$KNOWLEDGE_DIR/profile/`.
 - Search index: `memsearch` collection `ai`; markdown is canonical, index is derived.
 
 # Local Sync

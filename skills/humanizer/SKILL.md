@@ -21,8 +21,8 @@ Use whatever the user provides:
 
 If the user asks for "my style" and gives no sample, infer from the current conversation first. For higher-stakes writing, pull local context when relevant:
 
-- Profile: `~/Workspace/knowledge/profile/USER.md`
-- Work history: `~/Workspace/knowledge/profile/WORK.md`
+- Profile: `$KNOWLEDGE_DIR/profile/USER.md`
+- Work history: `$KNOWLEDGE_DIR/profile/WORK.md`
 - Job stories: `~/.agents/skills/jobs/data/story-bank.md` or `skills/jobs/data/story-bank.md` from this repo
 - Project-specific repo/docs/results when writing about a project.
 
