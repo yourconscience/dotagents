@@ -23,7 +23,7 @@ If the user asks for "my style" and gives no sample, infer from the current conv
 
 - Profile: `$KNOWLEDGE_DIR/profile/USER.md`
 - Work history: `$KNOWLEDGE_DIR/profile/WORK.md`
-- Job stories: `~/.agents/skills/jobs/data/story-bank.md` or `skills/jobs/data/story-bank.md` from this repo
+- Job stories: `$KNOWLEDGE_DIR/skills/jobs/data/story-bank.md` or `skills/jobs/data/story-bank.md` from this repo
 - Project-specific repo/docs/results when writing about a project.
 
 Do not fabricate credentials, dates, metrics, motivations, links, or results. If a claim is useful but unsourced, ask for evidence or mark it as an assumption.
