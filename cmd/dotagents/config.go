@@ -252,23 +252,65 @@ func selectAgents(cfg config, override string) ([]agentConfig, error) {
 }
 
 func findRoots() (string, string, error) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", "", errors.New("could not resolve tool source path")
+	// 1. Explicit env override
+	if env := os.Getenv("DOTAGENTS_ROOT"); env != "" {
+		root := env
+		if home, err := os.UserHomeDir(); err == nil {
+			root = expandPath(root, home)
+		}
+		if isValidRoot(root) {
+			return root, filepath.Join(root, "skills", "dotagents"), nil
+		}
+		return "", "", fmt.Errorf("DOTAGENTS_ROOT=%s is not a valid dotagents root (needs skills/ dir with dotagents.yaml)", env)
 	}
 
-	toolDir := filepath.Dir(file)
-	repoRoot := filepath.Clean(filepath.Join(toolDir, "..", ".."))
-	skillRoot := filepath.Join(repoRoot, "skills", "dotagents")
-
-	if !hasDir(filepath.Join(repoRoot, "skills")) || !hasFile(filepath.Join(repoRoot, "AGENTS.md")) {
-		return "", "", fmt.Errorf("repo root not found from %s", toolDir)
+	// 2. ~/.agents symlink (the standard user config location)
+	if home, err := os.UserHomeDir(); err == nil {
+		agentsLink := filepath.Join(home, ".agents")
+		if target, err := filepath.EvalSymlinks(agentsLink); err == nil {
+			if isValidRoot(target) {
+				return target, filepath.Join(target, "skills", "dotagents"), nil
+			}
+		}
+		if isValidRoot(agentsLink) {
+			return agentsLink, filepath.Join(agentsLink, "skills", "dotagents"), nil
+		}
 	}
-	if !hasFile(filepath.Join(skillRoot, "SKILL.md")) {
-		return "", "", fmt.Errorf("skill root not found from %s", repoRoot)
+
+	// 3. Walk CWD upward looking for dotagents.yaml
+	if cwd, err := os.Getwd(); err == nil {
+		if root := walkUpForRoot(cwd); root != "" {
+			return root, filepath.Join(root, "skills", "dotagents"), nil
+		}
 	}
 
-	return repoRoot, skillRoot, nil
+	// 4. Fall back to runtime.Caller (dev mode: binary built from source repo)
+	if _, file, _, ok := runtime.Caller(0); ok {
+		toolDir := filepath.Dir(file)
+		repoRoot := filepath.Clean(filepath.Join(toolDir, "..", ".."))
+		if isValidRoot(repoRoot) {
+			return repoRoot, filepath.Join(repoRoot, "skills", "dotagents"), nil
+		}
+	}
+
+	return "", "", errors.New("dotagents root not found; set DOTAGENTS_ROOT, create ~/.agents, or run from a directory containing dotagents.yaml")
+}
+
+func isValidRoot(path string) bool {
+	return hasDir(filepath.Join(path, "skills")) || hasFile(filepath.Join(path, "dotagents.yaml"))
+}
+
+func walkUpForRoot(dir string) string {
+	for {
+		if hasFile(filepath.Join(dir, "dotagents.yaml")) {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 func expandPath(path string, home string) string {

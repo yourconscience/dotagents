@@ -91,8 +91,13 @@ func runPromote(args []string) error {
 	prTitle := fmt.Sprintf("Add %s skill", name)
 	prBody := fmt.Sprintf("Promotes `%s` skill to dotagents shared skills.\n\nSource: local Hermes skill\nPromoted: %s", name, time.Now().Format("2006-01-02"))
 
+	repoSlug, err := gitRepoSlug(repoRoot)
+	if err != nil {
+		return fmt.Errorf("detect repo slug: %w (pass --repo or set a git remote)", err)
+	}
+
 	prOut, err := exec.Command("gh", "pr", "create",
-		"--repo", "yourconscience/dotagents",
+		"--repo", repoSlug,
 		"--base", "main",
 		"--head", branch,
 		"--title", prTitle,
@@ -191,6 +196,31 @@ func copyDir(src, dst string) error {
 
 		return copyFile(path, dstPath)
 	})
+}
+
+func gitRepoSlug(repoDir string) (string, error) {
+	out, err := exec.Command("git", "-C", repoDir, "remote", "get-url", "origin").Output()
+	if err != nil {
+		return "", fmt.Errorf("git remote get-url origin: %w", err)
+	}
+	url := strings.TrimSpace(string(out))
+	url = strings.TrimSuffix(url, ".git")
+	// Handle SSH: git@github.com:owner/repo
+	if idx := strings.Index(url, ":"); idx >= 0 && !strings.Contains(url[:idx], "/") {
+		url = url[idx+1:]
+	}
+	// Handle HTTPS: https://github.com/owner/repo
+	for _, prefix := range []string{"https://github.com/", "http://github.com/"} {
+		if strings.HasPrefix(url, prefix) {
+			url = strings.TrimPrefix(url, prefix)
+			break
+		}
+	}
+	parts := strings.SplitN(url, "/", 3)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("cannot parse repo slug from %q", url)
+	}
+	return parts[0] + "/" + parts[1], nil
 }
 
 func copyFile(src, dst string) error {

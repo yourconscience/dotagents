@@ -69,6 +69,15 @@ func runSetup(opts runOptions) error {
 }
 
 func installDotagentsBinary(repoRoot string) error {
+	// Skip build if the root has no Go source (user config repo, not dotagents source)
+	if !hasFile(filepath.Join(repoRoot, "cmd", "dotagents", "main.go")) {
+		if _, err := exec.LookPath("dotagents"); err == nil {
+			fmt.Println("dotagents binary: already on PATH")
+			return nil
+		}
+		return fmt.Errorf("dotagents binary not found on PATH; install with: go install github.com/yourconscience/dotagents/cmd/dotagents@latest")
+	}
+
 	goPath, err := exec.LookPath("go")
 	if err != nil {
 		return fmt.Errorf("go not found on PATH: %w", err)

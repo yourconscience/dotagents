@@ -1,4 +1,4 @@
-module dotagents
+module github.com/yourconscience/dotagents
 
 go 1.24.0
 
