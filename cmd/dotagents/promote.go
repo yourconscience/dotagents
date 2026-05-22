@@ -222,8 +222,8 @@ func parseGitHubSlug(remote string) (string, bool) {
 		}
 		return "", false
 	}
-	// HTTPS: https://github.com/owner/repo
-	for _, prefix := range []string{"https://github.com/", "http://github.com/"} {
+	// HTTPS or ssh://: https://github.com/owner/repo, ssh://git@github.com/owner/repo
+	for _, prefix := range []string{"https://github.com/", "http://github.com/", "ssh://git@github.com/"} {
 		if strings.HasPrefix(remote, prefix) {
 			path := strings.TrimPrefix(remote, prefix)
 			parts := strings.SplitN(path, "/", 3)
