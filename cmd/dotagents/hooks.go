@@ -25,19 +25,6 @@ type hookTarget struct {
 	patch     func(hookConfig, string) error
 }
 
-var hookTargets = map[string]hookTarget{
-	agentClaudeCode: {
-		agentName: agentClaudeCode,
-		inspect:   inspectClaudeHook,
-		patch:     patchClaudeHook,
-	},
-	agentHermes: {
-		agentName: agentHermes,
-		inspect:   inspectHermesHook,
-		patch:     patchHermesHook,
-	},
-}
-
 func desiredHooksForAgent(cfg config, agentName string) ([]hookConfig, bool) {
 	agentName = normalizeAgentName(agentName)
 	var hooks []hookConfig
@@ -49,7 +36,7 @@ func desiredHooksForAgent(cfg config, agentName string) ([]hookConfig, bool) {
 			hooks = append(hooks, hook)
 		}
 	}
-	_, supported := hookTargets[agentName]
+	_, supported := hookTargetForHarness(agentName)
 	return hooks, supported
 }
 
@@ -64,7 +51,7 @@ func augmentHookReport(report *agentReport, agent agentConfig, cfg config, home 
 		}
 		return nil
 	}
-	target := hookTargets[normalizeAgentName(agent.Name)]
+	target, _ := hookTargetForHarness(agent.Name)
 	for _, hook := range hooks {
 		state, err := target.inspect(hook, home)
 		if err != nil {
@@ -93,7 +80,7 @@ func applyAgentHookSync(reports []agentReport, cfg config, home string) error {
 		if !report.Detected {
 			continue
 		}
-		target, supported := hookTargets[normalizeAgentName(report.Name)]
+		target, supported := hookTargetForHarness(report.Name)
 		if !supported {
 			continue
 		}

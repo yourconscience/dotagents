@@ -144,11 +144,9 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if !report.Detected {
 		return report, nil
 	}
-	if agent.Name == agentAmp {
-		return inspectAmpAgent(agent, expected, cfg, home)
-	}
-	if agent.Name == agentHermes {
-		return inspectHermesAgent(agent, expected, agentsSkillRoot, cfg, home)
+	h := harnessFor(agent.Name)
+	if h != nil && h.Skills == SkillsConfigDriven && h.InspectSkills != nil {
+		return h.InspectSkills(agent, expected, agentsSkillRoot, cfg, home)
 	}
 
 	expectedNames := sortedKeys(expected)
@@ -241,8 +239,8 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if err := inspectAgentRoles(&report, repoRoot, agent); err != nil {
 		return agentReport{}, err
 	}
-	if agent.Name == agentDroid {
-		if err := inspectDroidRootInstructions(&report, home); err != nil {
+	if h != nil && h.RootInstructions != nil {
+		if err := inspectRootInstructions(&report, h.RootInstructions, home); err != nil {
 			return agentReport{}, err
 		}
 	}
@@ -265,9 +263,9 @@ func isReportSynced(report agentReport) bool {
 	return report.RootState == "" || report.RootState == stateSynced
 }
 
-func inspectDroidRootInstructions(report *agentReport, home string) error {
-	linkPath := filepath.Join(home, ".factory", "AGENTS.md")
-	expectedTarget := filepath.Join(home, ".agents", "AGENTS.md")
+func inspectRootInstructions(report *agentReport, ri *RootInstructionsCapability, home string) error {
+	linkPath := ri.Path(home)
+	expectedTarget := ri.Expected(home)
 	report.RootPath = linkPath
 	report.RootExpected = expectedTarget
 	report.RootState = stateMissing
