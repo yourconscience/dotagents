@@ -93,7 +93,7 @@ func runPromote(args []string) error {
 
 	repoSlug, err := gitRepoSlug(repoRoot)
 	if err != nil {
-		return fmt.Errorf("detect repo slug: %w (pass --repo or set a git remote)", err)
+		return fmt.Errorf("detect repo slug: %w (set a git remote pointing to GitHub)", err)
 	}
 
 	prOut, err := exec.Command("gh", "pr", "create",
@@ -203,24 +203,37 @@ func gitRepoSlug(repoDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("git remote get-url origin: %w", err)
 	}
-	url := strings.TrimSpace(string(out))
-	url = strings.TrimSuffix(url, ".git")
-	// Handle SSH: git@github.com:owner/repo
-	if idx := strings.Index(url, ":"); idx >= 0 && !strings.Contains(url[:idx], "/") {
-		url = url[idx+1:]
+	raw := strings.TrimSpace(string(out))
+	slug, ok := parseGitHubSlug(raw)
+	if !ok {
+		return "", fmt.Errorf("remote %q is not a GitHub URL; promote requires a GitHub remote", raw)
 	}
-	// Handle HTTPS: https://github.com/owner/repo
+	return slug, nil
+}
+
+func parseGitHubSlug(remote string) (string, bool) {
+	remote = strings.TrimSuffix(remote, ".git")
+	// SSH: git@github.com:owner/repo
+	if strings.HasPrefix(remote, "git@github.com:") {
+		path := strings.TrimPrefix(remote, "git@github.com:")
+		parts := strings.SplitN(path, "/", 3)
+		if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
+			return parts[0] + "/" + parts[1], true
+		}
+		return "", false
+	}
+	// HTTPS: https://github.com/owner/repo
 	for _, prefix := range []string{"https://github.com/", "http://github.com/"} {
-		if strings.HasPrefix(url, prefix) {
-			url = strings.TrimPrefix(url, prefix)
-			break
+		if strings.HasPrefix(remote, prefix) {
+			path := strings.TrimPrefix(remote, prefix)
+			parts := strings.SplitN(path, "/", 3)
+			if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
+				return parts[0] + "/" + parts[1], true
+			}
+			return "", false
 		}
 	}
-	parts := strings.SplitN(url, "/", 3)
-	if len(parts) < 2 {
-		return "", fmt.Errorf("cannot parse repo slug from %q", url)
-	}
-	return parts[0] + "/" + parts[1], nil
+	return "", false
 }
 
 func copyFile(src, dst string) error {

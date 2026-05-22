@@ -296,6 +296,8 @@ func findRoots() (string, string, error) {
 	return "", "", errors.New("dotagents root not found; set DOTAGENTS_ROOT, create ~/.agents, or run from a directory containing dotagents.yaml")
 }
 
+// OR: a fresh user repo may have dotagents.yaml but no skills/ yet (created on first sync).
+// CWD walk (walkUpForRoot) is stricter: requires dotagents.yaml explicitly.
 func isValidRoot(path string) bool {
 	return hasDir(filepath.Join(path, "skills")) || hasFile(filepath.Join(path, "dotagents.yaml"))
 }
