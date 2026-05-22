@@ -171,7 +171,6 @@ func TestDiscoverPluginSkillsSelectsDeterministicVersion(t *testing.T) {
 func TestInspectAgentRemovesDisabledPluginSkillLinks(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
-	agentsSkillRoot := filepath.Join(home, ".agents", "skills")
 	source := filepath.Join(home, "plugins", "browser")
 	skillDir := filepath.Join(source, "skills", "browser")
 	if err := os.MkdirAll(skillDir, 0o755); err != nil {
@@ -196,7 +195,7 @@ func TestInspectAgentRemovesDisabledPluginSkillLinks(t *testing.T) {
 		Surfaces: []string{pluginSurfaceSkills},
 		Agents:   []string{agentCodex},
 	}}}
-	report, err := inspectAgent(agentConfig{Name: agentCodex, SkillRoot: agentSkillRoot}, map[string]string{}, repoRoot, agentsSkillRoot, cfg, home)
+	report, err := inspectAgent(agentConfig{Name: agentCodex, SkillRoot: agentSkillRoot}, map[string]string{}, repoRoot, cfg, home)
 	if err != nil {
 		t.Fatal(err)
 	}
