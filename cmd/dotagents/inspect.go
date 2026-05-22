@@ -23,7 +23,11 @@ func expectedSkills(repoRoot string, home string, cfg config) (map[string]string
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", skillsDir, err)
+		if os.IsNotExist(err) {
+			entries = nil
+		} else {
+			return nil, fmt.Errorf("read %s: %w", skillsDir, err)
+		}
 	}
 
 	expected := make(map[string]string)
