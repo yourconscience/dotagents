@@ -23,6 +23,10 @@ agents:
     detect: droid
     skill_root: ~/.factory/skills
     agent_root: ~/.factory/droids
+  - name: omp
+    enabled: true
+    detect: omp
+    skill_root: ~/.omp/agent/skills
 external_skills:
   - url: https://github.com/yourconscience/dotknow
     skill_dir: skill
@@ -40,6 +44,7 @@ plugins:
       - codex
       - hermes
       - droid
+      - omp
     review: First enabled plugin. Dotagents syncs the skill surface to Claude Code/Codex/Droid and asks Hermes to load the plugin skills dir through external_dirs.
   - name: chrome
     enabled: false
@@ -55,6 +60,7 @@ plugins:
       - amp
       - hermes
       - droid
+      - omp
     review: Native in Codex; cross-agent use needs a separate Chrome automation tool or MCP surface.
   - name: build-ios-apps
     enabled: true
@@ -68,6 +74,7 @@ plugins:
       - codex
       - hermes
       - droid
+      - omp
     review: First enabled plugin. Only the skill surface is enabled first; XcodeBuildMCP/native plugin wiring stays review-only.
   - name: game-studio
     enabled: false
@@ -83,6 +90,7 @@ plugins:
       - amp
       - hermes
       - droid
+      - omp
     review: Mostly portable as skills; native Codex plugin metadata is not portable.
   - name: feature-dev
     enabled: false
@@ -100,6 +108,7 @@ plugins:
       - amp
       - hermes
       - droid
+      - omp
     review: Native in Claude Code; agent roles can be translated for Codex/Droid, while commands need explicit adapters.
   - name: code-review
     enabled: false
@@ -115,6 +124,7 @@ plugins:
       - amp
       - hermes
       - droid
+      - omp
     review: Native command surface is Claude-only; dotagents should model review as skills, hooks, MCP, or a CLI before enabling broadly.
   - name: pr-review-toolkit
     enabled: false
@@ -131,6 +141,7 @@ plugins:
       - amp
       - hermes
       - droid
+      - omp
     review: Agent roles are partly portable to Codex/Droid; command orchestration remains Claude-specific.
   - name: plugin-dev
     enabled: false
@@ -147,6 +158,7 @@ plugins:
       - amp
       - hermes
       - droid
+      - omp
     review: Useful reference plugin; dotagents should keep the canonical contract in repo-owned YAML and generated adapters.
   - name: frontend-design
     enabled: true
@@ -160,6 +172,7 @@ plugins:
       - codex
       - hermes
       - droid
+      - omp
     review: First enabled Claude plugin. Dotagents treats it as a portable skill surface for Claude Code, Codex, Droid, and Hermes.
 mcp_servers:
   - name: github
@@ -186,6 +199,7 @@ mcp_servers:
       - amp
       - hermes
       - droid
+      - omp
   - name: telegram_readonly
     enabled: true
     command: sh
@@ -198,6 +212,7 @@ mcp_servers:
       - amp
       - hermes
       - droid
+      - omp
 hooks:
   - name: memory-session-start
     enabled: true
