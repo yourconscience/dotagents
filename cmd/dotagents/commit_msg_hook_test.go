@@ -15,7 +15,7 @@ var commitMsgHookTrailerCases = map[string]string{
 	agentCodex:      "Co-Authored-By: codex[bot] <codex[bot]@users.noreply.github.com>",
 	agentDroid:      "Co-authored-by: factory-droid[bot] <factory-droid[bot]@users.noreply.github.com>",
 	agentHermes:     "Co-Authored-By: hermes[bot] <hermes[bot]@users.noreply.github.com>",
-	agentOmp:        "Co-authored-by: omp[bot] <omp[bot]@users.noreply.github.com>",
+	agentPi:         "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
 	"openclaw":      "Co-authored-by: openclaw[bot] <openclaw[bot]@users.noreply.github.com>",
 }
 

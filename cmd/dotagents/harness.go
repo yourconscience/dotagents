@@ -209,10 +209,10 @@ func initHarnesses() {
 			TrailerExample: "Co-Authored-By: hermes[bot] <hermes[bot]@users.noreply.github.com>",
 		},
 
-		"omp": {
+		"pi": {
 			Skills: SkillsSymlink,
 			MCP: mcpTargetPtr(mcpTarget{
-				agentName:  "omp",
+				agentName:  "pi",
 				configPath: func(home string) string { return filepath.Join(home, ".omp", "agent", "mcp.json") },
 				inspect:    inspectJSONMCPServer,
 				patch:      patchJSONMCPServer,
@@ -220,7 +220,7 @@ func initHarnesses() {
 				rootKey:    "mcpServers",
 			}),
 			PluginSurfaces: map[string]bool{},
-			TrailerExample: "Co-authored-by: omp[bot] <omp[bot]@users.noreply.github.com>",
+			TrailerExample: "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
 		},
 	}
 }
