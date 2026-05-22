@@ -80,6 +80,14 @@ var mcpTargets = map[string]mcpTarget{
 		patch:      patchCodexMCPServer,
 		read:       readCodexMCPServer,
 	},
+	agentOmp: {
+		agentName:  agentOmp,
+		configPath: func(home string) string { return filepath.Join(home, ".omp", "agent", "mcp.json") },
+		inspect:    inspectJSONMCPServer,
+		patch:      patchJSONMCPServer,
+		read:       readJSONMCPServer,
+		rootKey:    "mcpServers",
+	},
 }
 
 func desiredMCPServersForAgent(cfg config, agentName string) []mcpServerConfig {

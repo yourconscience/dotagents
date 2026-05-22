@@ -340,6 +340,8 @@ func agentPluginSurfaceSupport(agentName string) map[string]bool {
 		support[pluginSurfaceHooks] = true
 	case agentAmp:
 		// Amp currently consumes shared skills and MCP entries through settings.
+	case agentOmp:
+		// OMP consumes shared skills via symlinks and MCP via mcp.json.
 	}
 	return support
 }
@@ -386,7 +388,7 @@ func pluginCompatibility(plugin pluginConfig, agentName string) (string, string)
 }
 
 func pluginCompatibilitySummary(plugin pluginConfig) string {
-	agents := []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid}
+	agents := []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid, agentOmp}
 	parts := make([]string, 0, len(agents))
 	for _, agent := range agents {
 		state, detail := pluginCompatibility(plugin, agent)
@@ -416,7 +418,7 @@ func checkFirstPartyPlugins(cfg config) checkResult {
 		}
 		agents := plugin.Agents
 		if len(agents) == 0 {
-			agents = []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid}
+			agents = []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid, agentOmp}
 		}
 		for _, agent := range agents {
 			state, detail := pluginCompatibility(plugin, agent)
