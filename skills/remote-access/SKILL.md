@@ -8,7 +8,7 @@ description: Search local Droid/Codex sessions, send scoped continuation instruc
 
 Two modes of mobile access:
 
-1. **takopi** (recommended for Pi) — Telegram bridge that streams progress, supports voice input, project/worktree management, and session resume. Use when the user wants to send prompts to pi from their phone and monitor agent work.
+1. **takopi** (recommended for Pi) — Telegram bridge that streams progress, supports voice input, project/worktree management, and session resume. Use when the user wants to send prompts to Pi from their phone and monitor agent work.
 2. **Mac bridge** — lightweight REST bridge for Hermes on VPS to inspect/continue local Droid/Codex sessions. Use when the user wants Hermes to peek at or lightly continue Mac-local agent work.
 
 Do not use this for session transfer, live terminal sharing, tmux, Warp/TUI scraping, or unrestricted shell access.
