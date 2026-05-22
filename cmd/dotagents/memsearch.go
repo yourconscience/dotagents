@@ -18,7 +18,11 @@ func parseMemsearchFlags(args []string) (memsearchOptions, error) {
 	fs.SetOutput(os.Stderr)
 
 	var opts memsearchOptions
-	fs.StringVar(&opts.VaultDir, "vault", "~/Workspace/knowledge", "Root directory for the knowledge vault")
+	vaultDefault := os.Getenv("KNOWLEDGE_DIR")
+	if vaultDefault == "" {
+		vaultDefault = "~/knowledge"
+	}
+	fs.StringVar(&opts.VaultDir, "vault", vaultDefault, "Root directory for the knowledge vault (default: $KNOWLEDGE_DIR or ~/knowledge)")
 
 	if err := fs.Parse(args); err != nil {
 		return memsearchOptions{}, err
