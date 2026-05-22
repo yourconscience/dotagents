@@ -258,6 +258,9 @@ func findRoots() (string, string, error) {
 		if home, err := os.UserHomeDir(); err == nil {
 			root = expandPath(root, home)
 		}
+		if abs, err := filepath.Abs(root); err == nil {
+			root = abs
+		}
 		if isValidRoot(root) {
 			return root, filepath.Join(root, "skills", "dotagents"), nil
 		}

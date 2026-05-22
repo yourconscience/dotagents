@@ -213,25 +213,32 @@ func gitRepoSlug(repoDir string) (string, error) {
 
 func parseGitHubSlug(remote string) (string, bool) {
 	remote = strings.TrimSuffix(remote, ".git")
-	// SSH: git@github.com:owner/repo
-	if strings.HasPrefix(remote, "git@github.com:") {
-		path := strings.TrimPrefix(remote, "git@github.com:")
-		parts := strings.SplitN(path, "/", 3)
-		if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
-			return parts[0] + "/" + parts[1], true
-		}
-		return "", false
+	// SCP-style SSH: git@github.com:owner/repo or user@github.com:owner/repo
+	if i := strings.Index(remote, "@github.com:"); i >= 0 && !strings.Contains(remote[:i], "/") {
+		path := remote[i+len("@github.com:"):]
+		return slugFromPath(path)
 	}
-	// HTTPS or ssh://: https://github.com/owner/repo, ssh://git@github.com/owner/repo
-	for _, prefix := range []string{"https://github.com/", "http://github.com/", "ssh://git@github.com/"} {
-		if strings.HasPrefix(remote, prefix) {
-			path := strings.TrimPrefix(remote, prefix)
-			parts := strings.SplitN(path, "/", 3)
-			if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
-				return parts[0] + "/" + parts[1], true
-			}
-			return "", false
+	// URL-style: https://github.com/..., ssh://user@github.com/..., https://user@github.com/...
+	for _, scheme := range []string{"https://", "http://", "ssh://"} {
+		if !strings.HasPrefix(remote, scheme) {
+			continue
 		}
+		rest := strings.TrimPrefix(remote, scheme)
+		// Strip optional user@ prefix
+		if at := strings.Index(rest, "@"); at >= 0 && at < strings.Index(rest, "/") {
+			rest = rest[at+1:]
+		}
+		if strings.HasPrefix(rest, "github.com/") {
+			return slugFromPath(strings.TrimPrefix(rest, "github.com/"))
+		}
+	}
+	return "", false
+}
+
+func slugFromPath(path string) (string, bool) {
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
+		return parts[0] + "/" + parts[1], true
 	}
 	return "", false
 }
