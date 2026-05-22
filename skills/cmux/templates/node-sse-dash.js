@@ -58,8 +58,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Static asset serving
-  const filePath = path.join(PUBLIC, u.pathname === '/' ? 'index.html' : u.pathname);
+  // Static asset serving (resolve and confine to PUBLIC)
+  const relative = path.normalize(u.pathname).replace(/^(\.\.[/\\])+/, '');
+  const filePath = path.join(PUBLIC, relative === '/' || relative === '' ? 'index.html' : relative);
+  if (!filePath.startsWith(PUBLIC + path.sep) && filePath !== PUBLIC) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
   try {
     const data = fs.readFileSync(filePath);
     const ext = path.extname(filePath);
