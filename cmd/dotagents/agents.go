@@ -136,16 +136,13 @@ func loadAgentRoles(repoRoot string) ([]agentRole, error) {
 }
 
 func renderAgentRole(role agentRole, agent agentConfig) (string, string, bool) {
-	switch agent.Name {
-	case agentClaudeCode:
-		return filepath.Join(agent.AgentRoot, role.Name+".md"), renderClaudeAgentRole(role), true
-	case agentCodex:
-		return filepath.Join(agent.AgentRoot, role.Name+".toml"), renderCodexAgentRole(role), true
-	case agentDroid:
-		return filepath.Join(agent.AgentRoot, role.Name+".md"), renderDroidAgentRole(role), true
-	default:
+	h := harnessFor(agent.Name)
+	if h == nil || h.Roles == nil {
 		return "", "", false
 	}
+	target := filepath.Join(agent.AgentRoot, role.Name+h.Roles.Extension)
+	content := h.Roles.Render(role)
+	return target, content, true
 }
 
 func renderClaudeAgentRole(role agentRole) string {

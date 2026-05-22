@@ -325,23 +325,11 @@ func agentPluginSurfaceSupport(agentName string) map[string]bool {
 		pluginSurfaceMCP:    true,
 		pluginSurfaceAssets: true,
 	}
-	switch agentName {
-	case agentClaudeCode:
-		support[pluginSurfaceAgents] = true
-		support[pluginSurfaceHooks] = true
-		support[pluginSurfaceCmds] = true
-		support[pluginFormatClaude] = true
-	case agentCodex:
-		support[pluginSurfaceAgents] = true
-		support[pluginFormatCodex] = true
-	case agentDroid:
-		support[pluginSurfaceAgents] = true
-	case agentHermes:
-		support[pluginSurfaceHooks] = true
-	case agentAmp:
-		// Amp currently consumes shared skills and MCP entries through settings.
-	case agentOmp:
-		// OMP consumes shared skills via symlinks and MCP via mcp.json.
+	h := harnessFor(agentName)
+	if h != nil {
+		for k, v := range h.PluginSurfaces {
+			support[k] = v
+		}
 	}
 	return support
 }
@@ -388,7 +376,7 @@ func pluginCompatibility(plugin pluginConfig, agentName string) (string, string)
 }
 
 func pluginCompatibilitySummary(plugin pluginConfig) string {
-	agents := []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid, agentOmp}
+	agents := sortedHarnessNames()
 	parts := make([]string, 0, len(agents))
 	for _, agent := range agents {
 		state, detail := pluginCompatibility(plugin, agent)
@@ -418,7 +406,7 @@ func checkFirstPartyPlugins(cfg config) checkResult {
 		}
 		agents := plugin.Agents
 		if len(agents) == 0 {
-			agents = []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid, agentOmp}
+			agents = sortedHarnessNames()
 		}
 		for _, agent := range agents {
 			state, detail := pluginCompatibility(plugin, agent)

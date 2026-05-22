@@ -138,7 +138,7 @@ func validateConfig(cfg *config, home string, expand bool) error {
 			if _, ok := seen[agentName]; !ok {
 				return fmt.Errorf("config MCP server %s targets unknown agent %q", cfg.MCPServers[i].Name, agentName)
 			}
-			if _, ok := mcpTargets[agentName]; !ok {
+			if !hasMCPSupport(agentName) {
 				return fmt.Errorf("config MCP server %s targets unsupported agent %q", cfg.MCPServers[i].Name, agentName)
 			}
 		}
