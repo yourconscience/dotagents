@@ -15,6 +15,7 @@ var commitMsgHookTrailerCases = map[string]string{
 	agentCodex:      "Co-Authored-By: codex[bot] <codex[bot]@users.noreply.github.com>",
 	agentDroid:      "Co-authored-by: factory-droid[bot] <factory-droid[bot]@users.noreply.github.com>",
 	agentHermes:     "Co-Authored-By: hermes[bot] <hermes[bot]@users.noreply.github.com>",
+	agentOmp:        "Co-authored-by: omp[bot] <omp[bot]@users.noreply.github.com>",
 	"openclaw":      "Co-authored-by: openclaw[bot] <openclaw[bot]@users.noreply.github.com>",
 }
 
@@ -159,6 +160,25 @@ func TestCommitMsgHookTrailerCasesMatchConfiguredAgents(t *testing.T) {
 	for _, agent := range cfg.Agents {
 		if _, ok := commitMsgHookTrailerCases[agent.Name]; !ok {
 			t.Fatalf("commit-msg hook missing trailer case for configured agent %q", agent.Name)
+		}
+	}
+}
+
+func TestHarnessTrailersMatchTestCases(t *testing.T) {
+	h := getHarnesses()
+	if len(h) == 0 {
+		t.Fatal("harness registry is empty")
+	}
+	for name, entry := range h {
+		if entry.TrailerExample == "" {
+			t.Fatalf("harness %q has no TrailerExample", name)
+		}
+		testTrailer, ok := commitMsgHookTrailerCases[name]
+		if !ok {
+			t.Fatalf("harness %q has TrailerExample but no commitMsgHookTrailerCases entry", name)
+		}
+		if entry.TrailerExample != testTrailer {
+			t.Fatalf("harness %q TrailerExample = %q, commitMsgHookTrailerCases = %q", name, entry.TrailerExample, testTrailer)
 		}
 	}
 }

@@ -294,7 +294,7 @@ func resolveMCPAgents(cfg config, agentsCSV string) ([]string, error) {
 	var agents []string
 	for _, agent := range cfg.Agents {
 		name := normalizeAgentName(agent.Name)
-		if _, ok := mcpTargets[name]; ok {
+		if hasMCPSupport(name) {
 			agents = append(agents, name)
 		}
 	}
@@ -315,7 +315,7 @@ func validateConfiguredMCPAgent(cfg config, name string) error {
 	if !found {
 		return fmt.Errorf("unknown agent %q", name)
 	}
-	if _, ok := mcpTargets[name]; !ok {
+	if !hasMCPSupport(name) {
 		return fmt.Errorf("unsupported MCP target agent %q", name)
 	}
 	return nil
