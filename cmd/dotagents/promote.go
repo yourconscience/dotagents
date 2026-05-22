@@ -91,8 +91,13 @@ func runPromote(args []string) error {
 	prTitle := fmt.Sprintf("Add %s skill", name)
 	prBody := fmt.Sprintf("Promotes `%s` skill to dotagents shared skills.\n\nSource: local Hermes skill\nPromoted: %s", name, time.Now().Format("2006-01-02"))
 
+	repoSlug, err := gitRepoSlug(repoRoot)
+	if err != nil {
+		return fmt.Errorf("detect repo slug: %w (set a git remote pointing to GitHub)", err)
+	}
+
 	prOut, err := exec.Command("gh", "pr", "create",
-		"--repo", "yourconscience/dotagents",
+		"--repo", repoSlug,
 		"--base", "main",
 		"--head", branch,
 		"--title", prTitle,
@@ -191,6 +196,51 @@ func copyDir(src, dst string) error {
 
 		return copyFile(path, dstPath)
 	})
+}
+
+func gitRepoSlug(repoDir string) (string, error) {
+	out, err := exec.Command("git", "-C", repoDir, "remote", "get-url", "origin").Output()
+	if err != nil {
+		return "", fmt.Errorf("git remote get-url origin: %w", err)
+	}
+	raw := strings.TrimSpace(string(out))
+	slug, ok := parseGitHubSlug(raw)
+	if !ok {
+		return "", fmt.Errorf("remote %q is not a GitHub URL; promote requires a GitHub remote", raw)
+	}
+	return slug, nil
+}
+
+func parseGitHubSlug(remote string) (string, bool) {
+	remote = strings.TrimSuffix(remote, ".git")
+	// SCP-style SSH: git@github.com:owner/repo or user@github.com:owner/repo
+	if i := strings.Index(remote, "@github.com:"); i >= 0 && !strings.Contains(remote[:i], "/") {
+		path := remote[i+len("@github.com:"):]
+		return slugFromPath(path)
+	}
+	// URL-style: https://github.com/..., ssh://user@github.com/..., https://user@github.com/...
+	for _, scheme := range []string{"https://", "http://", "ssh://"} {
+		if !strings.HasPrefix(remote, scheme) {
+			continue
+		}
+		rest := strings.TrimPrefix(remote, scheme)
+		// Strip optional user@ prefix
+		if at := strings.Index(rest, "@"); at >= 0 && at < strings.Index(rest, "/") {
+			rest = rest[at+1:]
+		}
+		if strings.HasPrefix(rest, "github.com/") {
+			return slugFromPath(strings.TrimPrefix(rest, "github.com/"))
+		}
+	}
+	return "", false
+}
+
+func slugFromPath(path string) (string, bool) {
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
+		return parts[0] + "/" + parts[1], true
+	}
+	return "", false
 }
 
 func copyFile(src, dst string) error {
