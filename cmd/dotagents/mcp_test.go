@@ -198,7 +198,8 @@ func TestDroidMCPPatchPreservesUnrelatedServers(t *testing.T) {
 	if !ok {
 		t.Fatalf("managed server missing: %#v", servers)
 	}
-	if !matchManagedMCPMap(linkedin, testMCPServer(), mcpTargets[agentDroid].defaults) {
+	target, _ := mcpTargetForHarness(agentDroid)
+	if !matchManagedMCPMap(linkedin, testMCPServer(), target.defaults) {
 		t.Fatalf("managed server not patched: %#v", linkedin)
 	}
 	if linkedin["local"] != "keep" {
