@@ -1,4 +1,0 @@
-interface:
-  display_name: "BitTorrent"
-  short_description: "Manage legal torrents and client diagnostics"
-  default_prompt: "Use $bittorrent to inspect this magnet or torrent, manage the local client safely, or diagnose tracker, DHT, peer, speed, and seeding issues."
