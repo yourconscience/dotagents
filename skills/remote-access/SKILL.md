@@ -1,13 +1,47 @@
 ---
 name: remote-access
-description: Search local Droid/Codex sessions and send scoped continuation instructions through the Mac bridge when using Hermes from mobile.
+description: Search local Droid/Codex sessions, send scoped continuation instructions through the Mac bridge, or use takopi for Telegram-based mobile access to Pi sessions.
 ---
+
 
 # remote-access
 
-Use this when the user is on mobile and wants Hermes on the VPS to inspect or lightly continue local Mac agent work.
+Two modes of mobile access:
+
+1. **takopi** (recommended for Pi) — Telegram bridge that streams progress, supports voice input, project/worktree management, and session resume. Use when the user wants to send prompts to pi from their phone and monitor agent work.
+2. **Mac bridge** — lightweight REST bridge for Hermes on VPS to inspect/continue local Droid/Codex sessions. Use when the user wants Hermes to peek at or lightly continue Mac-local agent work.
 
 Do not use this for session transfer, live terminal sharing, tmux, Warp/TUI scraping, or unrestricted shell access.
+
+## takopi (Telegram → Pi)
+
+[takopi](https://github.com/banteg/takopi) bridges Pi to a Telegram bot. Install: `uv tool install -U takopi`. Docs: [takopi.dev](https://takopi.dev/).
+
+The user's bot is `@gamrevinu_bot`. Config lives at `~/.takopi/takopi.toml`.
+
+### Quick reference
+
+```bash
+takopi                    # setup wizard (first run) or start bridge
+takopi config list        # show current config
+takopi config set default_engine pi
+takopi config set pi.provider anthropic
+```
+
+From Telegram, prefix messages with `/pi` to target Pi, or set `default_engine = "pi"`.
+
+### Capabilities with Pi
+
+- Progress streaming (tool calls, file changes, elapsed time)
+- Session resume (`pi --session <token>`)
+- Voice notes (transcribed via Whisper endpoint)
+- Project aliases and git worktrees
+- File transfer (`/file put`, `/file get`)
+
+### Limitations
+
+takopi uses `pi --print --mode json` (non-interactive). No mid-stream steering, tool approval, model switching, or compaction. For full RPC control, wait for `pi serve` (planned).
+
 
 ## What it does
 
@@ -98,3 +132,12 @@ If VPS access fails, check Tailscale connectivity first:
 ```bash
 ssh vps-ts 'curl -fsS --max-time 5 "$REMOTE_ACCESS_BRIDGE_URL/status"'
 ```
+## Future: pi serve
+
+`pi serve` will expose the full RPC protocol over HTTP/WebSocket, enabling:
+- Full interactive control from any device (steer, abort, model switch, compaction)
+- Web UI for browser-based access
+- Richer takopi integration via WebSocket transport backend
+
+This is tracked in [oh-my-pi#436](https://github.com/can1357/oh-my-pi/issues/436).
+
