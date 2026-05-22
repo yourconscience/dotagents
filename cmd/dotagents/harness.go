@@ -37,9 +37,10 @@ type DoctorCheck struct {
 	Run  func(repoRoot, home string, cfg config) checkResult
 }
 
-// InspectSkillsFunc is the signature for config-driven skill inspection.
+// ConfigCheckFunc verifies the agent's config-driven skill discovery.
+// Returns a description of what's misconfigured, or "" if OK.
 // Only used when Skills == SkillsConfigDriven.
-type InspectSkillsFunc func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error)
+type ConfigCheckFunc func(agent agentConfig, cfg config, home string) (string, error)
 
 // SetupFunc is the signature for agent-specific config patching during setup.
 type SetupFunc func(home string, cfg config) (bool, error)
@@ -49,9 +50,9 @@ type SetupFunc func(home string, cfg config) (bool, error)
 type Harness struct {
 	// Skills integration mode.
 	Skills SkillsKind
-	// InspectSkills is called instead of the generic symlink inspector
-	// when Skills == SkillsConfigDriven.
-	InspectSkills InspectSkillsFunc
+	// ConfigCheck verifies config-driven skill discovery is configured.
+	// Only called when Skills == SkillsConfigDriven.
+	ConfigCheck ConfigCheckFunc
 	// Setup patches the agent's config during `dotagents setup`.
 	// nil means no patching needed.
 	Setup SetupFunc
@@ -90,13 +91,9 @@ var harnessesOnce sync.Once
 func initHarnesses() {
 	harnesses = map[string]*Harness{
 		"amp": {
-			Skills: SkillsConfigDriven,
-			InspectSkills: func(agent agentConfig, expected map[string]string, _ string, cfg config, home string) (agentReport, error) {
-				return inspectAmpAgent(agent, expected, cfg, home)
-			},
-			Setup: func(home string, _ config) (bool, error) {
-				return patchAmpConfig(home)
-			},
+			Skills:      SkillsConfigDriven,
+			ConfigCheck: ampConfigCheck,
+			Setup:       func(home string, _ config) (bool, error) { return patchAmpConfig(home) },
 			MCP: mcpTargetPtr(mcpTarget{
 				agentName:  "amp",
 				configPath: ampSettingsPath,
@@ -176,13 +173,9 @@ func initHarnesses() {
 		},
 
 		"hermes": {
-			Skills: SkillsConfigDriven,
-			InspectSkills: func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
-				return inspectHermesAgent(agent, expected, agentsSkillRoot, cfg, home)
-			},
-			Setup: func(home string, cfg config) (bool, error) {
-				return patchHermesConfig(home, cfg)
-			},
+			Skills:      SkillsConfigDriven,
+			ConfigCheck: hermesConfigCheck,
+			Setup:       patchHermesConfig,
 			MCP: mcpTargetPtr(mcpTarget{
 				agentName:  "hermes",
 				configPath: func(home string) string { return filepath.Join(home, ".hermes", "config.yaml") },
