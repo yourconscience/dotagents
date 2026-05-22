@@ -126,14 +126,11 @@ func pathContainsDir(pathValue string, dir string) bool {
 }
 
 func patchAgentConfig(agent agentConfig, home string, cfg config) (bool, error) {
-	switch agent.Name {
-	case agentAmp:
-		return patchAmpConfig(home)
-	case agentHermes:
-		return patchHermesConfig(home, cfg)
-	default:
-		return false, nil
+	h := harnessFor(agent.Name)
+	if h != nil && h.Setup != nil {
+		return h.Setup(home, cfg)
 	}
+	return false, nil
 }
 
 func patchAmpConfig(home string) (bool, error) {

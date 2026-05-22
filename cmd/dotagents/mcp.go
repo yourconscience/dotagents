@@ -33,62 +33,6 @@ type mcpTarget struct {
 
 const yamlMapTag = "!!map"
 
-var mcpTargets = map[string]mcpTarget{
-	agentAmp: {
-		agentName:  agentAmp,
-		configPath: ampSettingsPath,
-		inspect:    inspectJSONMCPServer,
-		patch:      patchJSONMCPServer,
-		read:       readJSONMCPServer,
-		rootKey:    "amp.mcpServers",
-	},
-	agentClaudeCode: {
-		agentName:  agentClaudeCode,
-		configPath: func(home string) string { return filepath.Join(home, ".claude.json") },
-		inspect:    inspectJSONMCPServer,
-		patch:      patchJSONMCPServer,
-		read:       readClaudeMCPServer,
-		rootKey:    "mcpServers",
-		defaults: map[string]interface{}{
-			"type": "stdio",
-		},
-	},
-	agentDroid: {
-		agentName:  agentDroid,
-		configPath: func(home string) string { return filepath.Join(home, ".factory", "mcp.json") },
-		inspect:    inspectJSONMCPServer,
-		patch:      patchJSONMCPServer,
-		read:       readJSONMCPServer,
-		rootKey:    "mcpServers",
-		defaults: map[string]interface{}{
-			"type":     "stdio",
-			"disabled": false,
-		},
-	},
-	agentHermes: {
-		agentName:  agentHermes,
-		configPath: func(home string) string { return filepath.Join(home, ".hermes", "config.yaml") },
-		inspect:    inspectYAMLMCPServer,
-		patch:      patchYAMLMCPServer,
-		read:       readYAMLMCPServer,
-		rootKey:    "mcp_servers",
-	},
-	agentCodex: {
-		agentName:  agentCodex,
-		configPath: func(home string) string { return filepath.Join(home, ".codex", "config.toml") },
-		inspect:    inspectCodexMCPServer,
-		patch:      patchCodexMCPServer,
-		read:       readCodexMCPServer,
-	},
-	agentOmp: {
-		agentName:  agentOmp,
-		configPath: func(home string) string { return filepath.Join(home, ".omp", "agent", "mcp.json") },
-		inspect:    inspectJSONMCPServer,
-		patch:      patchJSONMCPServer,
-		read:       readJSONMCPServer,
-		rootKey:    "mcpServers",
-	},
-}
 
 func desiredMCPServersForAgent(cfg config, agentName string) []mcpServerConfig {
 	var servers []mcpServerConfig
@@ -98,7 +42,7 @@ func desiredMCPServersForAgent(cfg config, agentName string) []mcpServerConfig {
 			continue
 		}
 		if len(server.Agents) == 0 {
-			if _, ok := mcpTargets[agentName]; ok {
+		if hasMCPSupport(agentName) {
 				servers = append(servers, server)
 			}
 			continue
@@ -184,12 +128,7 @@ func readNativeMCPServer(agentName string, name string, home string) (mcpServerC
 }
 
 func mcpTargetForAgent(agentName string) (mcpTarget, error) {
-	name := normalizeAgentName(agentName)
-	target, ok := mcpTargets[name]
-	if !ok {
-		return mcpTarget{}, fmt.Errorf("unsupported MCP target agent %q", name)
-	}
-	return target, nil
+	return mcpTargetForHarness(agentName)
 }
 
 func inspectJSONMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {

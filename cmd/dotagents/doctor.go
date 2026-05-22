@@ -49,12 +49,15 @@ func runDoctor(opts runOptions) error {
 
 	results = append(results, checkSkillFrontmatter(repoRoot))
 	results = append(results, checkAgentRoles(repoRoot))
-	results = append(results, checkHermesDirectMirrors(repoRoot, home, cfg))
+	for _, name := range sortedHarnessNames() {
+		for _, check := range getHarnesses()[name].DoctorChecks {
+			results = append(results, check.Run(repoRoot, home, cfg))
+		}
+	}
 	results = append(results, checkAgnix(repoRoot))
 	results = append(results, checkAgentsMDSize(repoRoot))
 	results = append(results, checkREADMESkillList(repoRoot))
 	results = append(results, checkMemsearchIndex(home))
-	results = append(results, checkHermesHooks(home, cfg))
 	results = append(results, checkExternalPackageAge(repoRoot, cfg, opts.SkipPackageAge, timeNow()))
 	results = append(results, checkExternalSkillSources(cfg, home))
 	results = append(results, checkFirstPartyPlugins(cfg))

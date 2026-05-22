@@ -165,7 +165,8 @@ func applyAgentSync(reports []agentReport) error {
 		if !report.Detected {
 			continue
 		}
-		if report.Name == agentAmp || report.Name == agentHermes {
+		h := harnessFor(report.Name)
+		if h != nil && h.Skills == SkillsConfigDriven {
 			continue
 		}
 		if len(report.Conflicts) > 0 {

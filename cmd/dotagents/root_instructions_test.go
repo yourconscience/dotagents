@@ -6,11 +6,21 @@ import (
 	"testing"
 )
 
+// droidRootInstructions returns the RootInstructionsCapability for the droid harness.
+// Used by tests to exercise inspectRootInstructions with droid-specific paths.
+func droidRootInstructions() *RootInstructionsCapability {
+	h := harnessFor(agentDroid)
+	if h == nil || h.RootInstructions == nil {
+		panic("droid harness missing RootInstructions")
+	}
+	return h.RootInstructions
+}
+
 func TestInspectDroidRootInstructionsMissing(t *testing.T) {
 	home := t.TempDir()
 	report := agentReport{}
 
-	if err := inspectDroidRootInstructions(&report, home); err != nil {
+	if err := inspectRootInstructions(&report, droidRootInstructions(), home); err != nil {
 		t.Fatal(err)
 	}
 
@@ -40,7 +50,7 @@ func TestInspectDroidRootInstructionsSynced(t *testing.T) {
 	}
 
 	report := agentReport{}
-	if err := inspectDroidRootInstructions(&report, home); err != nil {
+	if err := inspectRootInstructions(&report, droidRootInstructions(), home); err != nil {
 		t.Fatal(err)
 	}
 
@@ -60,7 +70,7 @@ func TestInspectDroidRootInstructionsConflict(t *testing.T) {
 	}
 
 	report := agentReport{}
-	if err := inspectDroidRootInstructions(&report, home); err != nil {
+	if err := inspectRootInstructions(&report, droidRootInstructions(), home); err != nil {
 		t.Fatal(err)
 	}
 
