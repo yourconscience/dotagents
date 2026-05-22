@@ -67,7 +67,8 @@ Creates, updates, or removes skill symlinks in each detected agent's skill root 
 
 For external skills (declared under `external_skills` in `dotagents.yaml`), `sync` clones or updates the remote git repos into `~/.agents/external/<repo-name>/`, discovers skills under the configured `skill_dir`, and symlinks them into agent skill roots alongside local skills.
 
-For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target all configured agents with MCP support (`amp`, `claude-code`, `codex`, `hermes`, `droid`, `omp`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
+For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target all configured agents with MCP support (`amp`, `claude-code`, `codex`, `hermes`, `droid`, `pi`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
+
 
 For hooks, `sync` patches only managed hook entries declared in `dotagents.yaml` for agents with verified hook config support. It currently manages Claude Code hooks in `~/.claude/settings.json` and Hermes `SessionEnd` hooks in `~/.hermes/config.yaml`. It reports unsupported hook targets without failing. Hook approval is not automated; first-use approval and reapproval after script changes remain host-local user actions.
 
@@ -195,7 +196,7 @@ Per-agent targets:
 - Codex: `~/.codex/config.toml` -> `[mcp_servers.<name>]`
 - Hermes: `~/.hermes/config.yaml` -> `mcp_servers.<name>`
 - Factory Droid: `~/.factory/mcp.json` -> `mcpServers.<name>`
-- OMP: `~/.omp/agent/mcp.json` -> `mcpServers.<name>`
+- Pi: `~/.omp/agent/mcp.json` -> `mcpServers.<name>`
 
 Do not symlink whole agent config files. Use targeted patches only. Droid MCP config is patched in-place at `~/.factory/mcp.json`; it is not symlinked.
 
