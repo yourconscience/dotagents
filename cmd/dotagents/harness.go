@@ -89,140 +89,140 @@ var harnessesOnce sync.Once
 
 func initHarnesses() {
 	harnesses = map[string]*Harness{
-	"amp": {
-		Skills: SkillsConfigDriven,
-		InspectSkills: func(agent agentConfig, expected map[string]string, _ string, cfg config, home string) (agentReport, error) {
-			return inspectAmpAgent(agent, expected, cfg, home)
+		"amp": {
+			Skills: SkillsConfigDriven,
+			InspectSkills: func(agent agentConfig, expected map[string]string, _ string, cfg config, home string) (agentReport, error) {
+				return inspectAmpAgent(agent, expected, cfg, home)
+			},
+			Setup: func(home string, _ config) (bool, error) {
+				return patchAmpConfig(home)
+			},
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  "amp",
+				configPath: ampSettingsPath,
+				inspect:    inspectJSONMCPServer,
+				patch:      patchJSONMCPServer,
+				read:       readJSONMCPServer,
+				rootKey:    "amp.mcpServers",
+			}),
+			PluginSurfaces:  map[string]bool{},
+			IntegrationNote: "config-driven via Amp settings -> amp.skills.path",
+			TrailerExample:  "Co-authored-by: amp[bot] <amp[bot]@users.noreply.github.com>",
 		},
-		Setup: func(home string, _ config) (bool, error) {
-			return patchAmpConfig(home)
-		},
-		MCP: mcpTargetPtr(mcpTarget{
-			agentName:  "amp",
-			configPath: ampSettingsPath,
-			inspect:    inspectJSONMCPServer,
-			patch:      patchJSONMCPServer,
-			read:       readJSONMCPServer,
-			rootKey:    "amp.mcpServers",
-		}),
-		PluginSurfaces: map[string]bool{},
-		IntegrationNote: "config-driven via Amp settings -> amp.skills.path",
-		TrailerExample:  "Co-authored-by: amp[bot] <amp[bot]@users.noreply.github.com>",
-	},
 
-	"claude-code": {
-		Skills: SkillsSymlink,
-		MCP: mcpTargetPtr(mcpTarget{
-			agentName:  "claude-code",
-			configPath: func(home string) string { return filepath.Join(home, ".claude.json") },
-			inspect:    inspectJSONMCPServer,
-			patch:      patchJSONMCPServer,
-			read:       readClaudeMCPServer,
-			rootKey:    "mcpServers",
-			defaults:   map[string]interface{}{"type": "stdio"},
-		}),
-		Roles: &RolesCapability{Extension: ".md", Render: renderClaudeAgentRole},
-		Hooks: &hookTarget{
-			agentName: "claude-code",
-			inspect:   inspectClaudeHook,
-			patch:     patchClaudeHook,
+		"claude-code": {
+			Skills: SkillsSymlink,
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  "claude-code",
+				configPath: func(home string) string { return filepath.Join(home, ".claude.json") },
+				inspect:    inspectJSONMCPServer,
+				patch:      patchJSONMCPServer,
+				read:       readClaudeMCPServer,
+				rootKey:    "mcpServers",
+				defaults:   map[string]interface{}{"type": "stdio"},
+			}),
+			Roles: &RolesCapability{Extension: ".md", Render: renderClaudeAgentRole},
+			Hooks: &hookTarget{
+				agentName: "claude-code",
+				inspect:   inspectClaudeHook,
+				patch:     patchClaudeHook,
+			},
+			PluginSurfaces: map[string]bool{
+				pluginSurfaceAgents: true,
+				pluginSurfaceHooks:  true,
+				pluginSurfaceCmds:   true,
+				pluginFormatClaude:  true,
+			},
+			TrailerExample: "Co-authored-by: claude[bot] <claude[bot]@users.noreply.github.com>",
 		},
-		PluginSurfaces: map[string]bool{
-			pluginSurfaceAgents: true,
-			pluginSurfaceHooks:  true,
-			pluginSurfaceCmds:   true,
-			pluginFormatClaude:  true,
-		},
-		TrailerExample: "Co-authored-by: claude[bot] <claude[bot]@users.noreply.github.com>",
-	},
 
-	"codex": {
-		Skills: SkillsSymlink,
-		MCP: mcpTargetPtr(mcpTarget{
-			agentName:  "codex",
-			configPath: func(home string) string { return filepath.Join(home, ".codex", "config.toml") },
-			inspect:    inspectCodexMCPServer,
-			patch:      patchCodexMCPServer,
-			read:       readCodexMCPServer,
-		}),
-		Roles: &RolesCapability{Extension: ".toml", Render: renderCodexAgentRole},
-		PluginSurfaces: map[string]bool{
-			pluginSurfaceAgents: true,
-			pluginFormatCodex:   true,
+		"codex": {
+			Skills: SkillsSymlink,
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  "codex",
+				configPath: func(home string) string { return filepath.Join(home, ".codex", "config.toml") },
+				inspect:    inspectCodexMCPServer,
+				patch:      patchCodexMCPServer,
+				read:       readCodexMCPServer,
+			}),
+			Roles: &RolesCapability{Extension: ".toml", Render: renderCodexAgentRole},
+			PluginSurfaces: map[string]bool{
+				pluginSurfaceAgents: true,
+				pluginFormatCodex:   true,
+			},
+			TrailerExample: "Co-Authored-By: codex[bot] <codex[bot]@users.noreply.github.com>",
 		},
-		TrailerExample: "Co-Authored-By: codex[bot] <codex[bot]@users.noreply.github.com>",
-	},
 
-	"droid": {
-		Skills: SkillsSymlink,
-		MCP: mcpTargetPtr(mcpTarget{
-			agentName:  "droid",
-			configPath: func(home string) string { return filepath.Join(home, ".factory", "mcp.json") },
-			inspect:    inspectJSONMCPServer,
-			patch:      patchJSONMCPServer,
-			read:       readJSONMCPServer,
-			rootKey:    "mcpServers",
-			defaults:   map[string]interface{}{"type": "stdio", "disabled": false},
-		}),
-		Roles: &RolesCapability{Extension: ".md", Render: renderDroidAgentRole},
-		PluginSurfaces: map[string]bool{
-			pluginSurfaceAgents: true,
+		"droid": {
+			Skills: SkillsSymlink,
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  "droid",
+				configPath: func(home string) string { return filepath.Join(home, ".factory", "mcp.json") },
+				inspect:    inspectJSONMCPServer,
+				patch:      patchJSONMCPServer,
+				read:       readJSONMCPServer,
+				rootKey:    "mcpServers",
+				defaults:   map[string]interface{}{"type": "stdio", "disabled": false},
+			}),
+			Roles: &RolesCapability{Extension: ".md", Render: renderDroidAgentRole},
+			PluginSurfaces: map[string]bool{
+				pluginSurfaceAgents: true,
+			},
+			RootInstructions: &RootInstructionsCapability{
+				Path:     func(home string) string { return filepath.Join(home, ".factory", "AGENTS.md") },
+				Expected: func(home string) string { return filepath.Join(home, ".agents", "AGENTS.md") },
+			},
+			TrailerExample: "Co-authored-by: factory-droid[bot] <factory-droid[bot]@users.noreply.github.com>",
 		},
-		RootInstructions: &RootInstructionsCapability{
-			Path:     func(home string) string { return filepath.Join(home, ".factory", "AGENTS.md") },
-			Expected: func(home string) string { return filepath.Join(home, ".agents", "AGENTS.md") },
-		},
-		TrailerExample: "Co-authored-by: factory-droid[bot] <factory-droid[bot]@users.noreply.github.com>",
-	},
 
-	"hermes": {
-		Skills: SkillsConfigDriven,
-		InspectSkills: func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
-			return inspectHermesAgent(agent, expected, agentsSkillRoot, cfg, home)
+		"hermes": {
+			Skills: SkillsConfigDriven,
+			InspectSkills: func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
+				return inspectHermesAgent(agent, expected, agentsSkillRoot, cfg, home)
+			},
+			Setup: func(home string, cfg config) (bool, error) {
+				return patchHermesConfig(home, cfg)
+			},
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  "hermes",
+				configPath: func(home string) string { return filepath.Join(home, ".hermes", "config.yaml") },
+				inspect:    inspectYAMLMCPServer,
+				patch:      patchYAMLMCPServer,
+				read:       readYAMLMCPServer,
+				rootKey:    "mcp_servers",
+			}),
+			Hooks: &hookTarget{
+				agentName: "hermes",
+				inspect:   inspectHermesHook,
+				patch:     patchHermesHook,
+			},
+			PluginSurfaces: map[string]bool{
+				pluginSurfaceHooks: true,
+			},
+			IntegrationNote: "config-driven via ~/.hermes/config.yaml -> skills.external_dirs",
+			DoctorChecks: []DoctorCheck{
+				{Name: "hermes direct mirrors", Run: checkHermesDirectMirrors},
+				{Name: "hermes hooks", Run: func(_, home string, cfg config) checkResult {
+					return checkHermesHooks(home, cfg)
+				}},
+			},
+			TrailerExample: "Co-Authored-By: hermes[bot] <hermes[bot]@users.noreply.github.com>",
 		},
-		Setup: func(home string, cfg config) (bool, error) {
-			return patchHermesConfig(home, cfg)
-		},
-		MCP: mcpTargetPtr(mcpTarget{
-			agentName:  "hermes",
-			configPath: func(home string) string { return filepath.Join(home, ".hermes", "config.yaml") },
-			inspect:    inspectYAMLMCPServer,
-			patch:      patchYAMLMCPServer,
-			read:       readYAMLMCPServer,
-			rootKey:    "mcp_servers",
-		}),
-		Hooks: &hookTarget{
-			agentName: "hermes",
-			inspect:   inspectHermesHook,
-			patch:     patchHermesHook,
-		},
-		PluginSurfaces: map[string]bool{
-			pluginSurfaceHooks: true,
-		},
-		IntegrationNote: "config-driven via ~/.hermes/config.yaml -> skills.external_dirs",
-		DoctorChecks: []DoctorCheck{
-			{Name: "hermes direct mirrors", Run: checkHermesDirectMirrors},
-			{Name: "hermes hooks", Run: func(_, home string, cfg config) checkResult {
-				return checkHermesHooks(home, cfg)
-			}},
-		},
-		TrailerExample: "Co-Authored-By: hermes[bot] <hermes[bot]@users.noreply.github.com>",
-	},
 
-	"omp": {
-		Skills: SkillsSymlink,
-		MCP: mcpTargetPtr(mcpTarget{
-			agentName:  "omp",
-			configPath: func(home string) string { return filepath.Join(home, ".omp", "agent", "mcp.json") },
-			inspect:    inspectJSONMCPServer,
-			patch:      patchJSONMCPServer,
-			read:       readJSONMCPServer,
-			rootKey:    "mcpServers",
-		}),
-		PluginSurfaces: map[string]bool{},
-		TrailerExample: "Co-authored-by: omp[bot] <omp[bot]@users.noreply.github.com>",
-	},
-}
+		"omp": {
+			Skills: SkillsSymlink,
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  "omp",
+				configPath: func(home string) string { return filepath.Join(home, ".omp", "agent", "mcp.json") },
+				inspect:    inspectJSONMCPServer,
+				patch:      patchJSONMCPServer,
+				read:       readJSONMCPServer,
+				rootKey:    "mcpServers",
+			}),
+			PluginSurfaces: map[string]bool{},
+			TrailerExample: "Co-authored-by: omp[bot] <omp[bot]@users.noreply.github.com>",
+		},
+	}
 }
 
 func getHarnesses() map[string]*Harness {
@@ -263,17 +263,6 @@ func hookTargetForHarness(agentName string) (hookTarget, bool) {
 func hasMCPSupport(agentName string) bool {
 	h := harnessFor(agentName)
 	return h != nil && h.MCP != nil
-}
-
-// allMCPAgentNames returns agent names that have MCP support, for validation.
-func allMCPAgentNames() map[string]struct{} {
-	result := make(map[string]struct{})
-	for name, h := range getHarnesses() {
-		if h.MCP != nil {
-			result[name] = struct{}{}
-		}
-	}
-	return result
 }
 
 // allHarnessNames returns all registered agent names.

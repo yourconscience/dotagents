@@ -25,7 +25,6 @@ type hookTarget struct {
 	patch     func(hookConfig, string) error
 }
 
-
 func desiredHooksForAgent(cfg config, agentName string) ([]hookConfig, bool) {
 	agentName = normalizeAgentName(agentName)
 	var hooks []hookConfig

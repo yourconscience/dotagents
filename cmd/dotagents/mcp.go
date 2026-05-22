@@ -33,7 +33,6 @@ type mcpTarget struct {
 
 const yamlMapTag = "!!map"
 
-
 func desiredMCPServersForAgent(cfg config, agentName string) []mcpServerConfig {
 	var servers []mcpServerConfig
 	agentName = normalizeAgentName(agentName)
@@ -42,7 +41,7 @@ func desiredMCPServersForAgent(cfg config, agentName string) []mcpServerConfig {
 			continue
 		}
 		if len(server.Agents) == 0 {
-		if hasMCPSupport(agentName) {
+			if hasMCPSupport(agentName) {
 				servers = append(servers, server)
 			}
 			continue
