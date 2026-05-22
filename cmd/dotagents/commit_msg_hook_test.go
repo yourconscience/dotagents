@@ -165,16 +165,20 @@ func TestCommitMsgHookTrailerCasesMatchConfiguredAgents(t *testing.T) {
 }
 
 func TestHarnessTrailersMatchTestCases(t *testing.T) {
-	for name, h := range harnesses {
-		if h.TrailerExample == "" {
+	h := getHarnesses()
+	if len(h) == 0 {
+		t.Fatal("harness registry is empty")
+	}
+	for name, entry := range h {
+		if entry.TrailerExample == "" {
 			t.Fatalf("harness %q has no TrailerExample", name)
 		}
 		testTrailer, ok := commitMsgHookTrailerCases[name]
 		if !ok {
 			t.Fatalf("harness %q has TrailerExample but no commitMsgHookTrailerCases entry", name)
 		}
-		if h.TrailerExample != testTrailer {
-			t.Fatalf("harness %q TrailerExample = %q, commitMsgHookTrailerCases = %q", name, h.TrailerExample, testTrailer)
+		if entry.TrailerExample != testTrailer {
+			t.Fatalf("harness %q TrailerExample = %q, commitMsgHookTrailerCases = %q", name, entry.TrailerExample, testTrailer)
 		}
 	}
 }

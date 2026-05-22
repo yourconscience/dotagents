@@ -8,7 +8,7 @@ Current timestamp for this handoff: `2026-05-20` in `Asia/Tbilisi`.
 
 ## Starting State
 
-- Target repo: `/Users/conscience/Workspace/dotagents`.
+- Target repo: `~/Workspace/dotagents`.
 - Current branch: `public-prep`, tracking `origin/public-prep`.
 - Relevant PR: [#65](https://github.com/yourconscience/dotagents/pull/65), titled `Redact personal data for public release`.
 - PR #65 state when this handoff was written:
@@ -47,7 +47,7 @@ The captured session did three things:
    - Replaces hardcoded personal knowledge paths with `$KNOWLEDGE_DIR` where appropriate.
    - Removes private framing from `README.md`.
    - Redacts a personal company/example from skill docs.
-   - Replaces a local `/Users/conscience/...` test fixture path with a generic path.
+   - Replaces a local user-specific test fixture path with a generic path.
    - The session reported that critical Telegram credential files were untracked and not in git history, but still recommended rotating Telegram credentials as hygiene.
 
 ## Branch Changes To Preserve
@@ -60,7 +60,7 @@ The captured session did three things:
 - `README.md`
   - Public-facing description of `dotagents` as a cross-agent sync CLI.
 - `cmd/dotagents/amp_memory_e2e_test.go`
-  - Generic fixture path instead of `/Users/conscience/...`.
+  - Generic fixture path instead of user-specific absolute path.
 - `scripts/commit-msg`
   - Hook that strips `Co-authored-by:` trailers.
 - `skills/dotagents/references/memory-sync.md`
@@ -103,7 +103,7 @@ The captured session did three things:
 4. Re-run privacy checks from the captured session.
    - Verify tracked files do not include private paths, private company examples, credentials, or session files.
    - Suggested commands:
-     - `git ls-files -z | xargs -0 rg -n "/Users/conscience|Inworld|korikov|conscience@|100\\.73\\."`
+     - `git ls-files -z | xargs -0 rg -n "<user-home>|Inworld|korikov|conscience@|100\\.73\\."`
      - `git ls-files 'mcp/*/.env' 'mcp/*/.*.session' tmp/ research/ memsearch.conf .claude/ dotagents.yaml.tmp`
    - Treat `.env.example` files with empty placeholders as acceptable.
 
@@ -135,10 +135,10 @@ The captured session did three things:
 ## Useful Commands
 
 ```sh
-git -C /Users/conscience/Workspace/dotagents status --short --branch
-git -C /Users/conscience/Workspace/dotagents worktree list
-git -C /Users/conscience/Workspace/dotagents diff --stat origin/main...HEAD
-git -C /Users/conscience/Workspace/dotagents diff --name-status origin/main...HEAD
+git -C ~/Workspace/dotagents status --short --branch
+git -C ~/Workspace/dotagents worktree list
+git -C ~/Workspace/dotagents diff --stat origin/main...HEAD
+git -C ~/Workspace/dotagents diff --name-status origin/main...HEAD
 gh pr view 65 --repo yourconscience/dotagents --json number,title,state,baseRefName,headRefName,mergeStateStatus,url,statusCheckRollup,reviewDecision
 gh pr view 64 --repo yourconscience/dotagents --json number,title,state,baseRefName,headRefName,mergeStateStatus,url,statusCheckRollup,reviewDecision
 go test ./cmd/dotagents -count=1
