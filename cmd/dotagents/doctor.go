@@ -20,7 +20,7 @@ const (
 	agentCodex      = "codex"
 	agentDroid      = "droid"
 	agentHermes     = "hermes"
-	agentOmp        = "omp"
+	agentPi         = "pi"
 	ampSkillsPath   = "~/.agents/skills"
 )
 
