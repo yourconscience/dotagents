@@ -177,9 +177,8 @@ The `knowledge-sync` tool source lives at `memory/tools/knowledge-sync/`. See it
 
 `dotagents` can also manage selected MCP server parity across agents without symlinking whole config files.
 
-Current managed MCP set lives in root `dotagents.yaml` under `mcp_servers:`. Minimal example in this repo:
+Current managed MCP set lives in root `dotagents.yaml` under `mcp_servers:`. Minimal examples in this repo:
 
-- `github` -> `~/.agents/mcp/github/server.sh`
 - `linkedin` -> `uvx linkedin-scraper-mcp@latest`
 - `telegram_readonly` -> repo-local Telegram MCP server
 
