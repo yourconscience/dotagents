@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -238,6 +239,59 @@ func TestClaudeMCPPatchCreatesMissingConfig(t *testing.T) {
 	}
 	if _, ok := linkedin["disabled"]; ok {
 		t.Fatalf("claude config should not get droid disabled default: %#v", linkedin)
+	}
+}
+
+func TestCodexMCPPatchDeduplicatesManagedSections(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte(`[mcp_servers.linkedin]
+command = "old"
+args = ["old"]
+
+[mcp_servers.other]
+command = "node"
+args = ["server.js"]
+
+[mcp_servers.linkedin]
+command = "uvx"
+args = ["wrong"]
+env = { UV_HTTP_TIMEOUT = "30" }
+
+[profiles.default]
+model = "gpt-5"
+`)
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := patchMCPServer(agentCodex, testMCPServer(), home); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(out)
+	if count := strings.Count(content, "[mcp_servers.linkedin]"); count != 1 {
+		t.Fatalf("linkedin section count = %d, want 1:\n%s", count, content)
+	}
+	if strings.Contains(content, `command = "old"`) || strings.Contains(content, `args = ["wrong"]`) {
+		t.Fatalf("stale linkedin section was not removed:\n%s", content)
+	}
+	if !strings.Contains(content, "[mcp_servers.other]") || !strings.Contains(content, "[profiles.default]") {
+		t.Fatalf("unrelated sections were not preserved:\n%s", content)
+	}
+	state, err := inspectMCPServer(agentCodex, testMCPServer(), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != stateSynced {
+		t.Fatalf("inspect after dedupe = %q, want %q", state, stateSynced)
 	}
 }
 
