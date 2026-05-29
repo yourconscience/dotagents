@@ -27,10 +27,6 @@ agents:
     enabled: true
     detect: pi
     skill_root: ~/.omp/agent/skills
-external_skills:
-  - url: https://github.com/yourconscience/dotknow
-    skill_dir: skill
-    branch: main
 plugins:
   - name: browser
     enabled: true

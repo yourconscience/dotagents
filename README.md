@@ -60,11 +60,11 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 
 ## External Skills
 
-Skills from external git repos can be synced alongside local skills. Declare sources in `dotagents.yaml`:
+Skills from external git repos can be synced alongside local skills. Declare sources in `dotagents.yaml` when needed:
 
 ```yaml
 external_skills:
-  - url: https://github.com/yourconscience/dotknow
+  - url: https://github.com/example/shared-skills
     skill_dir: skill
     branch: main
 ```
