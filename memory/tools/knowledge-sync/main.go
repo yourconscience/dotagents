@@ -66,12 +66,12 @@ func main() {
 	if out, err := git(repo, "fetch", remote, branch); err != nil {
 		fatal("git fetch", err, out)
 	}
-	if out, err := git(repo, "rebase", remote+"/"+branch); err != nil {
+	if out, err := git(repo, "merge", "--no-edit", remote+"/"+branch); err != nil {
 		fmt.Print(out)
 		conflict := "sync-conflict-" + time.Now().UTC().Format("20060102T150405Z")
 		git(repo, "branch", conflict)
-		git(repo, "rebase", "--abort")
-		fatal("git rebase", err, "created conflict branch "+conflict+"\n")
+		git(repo, "merge", "--abort")
+		fatal("git merge", err, "created conflict branch "+conflict+"\n")
 	}
 	if out, err := git(repo, "push", remote, branch); err != nil {
 		fatal("git push", err, out)
