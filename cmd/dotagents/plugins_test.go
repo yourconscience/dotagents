@@ -208,6 +208,24 @@ func TestInspectAgentRemovesDisabledPluginSkillLinks(t *testing.T) {
 	}
 }
 
+func TestAllPluginSkillBasesSkipsMissingDisabledPluginSource(t *testing.T) {
+	home := t.TempDir()
+
+	bases, err := allPluginSkillBasesForAgent([]pluginConfig{{
+		Name:     "review-only",
+		Enabled:  false,
+		Source:   filepath.Join(home, "missing-plugin"),
+		Surfaces: []string{pluginSurfaceSkills},
+		Agents:   []string{agentCodex},
+	}}, home, agentCodex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bases) != 0 {
+		t.Fatalf("bases = %#v, want none", bases)
+	}
+}
+
 func TestCheckFirstPartyPluginsValidatesAllAgentTargets(t *testing.T) {
 	result := checkFirstPartyPlugins(config{Plugins: []pluginConfig{{
 		Name:     "native-codex",
