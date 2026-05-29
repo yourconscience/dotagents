@@ -101,6 +101,20 @@ func TestCheckExternalPackageAgePassesOldPackage(t *testing.T) {
 	}
 }
 
+func TestCheckExternalPackageAgeAllowsCodexPackage(t *testing.T) {
+	now := time.Date(2026, 5, 16, 12, 0, 0, 0, time.UTC)
+	cfg := config{MCPServers: []mcpServerConfig{{
+		Name: "codex", Enabled: true, Command: "npm", Args: []string{"install", "-g", "@openai/codex"},
+	}}}
+	got := checkExternalPackageAgeWithResolver(t.TempDir(), cfg, false, now, func(ref packageReference) (packageRelease, error) {
+		t.Fatalf("resolver should not be called for codex package-age exception: %#v", ref)
+		return packageRelease{}, nil
+	})
+	if got.status != checkStatusPass || !strings.Contains(got.detail, "package-age exception") {
+		t.Fatalf("got %#v, want codex package-age exception pass", got)
+	}
+}
+
 func TestCheckExternalPackageAgeFailsRegistryOutage(t *testing.T) {
 	cfg := config{MCPServers: []mcpServerConfig{{
 		Name: "outage", Enabled: true, Command: mcpTestUVXCommand, Args: []string{"outage-pkg@latest"},

@@ -56,7 +56,12 @@ func checkExternalPackageAgeWithResolver(repoRoot string, cfg config, skip bool,
 	}
 	var fresh []string
 	var unresolved []string
+	exempt := 0
 	for _, ref := range refs {
+		if isPackageAgeException(ref) {
+			exempt++
+			continue
+		}
 		release, err := resolver(ref)
 		if err != nil {
 			unresolved = append(unresolved, fmt.Sprintf("%s:%s (%s)", ref.Ecosystem, ref.Package, err))
@@ -73,7 +78,18 @@ func checkExternalPackageAgeWithResolver(repoRoot string, cfg config, skip bool,
 	if len(fresh) > 0 {
 		return checkResult{"package age", checkStatusFail, "package newer than 7 days: " + strings.Join(fresh, "; ")}
 	}
-	return checkResult{"package age", checkStatusPass, fmt.Sprintf("%d references older than 7 days", len(refs))}
+	detail := fmt.Sprintf("%d references older than 7 days", len(refs)-exempt)
+	if exempt > 0 {
+		detail += fmt.Sprintf("; %d package-age exception", exempt)
+		if exempt > 1 {
+			detail += "s"
+		}
+	}
+	return checkResult{"package age", checkStatusPass, detail}
+}
+
+func isPackageAgeException(ref packageReference) bool {
+	return ref.Ecosystem == ecosystemNPM && ref.Package == "@openai/codex"
 }
 
 func collectPackageReferences(repoRoot string, cfg config) ([]packageReference, error) {
