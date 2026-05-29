@@ -11,9 +11,9 @@ func TestRepoName(t *testing.T) {
 		url  string
 		want string
 	}{
-		{"https://github.com/yourconscience/dotknow", "dotknow"},
-		{"https://github.com/yourconscience/dotknow.git", "dotknow"},
-		{"git@github.com:yourconscience/dotknow.git", "dotknow"},
+		{"https://github.com/example/single-skill", "single-skill"},
+		{"https://github.com/example/single-skill.git", "single-skill"},
+		{"git@github.com:example/single-skill.git", "single-skill"},
 		{"https://github.com/user/repo/", "repo"},
 		{"simple-name", "simple-name"},
 	}
@@ -36,17 +36,17 @@ func TestDiscoverExternalSkillsSingleSkill(t *testing.T) {
 	home := t.TempDir()
 	cacheRoot := filepath.Join(home, ".agents", "external")
 
-	repoDir := filepath.Join(cacheRoot, "dotknow", "skill")
+	repoDir := filepath.Join(cacheRoot, "single-skill", "skill")
 	if err := os.MkdirAll(repoDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	makeGitDir(t, filepath.Join(cacheRoot, "dotknow"))
-	if err := os.WriteFile(filepath.Join(repoDir, "SKILL.md"), []byte("---\nname: dotknow\n---\n"), 0o644); err != nil {
+	makeGitDir(t, filepath.Join(cacheRoot, "single-skill"))
+	if err := os.WriteFile(filepath.Join(repoDir, "SKILL.md"), []byte("---\nname: single-skill\n---\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	sources := []externalSkillSource{
-		{URL: "https://github.com/yourconscience/dotknow", SkillDir: "skill", Branch: "main"},
+		{URL: "https://github.com/example/single-skill", SkillDir: "skill", Branch: "main"},
 	}
 
 	result, err := discoverExternalSkills(sources, home)
@@ -56,11 +56,11 @@ func TestDiscoverExternalSkillsSingleSkill(t *testing.T) {
 	if len(result) != 1 {
 		t.Fatalf("expected 1 skill, got %d", len(result))
 	}
-	if _, ok := result["dotknow"]; !ok {
-		t.Fatalf("expected skill named 'dotknow', got %v", result)
+	if _, ok := result["single-skill"]; !ok {
+		t.Fatalf("expected skill named 'single-skill', got %v", result)
 	}
-	if result["dotknow"] != repoDir {
-		t.Fatalf("expected path %s, got %s", repoDir, result["dotknow"])
+	if result["single-skill"] != repoDir {
+		t.Fatalf("expected path %s, got %s", repoDir, result["single-skill"])
 	}
 }
 
@@ -141,13 +141,13 @@ func TestDiscoverExternalSkillsBadSkillDir(t *testing.T) {
 	home := t.TempDir()
 	cacheRoot := filepath.Join(home, ".agents", "external")
 
-	repoDir := filepath.Join(cacheRoot, "dotknow")
+	repoDir := filepath.Join(cacheRoot, "single-skill")
 	if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	sources := []externalSkillSource{
-		{URL: "https://github.com/yourconscience/dotknow", SkillDir: "wrong-dir", Branch: "main"},
+		{URL: "https://github.com/example/single-skill", SkillDir: "wrong-dir", Branch: "main"},
 	}
 
 	_, err := discoverExternalSkills(sources, home)
@@ -197,7 +197,7 @@ func TestDiscoverExternalSkillsNonGitDir(t *testing.T) {
 
 func TestIsExternalSkillLink(t *testing.T) {
 	home := t.TempDir()
-	extDir := filepath.Join(home, ".agents", "external", "dotknow", "skill")
+	extDir := filepath.Join(home, ".agents", "external", "single-skill", "skill")
 	if err := os.MkdirAll(extDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestIsExternalSkillLink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	linkPath := filepath.Join(skillRoot, "dotknow")
+	linkPath := filepath.Join(skillRoot, "single-skill")
 	if err := os.Symlink(extDir, linkPath); err != nil {
 		t.Fatal(err)
 	}
