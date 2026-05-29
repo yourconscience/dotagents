@@ -175,17 +175,6 @@ plugins:
       - pi
     review: First enabled Claude plugin. Dotagents treats it as a portable skill surface for Claude Code, Codex, Droid, and Hermes.
 mcp_servers:
-  - name: github
-    enabled: true
-    command: sh
-    args:
-      - -lc
-      - exec ~/.agents/mcp/github/server.sh
-    env:
-      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
-    agents:
-      - claude-code
-      - codex
   - name: linkedin
     enabled: true
     command: uvx
