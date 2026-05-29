@@ -22,4 +22,4 @@ Configuration is read from environment variables, with defaults in `main.go`:
 - `KNOWLEDGE_REMOTE`, default `vps`
 - `KNOWLEDGE_BRANCH`, default `main`
 
-The helper uses a lock file under the knowledge repo git directory, commits dirty vault changes, fetches/rebases from the remote branch, and pushes back to the same remote branch.
+The helper uses a lock file under the knowledge repo git directory, commits dirty vault changes, fetches/merges from the remote branch, and pushes back to the same remote branch.
