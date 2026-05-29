@@ -137,6 +137,9 @@ func pluginSkillBasesForAgentMode(plugins []pluginConfig, home string, agentName
 		}
 		base, err := pluginSkillBase(plugin, home)
 		if err != nil {
+			if !enabledOnly && !plugin.Enabled {
+				continue
+			}
 			return nil, err
 		}
 		bases = append(bases, base)
