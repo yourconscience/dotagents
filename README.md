@@ -109,6 +109,8 @@ Dotagents keeps `~/.agents` as the source of truth and adapts each agent through
 | Amp | Config path to `~/.agents/skills` | Not managed | Amp settings `amp.mcpServers` | Not managed | Reads `AGENTS.md` | Uses `amp.skills.path`; patches an existing ignored workspace `.amp/settings.*` only when Amp would give it precedence. |
 | Hermes | Config path to `~/.agents/skills` | Not managed | `~/.hermes/config.yaml` | `~/.hermes/config.yaml` for known lifecycle hooks | Reads configured Hermes context | Uses `skills.external_dirs`; do not mirror into `~/.hermes/skills` because bundled categories can collide. |
 | Factory Droid | Symlink mirror to `~/.factory/skills` | Generated to `~/.factory/droids` | `~/.factory/mcp.json` | Not managed | `~/.factory/AGENTS.md` symlink | Full managed mirror for skills and roles. |
+
+
 Managed hook declarations live in `dotagents.yaml`. `dotagents sync` may patch supported hook config, but it never approves hook execution. Host-specific hook approval remains manual and lifecycle-sensitive.
 
 ## Experimental
