@@ -232,35 +232,35 @@ hooks:
     enabled: true
     event: SessionStart
     command: ~/.agents/hooks/cmux/dispatch.sh codex session-start
-    timeout: 5000
+    timeout: 5
     agents:
       - codex
   - name: cmux-codex-prompt-submit
     enabled: true
     event: UserPromptSubmit
     command: ~/.agents/hooks/cmux/dispatch.sh codex prompt-submit
-    timeout: 5000
+    timeout: 5
     agents:
       - codex
   - name: cmux-codex-stop
     enabled: true
     event: Stop
     command: ~/.agents/hooks/cmux/dispatch.sh codex stop
-    timeout: 5000
+    timeout: 5
     agents:
       - codex
   - name: cmux-codex-feed-pre-tool-use
     enabled: true
     event: PreToolUse
     command: ~/.agents/hooks/cmux/dispatch.sh feed --source codex --event PreToolUse
-    timeout: 120000
+    timeout: 120
     agents:
       - codex
   - name: cmux-codex-feed-permission-request
     enabled: true
     event: PermissionRequest
     command: ~/.agents/hooks/cmux/dispatch.sh feed --source codex --event PermissionRequest
-    timeout: 120000
+    timeout: 120
     agents:
       - codex
   - name: cmux-droid-session-start

@@ -559,8 +559,16 @@ func codexHooksFeatureEnabled(home string) bool {
 	if err != nil {
 		return false
 	}
-	values := parseTOMLTopLevelValues(string(data))
-	return values["codex_hooks"] == "true"
+	content := string(data)
+	values := parseTOMLTopLevelValues(content)
+	if values["features.hooks"] == "true" || values["codex_hooks"] == "true" {
+		return true
+	}
+	block, ok := extractTOMLSection(content, "[features]")
+	if !ok {
+		return false
+	}
+	return parseTOMLBlockValues(block)["hooks"] == "true"
 }
 
 func patchCodexHooksFeature(home string) error {
@@ -574,7 +582,7 @@ func patchCodexHooksFeature(home string) error {
 	} else {
 		content = string(data)
 	}
-	updated := upsertTOMLTopLevelBool(content, "codex_hooks", true)
+	updated := upsertCodexHooksFeature(content)
 	if updated == content {
 		return nil
 	}
@@ -585,6 +593,17 @@ func patchCodexHooksFeature(home string) error {
 		return fmt.Errorf("write %s: %w", configPath, err)
 	}
 	return nil
+}
+
+func upsertCodexHooksFeature(content string) string {
+	content = removeTOMLTopLevelKeys(content, "codex_hooks", "features.hooks")
+	start := indexTOMLSectionHeader(content, "[features]")
+	if start == -1 {
+		return upsertTOMLSection(content, "[features]", "[features]\nhooks = true\n\n")
+	}
+	end := endTOMLSection(content, start, "[features]")
+	section := upsertTOMLBlockBool(content[start:end], "hooks", true)
+	return content[:start] + ensureTrailingBlankLine(section) + content[end:]
 }
 
 func parseTOMLTopLevelValues(content string) map[string]string {
@@ -606,31 +625,54 @@ func parseTOMLTopLevelValues(content string) map[string]string {
 	return values
 }
 
-func upsertTOMLTopLevelBool(content string, key string, value bool) string {
+func removeTOMLTopLevelKeys(content string, keys ...string) string {
+	if content == "" {
+		return content
+	}
+	remove := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		remove[key] = struct{}{}
+	}
+	lines := strings.Split(content, "\n")
+	for i := 0; i < len(lines); {
+		trimmed := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(trimmed, "[") {
+			break
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) != 2 {
+			i++
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		if _, ok := remove[key]; ok {
+			lines = append(lines[:i], lines[i+1:]...)
+			continue
+		}
+		i++
+	}
+	return strings.Join(lines, "\n")
+}
+
+func upsertTOMLBlockBool(block string, key string, value bool) string {
 	valueString := "false"
 	if value {
 		valueString = "true"
 	}
 	line := fmt.Sprintf("%s = %s", key, valueString)
-	lines := strings.Split(content, "\n")
-	if content == "" {
+	lines := strings.Split(block, "\n")
+	if len(lines) == 0 {
 		return line + "\n"
 	}
-	insertAt := len(lines)
-	for i, existing := range lines {
-		trimmed := strings.TrimSpace(existing)
-		if strings.HasPrefix(trimmed, "[") {
-			insertAt = i
-			break
-		}
-		if strings.HasPrefix(trimmed, key) {
-			parts := strings.SplitN(trimmed, "=", 2)
-			if len(parts) == 2 && strings.TrimSpace(parts[0]) == key {
-				lines[i] = line
-				return strings.Join(lines, "\n")
-			}
+	for i := 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) == 2 && strings.TrimSpace(parts[0]) == key {
+			lines[i] = line
+			return strings.Join(lines, "\n")
 		}
 	}
+	insertAt := 1
 	lines = append(lines, "")
 	copy(lines[insertAt+1:], lines[insertAt:])
 	lines[insertAt] = line

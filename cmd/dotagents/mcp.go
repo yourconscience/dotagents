@@ -742,7 +742,7 @@ func upsertTOMLSection(content string, header string, section string) string {
 		}
 		prefix := content[:insertAt]
 		suffix := content[insertAt:]
-		if !strings.HasSuffix(prefix, "\n\n") {
+		if prefix != "" && !strings.HasSuffix(prefix, "\n\n") {
 			if strings.HasSuffix(prefix, "\n") {
 				prefix += "\n"
 			} else {
