@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -348,6 +349,40 @@ func TestCodexHookPatchEnablesExistingDisabledFeature(t *testing.T) {
 	}
 	if got := string(configOut); got != "[features]\nhooks = true\nexperimental = true\n\n" {
 		t.Fatalf("codex config not updated in existing [features]:\n%s", got)
+	}
+}
+
+func TestCodexHookPatchEnablesCommentedFeaturesHeader(t *testing.T) {
+	home := t.TempDir()
+	hooksPath := filepath.Join(home, ".codex", "hooks.json")
+	if err := os.MkdirAll(filepath.Dir(hooksPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(home, ".codex", "config.toml")
+	if err := os.WriteFile(configPath, []byte("[features] # enabled feature flags\r\nexperimental = true\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hook := hookConfig{
+		Name:    "cmux-codex-session-start",
+		Enabled: true,
+		Event:   "SessionStart",
+		Command: "~/.agents/hooks/cmux/dispatch.sh codex session-start",
+		Timeout: 5,
+		Agents:  []string{agentCodex},
+	}
+	if err := patchCodexHook(hook, home); err != nil {
+		t.Fatal(err)
+	}
+	configOut, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(configOut)
+	if strings.Count(got, "[features]") != 1 {
+		t.Fatalf("codex config has duplicate [features] header:\n%s", got)
+	}
+	if !strings.Contains(got, "[features] # enabled feature flags\r\nhooks = true\r\nexperimental = true") {
+		t.Fatalf("codex config did not patch existing commented [features] header:\n%s", got)
 	}
 }
 

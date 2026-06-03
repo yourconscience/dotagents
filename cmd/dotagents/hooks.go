@@ -660,6 +660,11 @@ func upsertTOMLBlockBool(block string, key string, value bool) string {
 		valueString = "true"
 	}
 	line := fmt.Sprintf("%s = %s", key, valueString)
+	newline := "\n"
+	if strings.Contains(block, "\r\n") {
+		newline = "\r\n"
+		block = strings.ReplaceAll(block, "\r\n", "\n")
+	}
 	lines := strings.Split(block, "\n")
 	if len(lines) == 0 {
 		return line + "\n"
@@ -669,12 +674,12 @@ func upsertTOMLBlockBool(block string, key string, value bool) string {
 		parts := strings.SplitN(trimmed, "=", 2)
 		if len(parts) == 2 && strings.TrimSpace(parts[0]) == key {
 			lines[i] = line
-			return strings.Join(lines, "\n")
+			return strings.Join(lines, newline)
 		}
 	}
 	insertAt := 1
 	lines = append(lines, "")
 	copy(lines[insertAt+1:], lines[insertAt:])
 	lines[insertAt] = line
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, newline)
 }
