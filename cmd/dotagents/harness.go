@@ -146,8 +146,14 @@ func initHarnesses() {
 				read:       readCodexMCPServer,
 			}),
 			Roles: &RolesCapability{Extension: ".toml", Render: renderCodexAgentRole},
+			Hooks: &hookTarget{
+				agentName: "codex",
+				inspect:   inspectCodexHook,
+				patch:     patchCodexHook,
+			},
 			PluginSurfaces: map[string]bool{
 				pluginSurfaceAgents: true,
+				pluginSurfaceHooks:  true,
 				pluginFormatCodex:   true,
 			},
 			TrailerExample: "Co-Authored-By: codex[bot] <codex[bot]@users.noreply.github.com>",
@@ -165,8 +171,14 @@ func initHarnesses() {
 				defaults:   map[string]interface{}{"type": "stdio", "disabled": false},
 			}),
 			Roles: &RolesCapability{Extension: ".md", Render: renderDroidAgentRole},
+			Hooks: &hookTarget{
+				agentName: "droid",
+				inspect:   inspectDroidHook,
+				patch:     patchDroidHook,
+			},
 			PluginSurfaces: map[string]bool{
 				pluginSurfaceAgents: true,
+				pluginSurfaceHooks:  true,
 			},
 			RootInstructions: &RootInstructionsCapability{
 				Path:     func(home string) string { return filepath.Join(home, ".factory", "AGENTS.md") },
