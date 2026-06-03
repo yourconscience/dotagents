@@ -43,7 +43,13 @@ if [ -z "${CMUX_SURFACE_ID:-}" ]; then
 fi
 
 if [ -n "$disable_var" ]; then
-  eval "disabled=\${$disable_var:-}"
+  disabled=""
+  case "$disable_var" in
+    CMUX_CODEX_HOOKS_DISABLED) disabled="${CMUX_CODEX_HOOKS_DISABLED:-}" ;;
+    CMUX_FACTORY_HOOKS_DISABLED) disabled="${CMUX_FACTORY_HOOKS_DISABLED:-}" ;;
+    CMUX_HERMES_AGENT_HOOKS_DISABLED) disabled="${CMUX_HERMES_AGENT_HOOKS_DISABLED:-}" ;;
+    CMUX_CLAUDE_HOOKS_DISABLED) disabled="${CMUX_CLAUDE_HOOKS_DISABLED:-}" ;;
+  esac
   if [ "$disabled" = "1" ]; then
     printf '{}\n'
     exit 0

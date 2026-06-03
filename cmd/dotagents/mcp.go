@@ -779,7 +779,7 @@ func indexTOMLSectionHeader(content string, header string) int {
 			continue
 		}
 		end := i + len(header)
-		if end == len(content) || content[end] == '\n' {
+		if end == len(content) || content[end] == '\n' || (content[end] == '\r' && (end+1 == len(content) || content[end+1] == '\n')) {
 			return i
 		}
 	}
@@ -788,6 +788,9 @@ func indexTOMLSectionHeader(content string, header string) int {
 
 func endTOMLSection(content string, start int, header string) int {
 	searchStart := start + len(header)
+	if searchStart < len(content) && content[searchStart] == '\r' {
+		searchStart++
+	}
 	if searchStart < len(content) && content[searchStart] == '\n' {
 		searchStart++
 	}
