@@ -779,11 +779,32 @@ func indexTOMLSectionHeader(content string, header string) int {
 			continue
 		}
 		end := i + len(header)
-		if end == len(content) || content[end] == '\n' || (content[end] == '\r' && (end+1 == len(content) || content[end+1] == '\n')) {
+		if tomlSectionHeaderSuffixMatches(content, end) {
 			return i
 		}
 	}
 	return -1
+}
+
+func tomlSectionHeaderSuffixMatches(content string, start int) bool {
+	if start == len(content) {
+		return true
+	}
+	lineEnd := start
+	for lineEnd < len(content) && content[lineEnd] != '\n' && content[lineEnd] != '\r' {
+		lineEnd++
+	}
+	suffix := strings.TrimSpace(content[start:lineEnd])
+	if suffix != "" && !strings.HasPrefix(suffix, "#") {
+		return false
+	}
+	if lineEnd == len(content) {
+		return true
+	}
+	if content[lineEnd] == '\n' {
+		return true
+	}
+	return lineEnd+1 == len(content) || content[lineEnd+1] == '\n'
 }
 
 func endTOMLSection(content string, start int, header string) int {
