@@ -645,3 +645,19 @@ func TestDroidMCPPatchCreatesMissingConfig(t *testing.T) {
 		t.Fatalf("inspect after create = %q, want %q", state, stateSynced)
 	}
 }
+
+func TestTOMLSectionHelpersHandleCRLF(t *testing.T) {
+	content := "codex_hooks = true\r\n[mcp_servers.linkedin]\r\ncommand = \"old\"\r\n\r\n[profiles.default]\r\nmodel = \"gpt-5\"\r\n"
+	section := renderCodexMCPSection(testMCPServer())
+	updated := upsertTOMLSection(content, "[mcp_servers.linkedin]", section)
+
+	if strings.Contains(updated, "command = \"old\"") {
+		t.Fatalf("old CRLF section was not replaced:\n%s", updated)
+	}
+	if count := strings.Count(updated, "[mcp_servers.linkedin]"); count != 1 {
+		t.Fatalf("mcp section count = %d, want 1:\n%s", count, updated)
+	}
+	if !strings.Contains(updated, "[profiles.default]\r\nmodel = \"gpt-5\"") {
+		t.Fatalf("following CRLF section was not preserved:\n%s", updated)
+	}
+}
