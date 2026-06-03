@@ -279,7 +279,7 @@ func TestCodexHookPatchWritesNestedHooksAndEnablesFeature(t *testing.T) {
 		Enabled: true,
 		Event:   "SessionStart",
 		Command: "~/.agents/hooks/cmux/dispatch.sh codex session-start",
-		Timeout: 5000,
+		Timeout: 5,
 		Agents:  []string{agentCodex},
 	}
 	if state, err := inspectCodexHook(hook, home); err != nil || state != stateDrifted {
@@ -305,7 +305,7 @@ func TestCodexHookPatchWritesNestedHooksAndEnablesFeature(t *testing.T) {
 		t.Fatalf("nested hook count = %d, want 2: %#v", len(items), items)
 	}
 	managed := items[1].(map[string]interface{})
-	if managed["type"] != "command" || managed["command"] != hook.Command || managed["timeout"].(float64) != 5000 {
+	if managed["type"] != "command" || managed["command"] != hook.Command || managed["timeout"].(float64) != 5 {
 		t.Fatalf("managed hook was not rendered as nested command: %#v", managed)
 	}
 
@@ -313,8 +313,41 @@ func TestCodexHookPatchWritesNestedHooksAndEnablesFeature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(configOut); got != "codex_hooks = true\n[profiles.default]\nmodel = \"gpt-5\"\n" {
-		t.Fatalf("codex config not patched at top level:\n%s", got)
+	if got := string(configOut); got != "[features]\nhooks = true\n\n[profiles.default]\nmodel = \"gpt-5\"\n" {
+		t.Fatalf("codex config not patched under [features]:\n%s", got)
+	}
+}
+
+func TestCodexHookPatchEnablesExistingDisabledFeature(t *testing.T) {
+	home := t.TempDir()
+	hooksPath := filepath.Join(home, ".codex", "hooks.json")
+	if err := os.MkdirAll(filepath.Dir(hooksPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(home, ".codex", "config.toml")
+	if err := os.WriteFile(configPath, []byte("[features]\nhooks = false\nexperimental = true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hook := hookConfig{
+		Name:    "cmux-codex-session-start",
+		Enabled: true,
+		Event:   "SessionStart",
+		Command: "~/.agents/hooks/cmux/dispatch.sh codex session-start",
+		Timeout: 5,
+		Agents:  []string{agentCodex},
+	}
+	if err := patchCodexHook(hook, home); err != nil {
+		t.Fatal(err)
+	}
+	if state, err := inspectCodexHook(hook, home); err != nil || state != stateSynced {
+		t.Fatalf("inspect after patch = %q, %v; want synced, nil", state, err)
+	}
+	configOut, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(configOut); got != "[features]\nhooks = true\nexperimental = true\n\n" {
+		t.Fatalf("codex config not updated in existing [features]:\n%s", got)
 	}
 }
 
