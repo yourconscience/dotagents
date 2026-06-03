@@ -192,6 +192,79 @@ func patchHermesHook(hook hookConfig, home string) error {
 	}
 	return nil
 }
+func inspectCodexHook(hook hookConfig, home string) (string, error) {
+	state, err := inspectNestedJSONHook(codexHooksConfigPath(home), hook)
+	if err != nil || state != stateSynced {
+		return state, err
+	}
+	if !codexHooksFeatureEnabled(home) {
+		return stateDrifted, nil
+	}
+	return stateSynced, nil
+}
+
+func patchCodexHook(hook hookConfig, home string) error {
+	if err := patchNestedJSONHook(codexHooksConfigPath(home), hook); err != nil {
+		return err
+	}
+	return patchCodexHooksFeature(home)
+}
+
+func inspectDroidHook(hook hookConfig, home string) (string, error) {
+	return inspectNestedJSONHook(droidHooksConfigPath(home), hook)
+}
+
+func patchDroidHook(hook hookConfig, home string) error {
+	return patchNestedJSONHook(droidHooksConfigPath(home), hook)
+}
+
+func codexHooksConfigPath(home string) string {
+	return filepath.Join(home, ".codex", "hooks.json")
+}
+
+func droidHooksConfigPath(home string) string {
+	return filepath.Join(home, ".factory", "settings.json")
+}
+
+func inspectNestedJSONHook(configPath string, hook hookConfig) (string, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return stateMissing, nil
+		}
+		return stateMissing, fmt.Errorf("read %s: %w", configPath, err)
+	}
+	var raw map[string]interface{}
+	if err := parseJSONConfig(configPath, data, &raw); err != nil {
+		return stateMissing, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	return inspectNestedJSONHookMap(raw, hook), nil
+}
+
+func patchNestedJSONHook(configPath string, hook hookConfig) error {
+	data, err := os.ReadFile(configPath)
+	raw := map[string]interface{}{}
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("read %s: %w", configPath, err)
+		}
+	} else if err := parseJSONConfig(configPath, data, &raw); err != nil {
+		return fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	upsertNestedJSONHookMap(raw, hook)
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", configPath, err)
+	}
+	out = append(out, '\n')
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
+	}
+	if err := os.WriteFile(configPath, out, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", configPath, err)
+	}
+	return nil
+}
 
 func claudeHooksConfigPath(home string) string {
 	return filepath.Join(home, ".claude", "settings.json")
@@ -274,6 +347,83 @@ func upsertClaudeHookMap(raw map[string]interface{}, hook hookConfig) {
 	hooksRoot[hook.Event] = groups
 }
 
+func inspectNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) string {
+	hooksRoot, ok := raw["hooks"].(map[string]interface{})
+	if !ok {
+		return stateMissing
+	}
+	groups, ok := hooksRoot[hook.Event].([]interface{})
+	if !ok {
+		return stateMissing
+	}
+	found := false
+	for _, groupRaw := range groups {
+		group, ok := groupRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		items, ok := group["hooks"].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, itemRaw := range items {
+			item, ok := itemRaw.(map[string]interface{})
+			if !ok || !hookCommandMatches(item["command"], hook.Command) {
+				continue
+			}
+			found = true
+			if item["type"] == "command" && hookTimeoutMatches(item, hook.Timeout) {
+				return stateSynced
+			}
+		}
+	}
+	if found {
+		return stateDrifted
+	}
+	return stateMissing
+}
+
+func upsertNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) {
+	hooksRoot, _ := raw["hooks"].(map[string]interface{})
+	if hooksRoot == nil {
+		hooksRoot = map[string]interface{}{}
+		raw["hooks"] = hooksRoot
+	}
+	groups, _ := hooksRoot[hook.Event].([]interface{})
+	if len(groups) == 0 {
+		groups = []interface{}{map[string]interface{}{"hooks": []interface{}{}}}
+	}
+	targetIndex := 0
+	for i, groupRaw := range groups {
+		group, ok := groupRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		items, _ := group["hooks"].([]interface{})
+		if containsHookCommand(items, hook.Command) {
+			targetIndex = i
+			break
+		}
+	}
+	for i, groupRaw := range groups {
+		group, _ := groupRaw.(map[string]interface{})
+		if group == nil {
+			if i != targetIndex {
+				continue
+			}
+			group = map[string]interface{}{}
+			groups[i] = group
+		}
+		items, _ := group["hooks"].([]interface{})
+		items = removeHookCommand(items, hook.Command)
+		if i == targetIndex {
+			items = append(items, renderNestedHookEntry(hook))
+		}
+		group["hooks"] = items
+	}
+	hooksRoot[hook.Event] = groups
+}
+
 func inspectSimpleHookMap(raw map[string]interface{}, rootKey string, event string, hook hookConfig) string {
 	root, ok := raw[rootKey].(map[string]interface{})
 	if !ok {
@@ -317,6 +467,11 @@ func renderHookEntry(hook hookConfig) map[string]interface{} {
 	if hook.Timeout > 0 {
 		entry["timeout"] = hook.Timeout
 	}
+	return entry
+}
+func renderNestedHookEntry(hook hookConfig) map[string]interface{} {
+	entry := renderHookEntry(hook)
+	entry["type"] = "command"
 	return entry
 }
 
@@ -384,7 +539,147 @@ func hermesHookEvent(event string) (string, bool) {
 	switch event {
 	case "SessionEnd":
 		return "on_session_finalize", true
+	case "on_session_start",
+		"pre_llm_call",
+		"post_llm_call",
+		"pre_approval_request",
+		"post_approval_response",
+		"on_session_end",
+		"on_session_finalize",
+		"on_session_reset",
+		"pre_tool_call",
+		"post_tool_call":
+		return event, true
 	default:
 		return "", false
 	}
+}
+func codexHooksFeatureEnabled(home string) bool {
+	data, err := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
+	if err != nil {
+		return false
+	}
+	content := string(data)
+	values := parseTOMLTopLevelValues(content)
+	if values["features.hooks"] == "true" || values["codex_hooks"] == "true" {
+		return true
+	}
+	block, ok := extractTOMLSection(content, "[features]")
+	if !ok {
+		return false
+	}
+	return parseTOMLBlockValues(block)["hooks"] == "true"
+}
+
+func patchCodexHooksFeature(home string) error {
+	configPath := filepath.Join(home, ".codex", "config.toml")
+	data, err := os.ReadFile(configPath)
+	content := ""
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("read %s: %w", configPath, err)
+		}
+	} else {
+		content = string(data)
+	}
+	updated := upsertCodexHooksFeature(content)
+	if updated == content {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
+	}
+	if err := os.WriteFile(configPath, []byte(updated), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", configPath, err)
+	}
+	return nil
+}
+
+func upsertCodexHooksFeature(content string) string {
+	content = removeTOMLTopLevelKeys(content, "codex_hooks", "features.hooks")
+	start := indexTOMLSectionHeader(content, "[features]")
+	if start == -1 {
+		return upsertTOMLSection(content, "[features]", "[features]\nhooks = true\n\n")
+	}
+	end := endTOMLSection(content, start, "[features]")
+	section := upsertTOMLBlockBool(content[start:end], "hooks", true)
+	return content[:start] + ensureTrailingBlankLine(section) + content[end:]
+}
+
+func parseTOMLTopLevelValues(content string) map[string]string {
+	values := make(map[string]string)
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "[") {
+			break
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		values[strings.TrimSpace(parts[0])] = strings.TrimSpace(stripTOMLInlineComments(parts[1]))
+	}
+	return values
+}
+
+func removeTOMLTopLevelKeys(content string, keys ...string) string {
+	if content == "" {
+		return content
+	}
+	remove := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		remove[key] = struct{}{}
+	}
+	lines := strings.Split(content, "\n")
+	for i := 0; i < len(lines); {
+		trimmed := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(trimmed, "[") {
+			break
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) != 2 {
+			i++
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		if _, ok := remove[key]; ok {
+			lines = append(lines[:i], lines[i+1:]...)
+			continue
+		}
+		i++
+	}
+	return strings.Join(lines, "\n")
+}
+
+func upsertTOMLBlockBool(block string, key string, value bool) string {
+	valueString := "false"
+	if value {
+		valueString = "true"
+	}
+	line := fmt.Sprintf("%s = %s", key, valueString)
+	newline := "\n"
+	if strings.Contains(block, "\r\n") {
+		newline = "\r\n"
+		block = strings.ReplaceAll(block, "\r\n", "\n")
+	}
+	lines := strings.Split(block, "\n")
+	if len(lines) == 0 {
+		return line + "\n"
+	}
+	for i := 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) == 2 && strings.TrimSpace(parts[0]) == key {
+			lines[i] = line
+			return strings.Join(lines, newline)
+		}
+	}
+	insertAt := 1
+	lines = append(lines, "")
+	copy(lines[insertAt+1:], lines[insertAt:])
+	lines[insertAt] = line
+	return strings.Join(lines, newline)
 }
