@@ -717,25 +717,15 @@ func balancedTOMLDelimiters(raw string, open rune, close rune) bool {
 }
 
 func extractTOMLSection(content string, header string) (string, bool) {
-	needle := header + "\n"
-	start := strings.Index(content, needle)
+	start := indexTOMLSectionHeader(content, header)
 	if start == -1 {
-		if strings.HasSuffix(content, header) {
-			return header + "\n", true
-		}
 		return "", false
 	}
-	searchStart := start + len(needle)
-	endRel := indexNextTOMLHeader(content[searchStart:])
-	if endRel == -1 {
-		return content[start:], true
-	}
-	return content[start : searchStart+endRel], true
+	return content[start:endTOMLSection(content, start, header)], true
 }
 
 func upsertTOMLSection(content string, header string, section string) string {
-	needle := header + "\n"
-	start := strings.Index(content, needle)
+	start := indexTOMLSectionHeader(content, header)
 	if start == -1 {
 		insertAt := findTOMLInsertPoint(content)
 		if insertAt == -1 {
@@ -752,7 +742,7 @@ func upsertTOMLSection(content string, header string, section string) string {
 		}
 		prefix := content[:insertAt]
 		suffix := content[insertAt:]
-		if !strings.HasSuffix(prefix, "\n\n") {
+		if prefix != "" && !strings.HasSuffix(prefix, "\n\n") {
 			if strings.HasSuffix(prefix, "\n") {
 				prefix += "\n"
 			} else {
@@ -761,13 +751,75 @@ func upsertTOMLSection(content string, header string, section string) string {
 		}
 		return prefix + section + suffix
 	}
-	searchStart := start + len(needle)
+	cleaned := removeTOMLSections(content, header)
+	return cleaned[:start] + ensureTrailingBlankLine(section) + cleaned[start:]
+}
+
+func removeTOMLSections(content string, header string) string {
+	var out strings.Builder
+	cursor := 0
+	for {
+		startRel := indexTOMLSectionHeader(content[cursor:], header)
+		if startRel == -1 {
+			out.WriteString(content[cursor:])
+			return out.String()
+		}
+		start := cursor + startRel
+		out.WriteString(content[cursor:start])
+		cursor = endTOMLSection(content, start, header)
+	}
+}
+
+func indexTOMLSectionHeader(content string, header string) int {
+	for i := 0; i < len(content); i++ {
+		if i != 0 && content[i-1] != '\n' {
+			continue
+		}
+		if !strings.HasPrefix(content[i:], header) {
+			continue
+		}
+		end := i + len(header)
+		if tomlSectionHeaderSuffixMatches(content, end) {
+			return i
+		}
+	}
+	return -1
+}
+
+func tomlSectionHeaderSuffixMatches(content string, start int) bool {
+	if start == len(content) {
+		return true
+	}
+	lineEnd := start
+	for lineEnd < len(content) && content[lineEnd] != '\n' && content[lineEnd] != '\r' {
+		lineEnd++
+	}
+	suffix := strings.TrimSpace(content[start:lineEnd])
+	if suffix != "" && !strings.HasPrefix(suffix, "#") {
+		return false
+	}
+	if lineEnd == len(content) {
+		return true
+	}
+	if content[lineEnd] == '\n' {
+		return true
+	}
+	return lineEnd+1 == len(content) || content[lineEnd+1] == '\n'
+}
+
+func endTOMLSection(content string, start int, header string) int {
+	searchStart := start + len(header)
+	if searchStart < len(content) && content[searchStart] == '\r' {
+		searchStart++
+	}
+	if searchStart < len(content) && content[searchStart] == '\n' {
+		searchStart++
+	}
 	endRel := indexNextTOMLHeader(content[searchStart:])
 	if endRel == -1 {
-		return content[:start] + ensureTrailingBlankLine(section)
+		return len(content)
 	}
-	end := searchStart + endRel
-	return content[:start] + ensureTrailingBlankLine(section) + content[end:]
+	return searchStart + endRel
 }
 
 func findTOMLInsertPoint(content string) int {

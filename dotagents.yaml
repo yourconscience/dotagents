@@ -228,3 +228,157 @@ hooks:
     timeout: 30
     agents:
       - claude-code
+  - name: cmux-codex-session-start
+    enabled: true
+    event: SessionStart
+    command: ~/.agents/hooks/cmux/dispatch.sh codex session-start
+    timeout: 5
+    agents:
+      - codex
+  - name: cmux-codex-prompt-submit
+    enabled: true
+    event: UserPromptSubmit
+    command: ~/.agents/hooks/cmux/dispatch.sh codex prompt-submit
+    timeout: 5
+    agents:
+      - codex
+  - name: cmux-codex-stop
+    enabled: true
+    event: Stop
+    command: ~/.agents/hooks/cmux/dispatch.sh codex stop
+    timeout: 5
+    agents:
+      - codex
+  - name: cmux-codex-feed-pre-tool-use
+    enabled: true
+    event: PreToolUse
+    command: ~/.agents/hooks/cmux/dispatch.sh feed --source codex --event PreToolUse
+    timeout: 120
+    agents:
+      - codex
+  - name: cmux-codex-feed-permission-request
+    enabled: true
+    event: PermissionRequest
+    command: ~/.agents/hooks/cmux/dispatch.sh feed --source codex --event PermissionRequest
+    timeout: 120
+    agents:
+      - codex
+  - name: cmux-droid-session-start
+    enabled: true
+    event: SessionStart
+    command: ~/.agents/hooks/cmux/dispatch.sh factory session-start
+    timeout: 5000
+    agents:
+      - droid
+  - name: cmux-droid-stop
+    enabled: true
+    event: Stop
+    command: ~/.agents/hooks/cmux/dispatch.sh factory stop
+    timeout: 5000
+    agents:
+      - droid
+  - name: cmux-droid-notification
+    enabled: true
+    event: Notification
+    command: ~/.agents/hooks/cmux/dispatch.sh factory stop
+    timeout: 5000
+    agents:
+      - droid
+  - name: cmux-droid-session-end
+    enabled: true
+    event: SessionEnd
+    command: ~/.agents/hooks/cmux/dispatch.sh factory session-end
+    timeout: 5000
+    agents:
+      - droid
+  - name: cmux-droid-feed-pre-tool-use
+    enabled: true
+    event: PreToolUse
+    command: ~/.agents/hooks/cmux/dispatch.sh feed --source factory --event PreToolUse
+    timeout: 120000
+    agents:
+      - droid
+  - name: cmux-hermes-session-start
+    enabled: true
+    event: on_session_start
+    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-start
+    timeout: 5
+    agents:
+      - hermes
+  - name: cmux-hermes-prompt-submit
+    enabled: true
+    event: pre_llm_call
+    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent prompt-submit
+    timeout: 5
+    agents:
+      - hermes
+  - name: cmux-hermes-agent-response
+    enabled: true
+    event: post_llm_call
+    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent agent-response
+    timeout: 5
+    agents:
+      - hermes
+  - name: cmux-hermes-notification
+    enabled: true
+    event: pre_approval_request
+    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent notification
+    timeout: 5
+    agents:
+      - hermes
+  - name: cmux-hermes-approval-response
+    enabled: true
+    event: post_approval_response
+    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent approval-response
+    timeout: 5
+    agents:
+      - hermes
+  - name: cmux-hermes-session-end
+    enabled: true
+    event: on_session_end
+    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-end
+    timeout: 5
+    agents:
+      - hermes
+  - name: cmux-hermes-session-finalize
+    enabled: true
+    event: on_session_finalize
+    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-finalize
+    timeout: 5
+    agents:
+      - hermes
+  - name: cmux-hermes-session-reset
+    enabled: true
+    event: on_session_reset
+    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-start
+    timeout: 5
+    agents:
+      - hermes
+  - name: cmux-hermes-feed-pre-tool-call
+    enabled: true
+    event: pre_tool_call
+    command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event pre_tool_call
+    timeout: 120
+    agents:
+      - hermes
+  - name: cmux-hermes-feed-post-tool-call
+    enabled: true
+    event: post_tool_call
+    command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event post_tool_call
+    timeout: 120
+    agents:
+      - hermes
+  - name: cmux-hermes-feed-pre-approval-request
+    enabled: true
+    event: pre_approval_request
+    command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event pre_approval_request
+    timeout: 120
+    agents:
+      - hermes
+  - name: cmux-hermes-feed-post-approval-response
+    enabled: true
+    event: post_approval_response
+    command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event post_approval_response
+    timeout: 120
+    agents:
+      - hermes

@@ -122,6 +122,16 @@ cmux send-key --workspace workspace:N --surface surface:N "Enter"
 
 cmux-specific launchers include `cmux codex-teams`, `cmux claude-teams`, `cmux hermes`, `cmux omx`, and `cmux omo`. Use the normal agent CLI directly when you need exact command control.
 
+## Hooks
+
+When the user asks for `/cmux hooks`, use the dotagents layer rather than `cmux hooks setup`. Cmux hook entrypoints are repo-owned under `~/.agents/hooks/cmux/`, declared in `~/.agents/dotagents.yaml`, and distributed with:
+
+```bash
+dotagents sync --agents=codex,droid,hermes
+```
+
+Do not let `cmux hooks setup` patch agent configs directly unless the user explicitly asks to bypass dotagents.
+
 ## Safety Rules
 
 - Inspect layout before reading, sending input, moving surfaces, or closing anything.
