@@ -70,7 +70,7 @@ For external skills (declared under `external_skills` in `dotagents.yaml`), `syn
 For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target all configured agents with MCP support (`amp`, `claude-code`, `codex`, `hermes`, `droid`, `pi`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
 
 
-For hooks, `sync` patches only managed hook entries declared in `dotagents.yaml` for agents with verified hook config support. It currently manages Claude Code hooks in `~/.claude/settings.json` and Hermes `SessionEnd` hooks in `~/.hermes/config.yaml`. It reports unsupported hook targets without failing. Hook approval is not automated; first-use approval and reapproval after script changes remain host-local user actions.
+For hooks, `sync` patches only managed hook entries declared in `dotagents.yaml` for agents with verified hook config support. It manages Claude Code hooks in `~/.claude/settings.json`, Codex hooks in `~/.codex/hooks.json` plus `codex_hooks = true`, Factory Droid hooks in `~/.factory/settings.json`, and Hermes hooks in `~/.hermes/config.yaml`. It reports unsupported hook targets without failing. Hook approval is not automated; first-use approval and reapproval after script changes remain host-local user actions.
 
 For repo-owned local MCP servers, prefer `mcp/<server-name>/` plus a canonical `dotagents.yaml` entry using `sh -lc 'exec ...'`, with local secrets/state outside git.
 
@@ -125,7 +125,7 @@ dotagents dogfood
 - Links Droid global instructions: `~/.factory/AGENTS.md -> ~/.agents/AGENTS.md` (real files conflict).
 - Detects agents by checking if their binary is on PATH (`detect` field in config).
 - Treats repo skills under `skills/` as the managed set for each detected agent.
-- Treats repo hooks under `memory/hooks/` and skill hook entrypoints as managed only when declared in `dotagents.yaml`.
+- Treats repo hooks under `hooks/`, memory hooks under `memory/hooks/`, and skill hook entrypoints as managed only when declared in `dotagents.yaml`.
 - Renders canonical repo roles under `agents/*.yaml` to each detected agent's native `agent_root` format where supported:
   - Claude Code: `~/.claude/agents/<name>.md`
   - Codex: `~/.codex/agents/<name>.toml`
