@@ -185,6 +185,20 @@ mcp_servers:
       - hermes
       - droid
       - pi
+  - name: tavily
+    enabled: true
+    command: npx
+    args:
+      - -y
+      - mcp-remote@0.1.38
+      - https://mcp.tavily.com/mcp
+    agents:
+      - claude-code
+      - codex
+      - amp
+      - hermes
+      - droid
+      - pi
   - name: telegram_readonly
     enabled: true
     command: sh
