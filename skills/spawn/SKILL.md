@@ -71,6 +71,20 @@ Naming: `{phase}_{agent}_{artifact}.{ext}` (e.g., `01_researcher_findings.md`).
 - Agents without clear file/task boundaries (they step on each other)
 - Not setting model explicitly (inherits expensive parent model)
 
+## Failure fallback
+
+If the harness subagent tool fails before running the assignment with an authentication error such as `401 Invalid authentication credentials`, treat the subagent runner as unavailable, not the task as failed. Do not retry the same broken route repeatedly.
+
+Fallback order:
+1. Use local non-interactive Claude Code when `claude auth status` is valid. Start read-only unless the assignment explicitly permits edits:
+   ```bash
+   claude -p "self-contained task prompt" --allowedTools Read,WebFetch
+   ```
+2. Use Codex, Droid, or Hermes native delegation when the task specifically needs another model or isolated workspace.
+3. If no delegation route works, do the work directly and report that delegation infrastructure failed.
+
+Keep the same constraints as the original subagent assignment: read-only agents stay read-only, builders may edit only their scoped files, and the caller verifies the final result.
+
 ---
 
 ## Factory Droid execution
