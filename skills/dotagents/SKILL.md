@@ -191,7 +191,7 @@ Status and sync rules:
 
 Per-agent targets:
 
-- Claude Code: `~/.claude/settings.json` -> `mcpServers.<name>`
+- Claude Code: `~/.claude.json` -> `mcpServers.<name>`
 - Amp: `~/.config/amp/settings.json` -> `amp.mcpServers.<name>`
 - Codex: `~/.codex/config.toml` -> `[mcp_servers.<name>]`
 - Hermes: `~/.hermes/config.yaml` -> `mcp_servers.<name>`
