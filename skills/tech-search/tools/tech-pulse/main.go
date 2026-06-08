@@ -494,6 +494,10 @@ func (a *app) searchGitHub(ctx context.Context, req searchRequest) ([]item, erro
 	return items, nil
 }
 
+func cutoffDate(days int) string {
+	return time.Now().UTC().AddDate(0, 0, -days).Format("2006-01-02")
+}
+
 func (a *app) searchGitHubRepos(ctx context.Context, req searchRequest) ([]item, error) {
 	values := url.Values{}
 	values.Set("q", req.Query+" in:name,description")
@@ -517,11 +521,16 @@ func (a *app) searchGitHubRepos(ctx context.Context, req searchRequest) ([]item,
 	if err := a.getJSON(ctx, endpoint, githubHeaders(), &payload); err != nil {
 		return nil, err
 	}
+	since := cutoffDate(req.Days)
 	items := make([]item, 0, len(payload.Items))
 	for _, repo := range payload.Items {
+		published := dateOnly(repo.UpdatedAt)
+		if published != "" && published < since {
+			continue
+		}
 		items = append(items, item{
 			Source: "github", Title: repo.FullName, URL: repo.HTMLURL, Author: repo.Owner.Login,
-			Published: dateOnly(repo.UpdatedAt), Score: repo.Stars, Comments: repo.OpenIssues,
+			Published: published, Score: repo.Stars, Comments: repo.OpenIssues,
 			Summary: cleanText(repo.Description), Query: req.Query, Repo: repo.FullName,
 		})
 	}
@@ -621,7 +630,11 @@ func (a *app) searchRedditRSS(ctx context.Context, req searchRequest) ([]item, e
 	if err != nil {
 		return nil, err
 	}
-	return parseRedditFeed(req.Query, body, req.Limit)
+	items, err := parseRedditFeed(req.Query, body, req.Limit)
+	if err != nil {
+		return nil, err
+	}
+	return filterItemsByPublishedSince(items, cutoffDate(req.Days)), nil
 }
 
 func (a *app) searchX(ctx context.Context, req searchRequest) ([]item, error) {
@@ -646,6 +659,18 @@ func redditWindow(days int) string {
 	default:
 		return "year"
 	}
+}
+func filterItemsByPublishedSince(items []item, since string) []item {
+	if since == "" {
+		return items
+	}
+	filtered := items[:0]
+	for _, it := range items {
+		if it.Published == "" || it.Published >= since {
+			filtered = append(filtered, it)
+		}
+	}
+	return filtered
 }
 
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
