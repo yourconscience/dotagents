@@ -36,6 +36,17 @@ func TestGitHubIssueSearchQueryScopesExactRepo(t *testing.T) {
 		t.Fatalf("githubIssueSearchQuery = %q, want %q", got, want)
 	}
 }
+func TestFilterItemsByPublishedSinceDropsOlderItems(t *testing.T) {
+	items := []item{
+		{Title: "old", Published: "2026-01-01"},
+		{Title: "new", Published: "2026-06-01"},
+		{Title: "unknown"},
+	}
+	got := filterItemsByPublishedSince(items, "2026-05-01")
+	if len(got) != 2 || got[0].Title != "new" || got[1].Title != "unknown" {
+		t.Fatalf("filtered items = %#v", got)
+	}
+}
 
 func TestCanonicalURLStripsTrackingAndRedditSlug(t *testing.T) {
 	got := canonicalURL("http://www.reddit.com/r/ClaudeAI/comments/abc123/some_slug/?utm_source=x&ref=share#frag")
