@@ -13,101 +13,119 @@ Search for opinions and discussions from high-signal tech sources about a given 
 /tech-search <topic>
 ```
 
+## Default workflow
+
+Start with broad discovery, then deepen only where the source-specific signal matters. Do not build or invoke a repo-owned search engine for this skill.
+
+1. Run WebSearch for the topic, biased toward primary sources, recent discussion, and source-specific pages.
+2. Classify the topic and pick targeted follow-ups:
+   - **Named feature/tool/project**: primary docs/repo first, then HN/Reddit/X reaction.
+   - **Security/reliability topic**: official guidance, OWASP/CVE/vendor research, then practitioner discussion.
+   - **Comparison**: search the full comparison and each side separately. Add disambiguating context (`Python package manager`, `macOS window manager`, etc.).
+   - **Workflow/how-to**: strip literal phrases like "use cases", "workflow", "how to" from search strings; keep the intent in synthesis.
+   - **Ambiguous term**: add domain keywords before searching. Example: `uv poetry Python packaging`, not `uv vs poetry`.
+3. Use targeted tools/commands to verify source-specific evidence.
+4. Synthesize only after deduping amplification and separating primary facts from community reaction.
+
+The guiding rule: broad web finds the map; source-specific searches verify the terrain.
+
 ## Sources
 
-Search all sources in parallel.
+Search sources in parallel when practical, but do not force every source. Skipped sources are fine when they are irrelevant, unauthenticated, or low-signal.
 
 Reference: `references/reddit-discord-cli-eval.md` records the repo evaluation behind the `rdt-cli` and `discord-cli` recommendations.
 
-### 1. X.com
+### 1. Web and primary sources
 
-Use `x-cli` for X.com searches. Check auth with `x-cli auth status`.
+Use WebSearch first for:
+- official docs and announcements
+- vendor/security research
+- release notes
+- high-signal blog posts
+- source-specific discovery (`site:news.ycombinator.com`, `site:reddit.com`, `site:github.com`)
 
+Good query patterns:
+```text
+<topic> official docs
+<topic> GitHub
+<topic> site:news.ycombinator.com
+<topic> site:reddit.com/r/<subreddit>
+<topic> security best practices OWASP CVE
+<topic A> vs <topic B> Python packaging
+```
 
-**Power users:** @karpathy, @fchollet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
+For authoritative context: `site:simonwillison.net`, `site:jvns.ca`, `site:danluu.com`, vendor docs, release notes, and primary announcement posts.
 
-**Queries:**
+### 2. GitHub
+
+GitHub is first-class for developer tools, libraries, agent frameworks, MCP servers, and open source projects. Prefer exact repo/user lookups over keyword search when known.
+
 ```bash
-x-cli search "(from:karpathy OR from:fchollet) <topic>" --type latest --count 10
-x-cli search "<topic> (recommended OR \"game changer\")" --type top --count 10
+gh repo view <owner>/<repo> --json nameWithOwner,description,stargazerCount,forkCount,updatedAt,latestRelease,url
+gh issue list -R <owner>/<repo> --search "<topic>" --state all --limit 20 --json title,url,state,comments,updatedAt
+gh pr list -R <owner>/<repo> --search "<topic>" --state all --limit 20 --json title,url,state,comments,updatedAt
 ```
 
-Fallback: `site:x.com <topic>` via WebSearch if x-cli auth is broken.
+Use GitHub to answer:
+- what is the canonical repo?
+- is the project active?
+- what is shipping or breaking?
+- what issues/PRs show real user pain?
 
-### 2. Hacker News
+### 3. Hacker News
 
-Algolia API. **Critical: do NOT use `search_by_date`** — it returns only zero-comment noise. Use the hybrid approach instead: `search` endpoint (popularity-ranked) with a date filter.
+Use Algolia `search` endpoint with a date filter when recency matters. **Do NOT use `search_by_date`** as the primary path - it returns fresh zero-comment noise.
 
-**Primary query (last month, high signal):**
-```
+```text
 https://hn.algolia.com/api/v1/search?query=<topic>&tags=story&hitsPerPage=10&numericFilters=created_at_i>TIMESTAMP
 ```
 
-Generate timestamp before querying:
-- macOS: `date -v-1m +%s`
-- Linux: `date -d '1 month ago' +%s`
+Also use WebSearch for older high-signal HN threads when the topic is slow-moving. A one-year-old 500-comment HN discussion can matter more than a 2-point fresh repost.
 
-For fast-moving topics (last week): `date -v-1w +%s` (macOS) or `date -d '1 week ago' +%s` (Linux).
+Read threads at `https://news.ycombinator.com/item?id=<objectID>` and cite the HN thread when discussing comments or points. If the submitted URL matters, include it separately.
 
-Read threads at `https://news.ycombinator.com/item?id=<objectID>`.
+### 4. Reddit
 
-**Pitfall:** The bare `search` endpoint (no `numericFilters`) returns all-time popular stories, often months old. `search_by_date` returns only fresh posts with no votes/comments. Only the hybrid query gives recent + high-signal results.
+Preferred path when installed:
 
-### 3. Reddit
-
-**IMPORTANT**: Reddit 403s requests without a browser User-Agent. Always set the header.
-
-Global search (preferred - catches cross-subreddit discussion):
-```bash
-curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-  "https://www.reddit.com/search.json?q=<topic>&sort=relevance&t=month&limit=10"
-```
-
-For broader/deeper dives use `t=year`. For breaking news use `t=week`.
-
-Subreddit-scoped search (when topic maps to a known community):
-```bash
-curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-  "https://www.reddit.com/r/<subreddit>/search.json?q=<topic>&restrict_sr=1&sort=relevance&t=year&limit=10"
-```
-
-Read full comment threads for high-signal posts:
-```bash
-curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-  "https://www.reddit.com/r/<sub>/comments/<id>.json"
-```
-
-**Target subreddits:** r/ExperiencedDevs, r/ClaudeAI, r/LocalLLaMA, r/MachineLearning, r/devops, r/commandline, r/neovim
-
-Pick 2-3 relevant to the topic. Add context keywords for ambiguous terms (e.g. "warp terminal coding" not just "warp").
-
-**Preferred CLI when installed**: `rdt-cli` (`uv tool install rdt-cli`) provides structured output, compact agent-friendly results, browser-cookie auth when needed, and anti-detection/backoff. It is a good replacement for raw Reddit JSON in `/tech-search` because it handles subreddit search, global search, compact output, and post/comment reads consistently.
-
-Use:
 ```bash
 rdt search "<topic>" -s relevance -t month -n 10 --compact --json
 rdt search "<topic>" -r <subreddit> -s top -t year -n 10 --compact --json
 rdt read <post_id> -n 20 --json
 ```
 
-If `rdt` is not installed or fails, fall back to direct Reddit JSON with browser User-Agent. On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat. For historical posts or VPS fallback, use Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
+**Target subreddits:** r/ExperiencedDevs, r/ClaudeAI, r/ClaudeCode, r/LocalLLaMA, r/MachineLearning, r/devops, r/commandline, r/neovim, r/Python, r/mcp, r/cybersecurity
 
-### 4. Discord
+Pick 2-3 relevant subreddits. Avoid broad Reddit for ambiguous terms; it will chase engagement from irrelevant communities. Add context keywords, e.g. `uv poetry Python packaging`, not `poetry`.
 
-Search Discord servers via the user search API. Requires `$DISCORD_TOKEN` env var.
+Raw Reddit `.json` endpoints often 403 and should be treated as a fallback only. On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat. For historical posts or VPS fallback, use Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
 
-**Preferred CLI for repeated/community monitoring**: `discord-cli` (`uv tool install kabi-discord-cli`) can sync accessible Discord channels into local SQLite, then search/export them with structured YAML/JSON. Use it only for accounts the user controls: it uses a Discord user token and may violate Discord ToS or trigger account restrictions. Do not ask the user to paste raw tokens into chat logs.
+### 5. X.com
 
-Good fit:
+Use `x-cli` for X.com searches. Check auth with `x-cli auth status`.
+
+**Power users:** @karpathy, @fchollet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
+
+```bash
+x-cli search "(from:karpathy OR from:fchollet) <topic>" --type latest --count 10 --json
+x-cli search "<topic> (recommended OR \"game changer\")" --type top --count 10 --json
+```
+
+Fallback: `site:x.com <topic>` via WebSearch if x-cli auth is broken. Treat X as commentary unless the author is primary to the topic.
+
+### 6. Discord
+
+Discord remains opt-in because it uses user-token auth and may carry account-risk. Search Discord only when the topic is relevant to known communities (ML, LLMs, Claude, agents, evals, fine-tuning, etc). Skip for generic/unrelated topics.
+
+**Preferred CLI for repeated/community monitoring**: `discord-cli` (`uv tool install kabi-discord-cli`) can sync accessible Discord channels into local SQLite, then search/export them with structured YAML/JSON. Use it only for accounts the user controls. Do not ask the user to paste raw Discord tokens into chat logs.
+
 ```bash
 discord status --yaml
 discord dc guilds --yaml
 discord dc channels <guild_id> --yaml
-discord dc search <guild_id> "<topic>" -n 10 --json      # native Discord search
-discord search "<topic>" -n 20 --json                    # local SQLite after sync
+discord dc search <guild_id> "<topic>" -n 10 --json
+discord search "<topic>" -n 20 --json
 ```
-
-For one-off searches, keep the raw Discord API path below because it is simpler and avoids requiring a local SQLite sync first.
 
 **Known servers:**
 
@@ -116,62 +134,50 @@ For one-off searches, keep the raw Discord API path below because it is simpler 
 | NousResearch | 1053877538025386074 |
 | Anthropic/Claude | 1456350064065904867 |
 
-Only search Discord when the topic is relevant to these communities (ML, LLMs, Claude, agents, evals, fine-tuning, etc). Skip for generic/unrelated topics.
+For one-off raw API search, use `rtk proxy curl` to bypass token filtering, URL-encode the query string, and extract only `messages[][]` entries where `"hit": true`.
 
-**Query:**
-```bash
-curl -s \
-  -H "Authorization: $DISCORD_TOKEN" \
-  -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.309 Chrome/124.0.6367.243 Electron/30.4.0 Safari/537.36" \
-  "https://discord.com/api/v9/guilds/<GUILD_ID>/messages/search?content=<QUERY>&limit=10&sort_by=timestamp&sort_order=desc"
-```
+## Search, dedupe, and ranking rules
 
-Use `rtk proxy curl` to bypass token filtering. URL-encode the query string.
-
-**Response parsing:** `messages` is a nested array. Each inner array is a context group; the message with `"hit": true` is the actual match. Extract hits with jq:
-```bash
-| jq '[.messages[][] | select(.hit == true) | {author: .author.username, content: .content[0:200], timestamp: .timestamp, channel_id: .channel_id}]'
-```
-
-**If HTTP 202:** index not ready. Retry after `retry_after` seconds (usually 2s).
-
-**Rate limits:** conservative - one search per server per invocation. No pagination unless explicitly needed.
-
-### 5. Tech blogs (optional)
-
-For authoritative sources: `site:simonwillison.net`, `site:jvns.ca`, `site:danluu.com` via WebSearch.
+- Preserve enough raw evidence in notes or a report path for non-trivial outputs.
+- Prefer primary sources before social reaction.
+- Deduplicate by canonical URL first; strip `utm_*`, `ref`, `source`, fragments, and Reddit comment slugs.
+- Deduplicate cross-platform amplification: one announcement reposted on HN, Reddit, and X is one story with multiple reactions.
+- Cap any single author/domain/community from dominating unless the topic is about that author/domain/community.
+- Prefer recent results for pulse questions; use older high-signal results for slow-moving tools or foundational comparisons.
+- Prefer topic relevance before engagement. A high-upvote irrelevant Reddit thread is noise.
+- Keep source-specific failures visible. Explicitly state when X, Discord, GitHub auth, or Reddit cookies were unavailable.
+- Never fabricate quotes, counts, or links.
 
 ## Output format
 
-```
+```markdown
 ## <Topic> - Tech Pulse
 
-### X.com
-- **@handle**: "quote" (link)
+### Source status
+- Web/primary: searched
+- GitHub: searched / skipped because ...
+- X.com: searched / skipped because ...
+- Hacker News: searched / skipped because ...
+- Reddit: searched / skipped because ...
+- Discord: skipped unless relevant/authenticated
 
-### Hacker News
-- **Title** (N points, N comments) - key takeaway (link)
+### Key findings
+- **Finding** - evidence and direct links.
 
-### Reddit
-- **r/subreddit - Title** (N upvotes) - key takeaway (link)
-
-### Discord
-- **#channel @author** (server, date): "quote" - key takeaway
+### Source notes
+- **Primary sources**: docs, repos, release notes, vendor/security research.
+- **GitHub**: repo/issues/PR signal.
+- **X.com**: notable expert posts or lack of signal.
+- **Hacker News**: high-signal threads.
+- **Reddit**: subreddit/user pain or adoption signal.
+- **Discord**: only when searched.
 
 ### Summary
 2-3 sentence synthesis. Key recommendations if any.
 
 ### Confidence
-[High/Medium/Low] based on volume and agreement.
+[High/Medium/Low] based on source coverage, volume, recency, and agreement.
 ```
 
 If combined with `/repo-eval` or if the user requests a `.md` report, produce a Markdown report under `~/Workspace/reports/` and verify it exists before finalizing. Preserve source-specific sections, include direct thread/post links, distinguish amplification from substantive critique, and explicitly state when a source was skipped because credentials such as `DISCORD_TOKEN` were unavailable.
-
-## Rules
-
-- Always include direct links. Never fabricate quotes or links.
-- If the topic is a specific post/announcement that links to a repo, product, or paper, structure the report around the post's claims and public discussion first. Treat linked artifacts as evidence, not as the primary subject, unless the user explicitly asks for adoption-focused eval.
-- Prefer recent results (last 6 months).
-- Run searches in parallel. Cap at ~12 total calls.
-- Deduplicate cross-platform mentions.
 
