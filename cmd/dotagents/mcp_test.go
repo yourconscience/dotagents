@@ -671,7 +671,7 @@ func TestDefaultConfigIncludesTavilyMCP(t *testing.T) {
 	if len(tavily.Env) != 0 {
 		t.Fatalf("tavily env = %#v, want no secrets in canonical config", tavily.Env)
 	}
-	wantAgents := []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid, agentPi}
+	wantAgents := []string{agentClaudeCode, agentCodex, agentHermes, agentDroid, agentPi}
 	if !stringSlicesEqual(tavily.Agents, wantAgents) {
 		t.Fatalf("tavily agents = %#v, want %#v", tavily.Agents, wantAgents)
 	}
