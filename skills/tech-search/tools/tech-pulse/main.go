@@ -452,17 +452,29 @@ func (a *app) searchHN(ctx context.Context, req searchRequest) ([]item, error) {
 	}
 	items := make([]item, 0, len(payload.Hits))
 	for _, hit := range payload.Hits {
-		link := strings.TrimSpace(hit.URL)
-		if link == "" && hit.ObjectID != "" {
-			link = "https://news.ycombinator.com/item?id=" + hit.ObjectID
+		externalURL := strings.TrimSpace(hit.URL)
+		link := hnThreadURL(hit.ObjectID)
+		if link == "" {
+			link = externalURL
+		}
+		summary := cleanText(hit.StoryText)
+		if externalURL != "" {
+			summary = compactSpaces("Submitted URL: " + externalURL + " " + summary)
 		}
 		items = append(items, item{
 			Source: "hn", Title: cleanText(hit.Title), URL: link, Author: hit.Author,
 			Published: dateOnly(hit.CreatedAt), Score: hit.Points, Comments: hit.Comments,
-			Summary: cleanText(hit.StoryText), Query: req.Query,
+			Summary: summary, Query: req.Query,
 		})
 	}
 	return items, nil
+}
+func hnThreadURL(objectID string) string {
+	objectID = strings.TrimSpace(objectID)
+	if objectID == "" {
+		return ""
+	}
+	return "https://news.ycombinator.com/item?id=" + objectID
 }
 
 func (a *app) searchGitHub(ctx context.Context, req searchRequest) ([]item, error) {
@@ -519,7 +531,7 @@ func (a *app) searchGitHubRepos(ctx context.Context, req searchRequest) ([]item,
 func (a *app) searchGitHubIssues(ctx context.Context, req searchRequest) ([]item, error) {
 	since := time.Now().UTC().AddDate(0, 0, -req.Days).Format("2006-01-02")
 	values := url.Values{}
-	values.Set("q", req.Query+" updated:>="+since)
+	values.Set("q", githubIssueSearchQuery(req, since))
 	values.Set("sort", "updated")
 	values.Set("order", "desc")
 	values.Set("per_page", strconv.Itoa(min(req.Limit, 20)))
@@ -559,6 +571,12 @@ func (a *app) searchGitHubIssues(ctx context.Context, req searchRequest) ([]item
 		})
 	}
 	return items, nil
+}
+func githubIssueSearchQuery(req searchRequest, since string) string {
+	if maybeRepo(req.Topic) {
+		return "repo:" + strings.TrimSpace(req.Topic) + " updated:>=" + since
+	}
+	return req.Query + " updated:>=" + since
 }
 
 func githubHeaders() map[string]string {
