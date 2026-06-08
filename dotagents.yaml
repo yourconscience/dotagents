@@ -10,10 +10,6 @@ agents:
     detect: codex
     skill_root: ~/.codex/skills
     agent_root: ~/.codex/agents
-  - name: amp
-    enabled: true
-    detect: amp
-    skill_root: ~/.agents/skills
   - name: hermes
     enabled: true
     detect: hermes
@@ -53,7 +49,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -83,7 +78,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -101,7 +95,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -117,7 +110,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -134,7 +126,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -151,7 +142,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -181,7 +171,6 @@ mcp_servers:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -195,7 +184,6 @@ mcp_servers:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -208,7 +196,6 @@ mcp_servers:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
