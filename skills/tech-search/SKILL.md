@@ -13,101 +13,114 @@ Search for opinions and discussions from high-signal tech sources about a given 
 /tech-search <topic>
 ```
 
+## Worker-first workflow
+
+Use the repo-owned worker before manual source spelunking:
+
+```bash
+go run ./skills/tech-search/tools/tech-pulse search "<topic>" --days 30 --format json --raw /tmp/tech-pulse.json
+```
+
+Useful commands:
+
+```bash
+go run ./skills/tech-search/tools/tech-pulse diagnose
+go run ./skills/tech-search/tools/tech-pulse search "<topic>" --sources hn,reddit,x,github --format markdown
+go run ./skills/tech-search/tools/tech-pulse search "<topic>" --sources hn,github --days 90 --format json
+```
+
+The worker searches sources in parallel, normalizes records, strips tracking parameters, deduplicates repeated links/stories, ranks by topic overlap plus engagement, and reports per-source availability/errors. Treat its output as the raw evidence layer for synthesis, not as the final answer when the user asks for judgment.
+
+## Query planning
+
+Before running the worker, decide whether the topic is:
+
+- **Specific artifact**: post, repo, paper, release, incident. Structure synthesis around the artifact's claims, then public reaction.
+- **Named tool/project/company/person**: include GitHub and X. Add repo/user names when obvious from the topic.
+- **Comparison**: search the full comparison and each side separately.
+- **Workflow/how-to**: strip literal phrases like "use cases", "workflow", "how to" from search strings; keep them in the ranking question.
+- **Ambiguous term**: add context keywords, e.g. `warp terminal coding`, not just `warp`.
+
+If the worker result is thin or skewed, run one narrower follow-up rather than broadening blindly.
+
 ## Sources
 
-Search all sources in parallel.
+Search source backends in parallel through `tech-pulse` by default. Manual commands below are fallbacks for deeper inspection.
 
 Reference: `references/reddit-discord-cli-eval.md` records the repo evaluation behind the `rdt-cli` and `discord-cli` recommendations.
 
-### 1. X.com
+### 1. GitHub
 
-Use `x-cli` for X.com searches. Check auth with `x-cli auth status`.
+GitHub is first-class for developer tools, libraries, agent frameworks, MCP servers, and open source projects. The worker uses GitHub REST search for repositories and recently updated issues/PRs. `GITHUB_TOKEN` or `GH_TOKEN` increases rate limits but is not required.
 
+Manual deepening:
+
+```bash
+gh repo view <owner>/<repo> --json nameWithOwner,description,stargazerCount,updatedAt,latestRelease
+gh issue list -R <owner>/<repo> --search "<topic>" --state all --limit 20 --json title,url,state,comments,updatedAt
+gh pr list -R <owner>/<repo> --search "<topic>" --state all --limit 20 --json title,url,state,comments,updatedAt
+```
+
+For people, prefer concrete GitHub usernames over keyword searches when known.
+
+### 2. X.com
+
+Use `x-cli` for X.com searches. Check auth with `x-cli auth status`. The worker skips X when `x-cli` is unavailable.
 
 **Power users:** @karpathy, @fchollet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
 
-**Queries:**
+Manual deepening:
+
 ```bash
-x-cli search "(from:karpathy OR from:fchollet) <topic>" --type latest --count 10
-x-cli search "<topic> (recommended OR \"game changer\")" --type top --count 10
+x-cli search "(from:karpathy OR from:fchollet) <topic>" --type latest --count 10 --json
+x-cli search "<topic> (recommended OR \"game changer\")" --type top --count 10 --json
 ```
 
 Fallback: `site:x.com <topic>` via WebSearch if x-cli auth is broken.
 
-### 2. Hacker News
+### 3. Hacker News
 
-Algolia API. **Critical: do NOT use `search_by_date`** — it returns only zero-comment noise. Use the hybrid approach instead: `search` endpoint (popularity-ranked) with a date filter.
+The worker uses the Algolia `search` endpoint with a date filter. **Do NOT use `search_by_date`** as the primary path - it returns fresh zero-comment noise. The hybrid path gives recent + high-signal results.
 
-**Primary query (last month, high signal):**
-```
+Manual query shape:
+
+```text
 https://hn.algolia.com/api/v1/search?query=<topic>&tags=story&hitsPerPage=10&numericFilters=created_at_i>TIMESTAMP
 ```
 
-Generate timestamp before querying:
-- macOS: `date -v-1m +%s`
-- Linux: `date -d '1 month ago' +%s`
-
-For fast-moving topics (last week): `date -v-1w +%s` (macOS) or `date -d '1 week ago' +%s` (Linux).
-
 Read threads at `https://news.ycombinator.com/item?id=<objectID>`.
 
-**Pitfall:** The bare `search` endpoint (no `numericFilters`) returns all-time popular stories, often months old. `search_by_date` returns only fresh posts with no votes/comments. Only the hybrid query gives recent + high-signal results.
+### 4. Reddit
 
-### 3. Reddit
+Preferred path is `rdt-cli` when installed. The worker tries `rdt search ... --compact --json`, then falls back to Reddit RSS. Raw Reddit `.json` endpoints often 403 and should be treated as a one-shot fallback only, not the primary plan.
 
-**IMPORTANT**: Reddit 403s requests without a browser User-Agent. Always set the header.
+Manual deepening:
 
-Global search (preferred - catches cross-subreddit discussion):
-```bash
-curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-  "https://www.reddit.com/search.json?q=<topic>&sort=relevance&t=month&limit=10"
-```
-
-For broader/deeper dives use `t=year`. For breaking news use `t=week`.
-
-Subreddit-scoped search (when topic maps to a known community):
-```bash
-curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-  "https://www.reddit.com/r/<subreddit>/search.json?q=<topic>&restrict_sr=1&sort=relevance&t=year&limit=10"
-```
-
-Read full comment threads for high-signal posts:
-```bash
-curl -s -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-  "https://www.reddit.com/r/<sub>/comments/<id>.json"
-```
-
-**Target subreddits:** r/ExperiencedDevs, r/ClaudeAI, r/LocalLLaMA, r/MachineLearning, r/devops, r/commandline, r/neovim
-
-Pick 2-3 relevant to the topic. Add context keywords for ambiguous terms (e.g. "warp terminal coding" not just "warp").
-
-**Preferred CLI when installed**: `rdt-cli` (`uv tool install rdt-cli`) provides structured output, compact agent-friendly results, browser-cookie auth when needed, and anti-detection/backoff. It is a good replacement for raw Reddit JSON in `/tech-search` because it handles subreddit search, global search, compact output, and post/comment reads consistently.
-
-Use:
 ```bash
 rdt search "<topic>" -s relevance -t month -n 10 --compact --json
 rdt search "<topic>" -r <subreddit> -s top -t year -n 10 --compact --json
 rdt read <post_id> -n 20 --json
 ```
 
-If `rdt` is not installed or fails, fall back to direct Reddit JSON with browser User-Agent. On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat. For historical posts or VPS fallback, use Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
+**Target subreddits:** r/ExperiencedDevs, r/ClaudeAI, r/LocalLLaMA, r/MachineLearning, r/devops, r/commandline, r/neovim
 
-### 4. Discord
+Pick 2-3 relevant to the topic. Add context keywords for ambiguous terms. On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat. For historical posts or VPS fallback, use Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
 
-Search Discord servers via the user search API. Requires `$DISCORD_TOKEN` env var.
+### 5. Discord
 
-**Preferred CLI for repeated/community monitoring**: `discord-cli` (`uv tool install kabi-discord-cli`) can sync accessible Discord channels into local SQLite, then search/export them with structured YAML/JSON. Use it only for accounts the user controls: it uses a Discord user token and may violate Discord ToS or trigger account restrictions. Do not ask the user to paste raw tokens into chat logs.
+Discord remains opt-in because it uses user-token auth and may carry account-risk. Search Discord only when the topic is relevant to known communities (ML, LLMs, Claude, agents, evals, fine-tuning, etc). Skip for generic/unrelated topics.
+
+**Preferred CLI for repeated/community monitoring**: `discord-cli` (`uv tool install kabi-discord-cli`) can sync accessible Discord channels into local SQLite, then search/export them with structured YAML/JSON. Use it only for accounts the user controls. Do not ask the user to paste raw Discord tokens into chat logs.
 
 Good fit:
+
 ```bash
 discord status --yaml
 discord dc guilds --yaml
 discord dc channels <guild_id> --yaml
-discord dc search <guild_id> "<topic>" -n 10 --json      # native Discord search
-discord search "<topic>" -n 20 --json                    # local SQLite after sync
+discord dc search <guild_id> "<topic>" -n 10 --json
+discord search "<topic>" -n 20 --json
 ```
-
-For one-off searches, keep the raw Discord API path below because it is simpler and avoids requiring a local SQLite sync first.
 
 **Known servers:**
 
@@ -116,62 +129,51 @@ For one-off searches, keep the raw Discord API path below because it is simpler 
 | NousResearch | 1053877538025386074 |
 | Anthropic/Claude | 1456350064065904867 |
 
-Only search Discord when the topic is relevant to these communities (ML, LLMs, Claude, agents, evals, fine-tuning, etc). Skip for generic/unrelated topics.
+For one-off raw API search, use `rtk proxy curl` to bypass token filtering, URL-encode the query string, and extract only `messages[][]` entries where `"hit": true`.
 
-**Query:**
-```bash
-curl -s \
-  -H "Authorization: $DISCORD_TOKEN" \
-  -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.309 Chrome/124.0.6367.243 Electron/30.4.0 Safari/537.36" \
-  "https://discord.com/api/v9/guilds/<GUILD_ID>/messages/search?content=<QUERY>&limit=10&sort_by=timestamp&sort_order=desc"
-```
+### 6. Tech blogs and web
 
-Use `rtk proxy curl` to bypass token filtering. URL-encode the query string.
+For authoritative context: `site:simonwillison.net`, `site:jvns.ca`, `site:danluu.com`, vendor docs, release notes, and primary announcement posts via WebSearch. Use this to supplement the worker, not to replace source-specific searches.
 
-**Response parsing:** `messages` is a nested array. Each inner array is a context group; the message with `"hit": true` is the actual match. Extract hits with jq:
-```bash
-| jq '[.messages[][] | select(.hit == true) | {author: .author.username, content: .content[0:200], timestamp: .timestamp, channel_id: .channel_id}]'
-```
+## Search, dedupe, and ranking rules
 
-**If HTTP 202:** index not ready. Retry after `retry_after` seconds (usually 2s).
-
-**Rate limits:** conservative - one search per server per invocation. No pagination unless explicitly needed.
-
-### 5. Tech blogs (optional)
-
-For authoritative sources: `site:simonwillison.net`, `site:jvns.ca`, `site:danluu.com` via WebSearch.
+- Save or preserve raw worker JSON for non-trivial reports.
+- Deduplicate by canonical URL first; strip `utm_*`, `ref`, `source`, fragments, and Reddit comment slugs.
+- Deduplicate cross-platform amplification: one announcement reposted on HN, Reddit, and X is one story with multiple reactions, not three independent facts.
+- Cap any single author/domain/community from dominating unless the topic is about that author/domain/community.
+- Prefer recent results for pulse questions (`--days 30`); use `--days 90` for slow-moving developer tools.
+- Prefer engagement only after topic relevance. A high-upvote irrelevant Reddit thread is noise.
+- Keep source-specific failures visible. Explicitly state when X, Discord, GitHub auth, or Reddit cookies were unavailable.
+- Never fabricate quotes, counts, or links.
 
 ## Output format
 
-```
+```markdown
 ## <Topic> - Tech Pulse
 
-### X.com
-- **@handle**: "quote" (link)
+### Source status
+- GitHub: searched / skipped because ...
+- X.com: searched / skipped because ...
+- Hacker News: searched
+- Reddit: searched
+- Discord: skipped unless relevant/authenticated
 
-### Hacker News
-- **Title** (N points, N comments) - key takeaway (link)
+### Key findings
+- **Finding** - evidence and direct links.
 
-### Reddit
-- **r/subreddit - Title** (N upvotes) - key takeaway (link)
-
-### Discord
-- **#channel @author** (server, date): "quote" - key takeaway
+### Source notes
+- **GitHub**: repo/issues/PR signal.
+- **X.com**: notable expert posts or lack of signal.
+- **Hacker News**: high-signal threads.
+- **Reddit**: subreddit/user pain or adoption signal.
+- **Discord**: only when searched.
 
 ### Summary
 2-3 sentence synthesis. Key recommendations if any.
 
 ### Confidence
-[High/Medium/Low] based on volume and agreement.
+[High/Medium/Low] based on source coverage, volume, recency, and agreement.
 ```
 
 If combined with `/repo-eval` or if the user requests a `.md` report, produce a Markdown report under `~/Workspace/reports/` and verify it exists before finalizing. Preserve source-specific sections, include direct thread/post links, distinguish amplification from substantive critique, and explicitly state when a source was skipped because credentials such as `DISCORD_TOKEN` were unavailable.
-
-## Rules
-
-- Always include direct links. Never fabricate quotes or links.
-- If the topic is a specific post/announcement that links to a repo, product, or paper, structure the report around the post's claims and public discussion first. Treat linked artifacts as evidence, not as the primary subject, unless the user explicitly asks for adoption-focused eval.
-- Prefer recent results (last 6 months).
-- Run searches in parallel. Cap at ~12 total calls.
-- Deduplicate cross-platform mentions.
 

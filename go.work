@@ -6,4 +6,5 @@ use (
 	./skills/pr-triage/tools/pr-triage
 	./skills/remote-access/tools/remote-access-bridge
 	./skills/jobs/tools/portals-scan
+	./skills/tech-search/tools/tech-pulse
 )
