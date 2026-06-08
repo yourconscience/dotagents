@@ -21,6 +21,21 @@ func TestNormalizeSearchArgsAllowsTopicBeforeFlags(t *testing.T) {
 		t.Fatalf("normalizeSearchArgs = %#v, want %#v", got, want)
 	}
 }
+func TestHNThreadURLPrefersDiscussion(t *testing.T) {
+	got := hnThreadURL("12345")
+	if got != "https://news.ycombinator.com/item?id=12345" {
+		t.Fatalf("hnThreadURL = %q", got)
+	}
+}
+
+func TestGitHubIssueSearchQueryScopesExactRepo(t *testing.T) {
+	req := searchRequest{Topic: "owner/repo", Query: "owner/repo issues"}
+	got := githubIssueSearchQuery(req, "2026-06-01")
+	want := "repo:owner/repo updated:>=2026-06-01"
+	if got != want {
+		t.Fatalf("githubIssueSearchQuery = %q, want %q", got, want)
+	}
+}
 
 func TestCanonicalURLStripsTrackingAndRedditSlug(t *testing.T) {
 	got := canonicalURL("http://www.reddit.com/r/ClaudeAI/comments/abc123/some_slug/?utm_source=x&ref=share#frag")
