@@ -24,7 +24,18 @@ import (
 	"time"
 )
 
-const defaultUserAgent = "dotagents-tech-pulse/0.1 (+https://github.com/yourconscience/dotagents)"
+const (
+	defaultUserAgent = "dotagents-tech-pulse/0.1 (+https://github.com/yourconscience/dotagents)"
+	redditUserAgent  = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+var (
+	vsRegexp      = regexp.MustCompile(`(?i)\s+(?:vs\.?|versus)\s+`)
+	intentRegexp  = regexp.MustCompile(`(?i)\b(how to|use cases?|workflows?|examples?|tutorials?|reviews?|in practice|production use)\b`)
+	htmlTagRegexp = regexp.MustCompile(`<[^>]+>`)
+	dateRegexp    = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
+	repoRegexp    = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+)
 
 type report struct {
 	Topic        string                  `json:"topic"`
@@ -383,8 +394,7 @@ func planQueries(topic string) []string {
 }
 
 func splitComparison(topic string) []string {
-	re := regexp.MustCompile(`(?i)\s+(?:vs\.?|versus)\s+`)
-	parts := re.Split(topic, -1)
+	parts := vsRegexp.Split(topic, -1)
 	var out []string
 	for _, part := range parts {
 		part = compactSpaces(part)
@@ -396,8 +406,7 @@ func splitComparison(topic string) []string {
 }
 
 func stripIntentModifiers(topic string) string {
-	re := regexp.MustCompile(`(?i)\b(how to|use cases?|workflows?|examples?|tutorials?|reviews?|in practice|production use)\b`)
-	return compactSpaces(re.ReplaceAllString(topic, ""))
+	return compactSpaces(intentRegexp.ReplaceAllString(topic, ""))
 }
 
 func uniqueStringsLimited(values []string, limit int) []string {
@@ -587,7 +596,10 @@ func (a *app) searchRedditRSS(ctx context.Context, req searchRequest) ([]item, e
 	values.Set("sort", "relevance")
 	values.Set("t", redditWindow(req.Days))
 	endpoint := "https://www.reddit.com/search.rss?" + values.Encode()
-	body, err := a.getBytes(ctx, endpoint, map[string]string{"Accept": "application/atom+xml, application/xml;q=0.9, */*;q=0.1"})
+	body, err := a.getBytes(ctx, endpoint, map[string]string{
+		"Accept":     "application/atom+xml, application/xml;q=0.9, */*;q=0.1",
+		"User-Agent": redditUserAgent,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -974,7 +986,7 @@ func sortedSourceNames(statuses map[string]sourceStatus) []string {
 
 func cleanText(value string) string {
 	value = html.UnescapeString(value)
-	value = regexp.MustCompile(`<[^>]+>`).ReplaceAllString(value, " ")
+	value = htmlTagRegexp.ReplaceAllString(value, " ")
 	return compactSpaces(value)
 }
 
@@ -991,7 +1003,7 @@ func dateOnly(value string) string {
 			return t.UTC().Format("2006-01-02")
 		}
 	}
-	if len(value) >= 10 && regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`).MatchString(value[:10]) {
+	if len(value) >= 10 && dateRegexp.MatchString(value[:10]) {
 		return value[:10]
 	}
 	return value
@@ -1059,7 +1071,7 @@ func repoFromAPIURL(value string) string {
 }
 
 func maybeRepo(value string) bool {
-	return regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).MatchString(strings.TrimSpace(value))
+	return repoRegexp.MatchString(strings.TrimSpace(value))
 }
 
 func hashText(value string) string {
