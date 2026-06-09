@@ -4,6 +4,10 @@ Cross-agent sync CLI for managing shared skills, agent roles, and MCP servers ac
 
 This repo is the canonical `~/.agents` layer. It detects installed agent platforms, syncs shared skills and MCP entries to each platform's native format, validates drift, and self-tests.
 
+![dotagents harness map](./docs/harness-map.png)
+
+[Open the full harness map.](./docs/harness-map.html)
+
 ## Agent instructions
 
 [`AGENTS.md`](./AGENTS.md) is the canonical instruction file. [`CLAUDE.md`](./CLAUDE.md) is only a compatibility shim for agents that look for Claude-style project memory.
