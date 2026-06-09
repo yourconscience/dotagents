@@ -60,7 +60,7 @@ func runSync(opts runOptions) error {
 		return err
 	}
 
-	if err := syncExternalRepos(cfg.ExternalSkills, home); err != nil {
+	if err := syncExternalRepos(cfg.ExternalSkills, home, repoRoot); err != nil {
 		return err
 	}
 
