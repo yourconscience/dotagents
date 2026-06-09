@@ -77,13 +77,20 @@ func lockEntryFor(lock lockFile, src externalSkillSource) *externalLockEntry {
 	return nil
 }
 
-// rebuildLockEntries records the current cache HEAD for every configured source.
-func rebuildLockEntries(sources []externalSkillSource, home string) []externalLockEntry {
+// rebuildLockEntries records the current cache HEAD for every configured
+// source, keeping the existing pin for sources that are not cloned locally so
+// a partial update cannot silently unpin them.
+func rebuildLockEntries(sources []externalSkillSource, home string, lock lockFile) []externalLockEntry {
 	cacheRoot := externalCacheDir(home)
 	var entries []externalLockEntry
 	for _, src := range sources {
 		name := repoName(src.URL)
 		commit := externalSkillCommitFull(filepath.Join(cacheRoot, name))
+		if commit == "" {
+			if pin := lockEntryFor(lock, src); pin != nil {
+				commit = pin.Commit
+			}
+		}
 		if commit == "" {
 			continue
 		}
