@@ -218,12 +218,14 @@ async def _daemon_main() -> None:
                 line = await reader.readline()
                 if not line:
                     break
+                req_id = None
                 try:
                     req = json.loads(line)
+                    req_id = req.get("id")
                     result = await handle_method(req["method"], req.get("params", {}))
-                    resp = {"id": req.get("id"), "result": result}
+                    resp = {"id": req_id, "result": result}
                 except Exception as e:
-                    resp = {"id": req.get("id"), "error": f"{type(e).__name__}: {e}"}
+                    resp = {"id": req_id, "error": f"{type(e).__name__}: {e}"}
                 writer.write(json.dumps(resp).encode() + b"\n")
                 await writer.drain()
         except (ConnectionResetError, BrokenPipeError):
@@ -274,7 +276,7 @@ def _stop_daemon() -> None:
     try:
         os.kill(pid, signal.SIGTERM)
         print(f"Sent SIGTERM to daemon pid={pid}")
-    except ProcessNotFoundError:
+    except ProcessLookupError:
         print(f"Daemon pid={pid} not running, cleaning up")
         _PID_PATH.unlink(missing_ok=True)
         _SOCK_PATH.unlink(missing_ok=True)
