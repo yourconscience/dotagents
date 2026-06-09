@@ -1,0 +1,51 @@
+version: 2
+
+project_name: dotagents
+
+builds:
+  - id: dotagents
+    dir: cmd/dotagents
+    main: .
+    binary: dotagents
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+brews:
+  - name: dotagents
+    repository:
+      owner: yourconscience
+      name: homebrew-tap
+      # Requires a classic PAT with repo scope on the tap repository,
+      # stored as the HOMEBREW_TAP_GITHUB_TOKEN actions secret.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/yourconscience/dotagents
+    description: Cross-agent sync CLI for skills, agent roles, MCP servers, and hooks
+    license: MIT
+    install: |
+      bin.install "dotagents"
+    test: |
+      system "#{bin}/dotagents", "--help"
