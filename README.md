@@ -8,9 +8,21 @@ This repo is the canonical `~/.agents` layer. It detects installed agent platfor
 
 [`AGENTS.md`](./AGENTS.md) is the canonical instruction file. [`CLAUDE.md`](./CLAUDE.md) is only a compatibility shim for agents that look for Claude-style project memory.
 
-## CLI
+## Install
 
-Install the repo-owned CLI:
+Homebrew (requires the published tap):
+
+```bash
+brew install yourconscience/tap/dotagents
+```
+
+Prebuilt binaries for macOS and Linux (amd64/arm64) are attached to [GitHub Releases](https://github.com/yourconscience/dotagents/releases). With Go installed:
+
+```bash
+go install github.com/yourconscience/dotagents/cmd/dotagents@latest
+```
+
+Or from a clone:
 
 ```bash
 go install ./cmd/dotagents
@@ -24,6 +36,27 @@ After that, use `dotagents` directly:
 dotagents status
 dotagents deps check
 ```
+
+Releases are cut by pushing a `v*` tag; CI runs GoReleaser, which publishes archives and updates the Homebrew formula (needs the `HOMEBREW_TAP_GITHUB_TOKEN` secret with push access to `yourconscience/homebrew-tap`).
+
+## Alternatives
+
+How dotagents compares to other cross-agent config sync tools:
+
+| | dotagents | [skillshare](https://github.com/runkids/skillshare) | [vsync](https://github.com/nicepkg/vsync) | [agents-cli](https://github.com/amtiYo/agents) |
+|---|---|---|---|---|
+| Skills sync | yes (symlinks + config-driven dirs) | yes | yes | yes |
+| MCP sync | yes | no | yes | yes |
+| Hooks sync | yes (Claude Code, Codex, Hermes, Droid) | no | no | no |
+| Native subagent roles | yes (Claude Code, Codex, Droid) | agents as files | yes | no |
+| Plugin catalog | yes (first-party `dotagents.yaml` entries) | no | no | no |
+| External skill pinning | yes (`dotagents.lock`) | version tracking | no | no |
+| Skill security audit | yes (`dotagents doctor`) | yes | no | no |
+| Local private overlay | yes (`dotagents.local.yaml`) | no | no | no |
+| Target agents | Claude Code, Codex, Amp, Hermes, Factory Droid, Pi/OpenClaw | Claude Code, Codex, Cursor, Gemini, 60+ | Claude Code, Cursor, OpenCode, Codex | Codex, Claude Code, Gemini CLI, Cursor, Copilot, others |
+| Language | Go | Go | TypeScript | TypeScript |
+
+dotagents focuses on the post-IDE agent stack (Hermes, Amp, Droid, OpenClaw/Pi alongside Claude Code and Codex) and on syncing the full surface - skills, MCP, hooks, roles, plugins, root instructions - from one canonical `~/.agents` layer.
 
 ## Agents
 
@@ -56,7 +89,29 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
 - `spawn` - spawn and manage Claude Code agent teams with model routing and cmux integration.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
+- `tg` - read Telegram chats, search messages, and list dialogs via the `tg` CLI.
 - `x-cli` - unofficial CLI for `x` tooling.
+
+## Installing these skills without dotagents
+
+The repo doubles as a [Claude Code plugin marketplace](https://code.claude.com/docs/en/discover-plugins): `.claude-plugin/marketplace.json` exposes the portable skills (`tech-search`, `grill-me`, `humanizer`, `repo-eval`, `spec`, `pr-triage`, `tmux`) as single-skill plugins.
+
+```text
+/plugin marketplace add yourconscience/dotagents
+/plugin install tech-search@dotagents
+```
+
+For any agent managed by dotagents, consume the same skills as an external source with a `skills` allowlist:
+
+```yaml
+external_skills:
+  - url: https://github.com/yourconscience/dotagents
+    skill_dir: skills
+    branch: main
+    skills: [tech-search, grill-me, humanizer, repo-eval, spec, pr-triage, tmux]
+```
+
+Other sync tools that install skills from a git repo (e.g. skillshare) can point at the `skills/` directory directly.
 
 ## External Skills
 
@@ -67,9 +122,16 @@ external_skills:
   - url: https://github.com/example/shared-skills
     skill_dir: skill
     branch: main
+    skills: [alpha, beta] # optional allowlist; omit to take every skill
 ```
 
 `dotagents sync` clones or updates each repo into `~/.agents/external/<repo-name>/` and symlinks discovered skills into agent skill roots. `dotagents status` shows external sources with their commit hash. `dotagents doctor` validates that clones exist and contain valid skills.
+
+External sources are pinned in `dotagents.lock` (commit this file): the first sync records each source's commit, and later syncs keep the source at the pinned commit instead of silently tracking the branch. `dotagents external list` shows pin state; `dotagents external update [name ...]` moves sources to the latest branch head and rewrites the lock. `dotagents doctor` warns when a source is unpinned or its cache drifts from the lock, and runs a content audit over external skills that flags risky patterns (pipe-to-shell installs, base64-decode-to-shell, prompt-injection phrasing, credential paths) for human review.
+
+## Local overlay
+
+`dotagents.local.yaml` next to `dotagents.yaml` (gitignored) holds personal additions that should stay out of public git: extra agents, external skill sources, MCP servers, hooks, or plugin entries. Entries merge by name (external sources by repo name); a matching name replaces the public entry wholesale, everything else is appended.
 
 ## Plugins
 
