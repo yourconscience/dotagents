@@ -80,7 +80,7 @@ func TestRebuildLockEntriesPreservesUnclonedPins(t *testing.T) {
 	}
 	for _, args := range [][]string{
 		{"init"},
-		{"-c", "user.email=test@test", "-c", "user.name=test", "commit", "--allow-empty", "-m", "init"},
+		{"-c", "user.email=test@test", "-c", "user.name=test", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "init"},
 	} {
 		cmd := exec.Command("git", append([]string{"-C", repoA}, args...)...)
 		if out, err := cmd.CombinedOutput(); err != nil {
