@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -65,6 +66,53 @@ func TestLockEntryFor(t *testing.T) {
 				t.Fatalf("lockEntryFor() pin = %v, want %v", got != nil, tt.wantPin)
 			}
 		})
+	}
+}
+
+func TestRebuildLockEntriesPreservesUnclonedPins(t *testing.T) {
+	home := t.TempDir()
+	cacheRoot := filepath.Join(home, ".agents", "external")
+
+	// repo-a is a real clone; repo-b only exists in the lock.
+	repoA := filepath.Join(cacheRoot, "repo-a")
+	if err := os.MkdirAll(repoA, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"init"},
+		{"-c", "user.email=test@test", "-c", "user.name=test", "commit", "--allow-empty", "-m", "init"},
+	} {
+		cmd := exec.Command("git", append([]string{"-C", repoA}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	headA := externalSkillCommitFull(repoA)
+	if headA == "" {
+		t.Fatal("expected repo-a HEAD")
+	}
+
+	sources := []externalSkillSource{
+		{URL: "https://github.com/example/repo-a", SkillDir: "skills", Branch: "main"},
+		{URL: "https://github.com/example/repo-b", SkillDir: "skills", Branch: "main"},
+	}
+	lock := lockFile{ExternalSkills: []externalLockEntry{
+		{Name: "repo-b", URL: "https://github.com/example/repo-b", Branch: "main", Commit: "feedface"},
+	}}
+
+	entries := rebuildLockEntries(sources, home, lock)
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %+v", entries)
+	}
+	byName := make(map[string]externalLockEntry)
+	for _, entry := range entries {
+		byName[entry.Name] = entry
+	}
+	if byName["repo-a"].Commit != headA {
+		t.Fatalf("repo-a should pin cache HEAD %s, got %+v", headA, byName["repo-a"])
+	}
+	if byName["repo-b"].Commit != "feedface" {
+		t.Fatalf("repo-b pin should be preserved when not cloned, got %+v", byName["repo-b"])
 	}
 }
 
