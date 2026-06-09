@@ -1,0 +1,61 @@
+{
+  "name": "dotagents",
+  "owner": {
+    "name": "yourconscience",
+    "url": "https://github.com/yourconscience"
+  },
+  "metadata": {
+    "description": "Portable, agent-agnostic skills from the dotagents repo. Each plugin is a single skill; install only what you need."
+  },
+  "plugins": [
+    {
+      "name": "tech-search",
+      "source": "./skills/tech-search",
+      "description": "Search Hacker News, X.com, Reddit, Discord, and high-signal tech blogs for curated opinions on a topic.",
+      "strict": false,
+      "category": "research"
+    },
+    {
+      "name": "grill-me",
+      "source": "./skills/grill-me",
+      "description": "Pressure-test a plan one question at a time until scope, dependencies, and open questions are concrete.",
+      "strict": false,
+      "category": "planning"
+    },
+    {
+      "name": "humanizer",
+      "source": "./skills/humanizer",
+      "description": "Final-pass rewriting for concise writing that keeps the user's voice and removes generic AI tone.",
+      "strict": false,
+      "category": "writing"
+    },
+    {
+      "name": "repo-eval",
+      "source": "./skills/repo-eval",
+      "description": "Find, triage, and deep-evaluate GitHub repos for a given need before adopting one.",
+      "strict": false,
+      "category": "research"
+    },
+    {
+      "name": "spec",
+      "source": "./skills/spec",
+      "description": "Produce a minimal SPEC.md through a short interview and use it as the source of truth for complex work.",
+      "strict": false,
+      "category": "planning"
+    },
+    {
+      "name": "pr-triage",
+      "source": "./skills/pr-triage",
+      "description": "Inspect PR failed checks and unresolved review comments, fix valid feedback, and drive a single fix-commit-push loop.",
+      "strict": false,
+      "category": "workflow"
+    },
+    {
+      "name": "tmux",
+      "source": "./skills/tmux",
+      "description": "Generic tmux reference for sessions, windows, panes, screen capture, and input.",
+      "strict": false,
+      "category": "workflow"
+    }
+  ]
+}
