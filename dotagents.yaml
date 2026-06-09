@@ -165,7 +165,7 @@ mcp_servers:
     enabled: true
     command: uvx
     args:
-      - linkedin-scraper-mcp@latest
+      - linkedin-scraper-mcp==4.13.2
     env:
       UV_HTTP_TIMEOUT: "300"
     agents:
@@ -187,18 +187,7 @@ mcp_servers:
       - hermes
       - droid
       - pi
-  - name: telegram_readonly
-    enabled: true
-    command: sh
-    args:
-      - -lc
-      - exec uv run --project ~/.agents/mcp/telegram-readonly python ~/.agents/mcp/telegram-readonly/server.py
-    agents:
-      - claude-code
-      - codex
-      - hermes
-      - droid
-      - pi
+
 hooks:
   - name: memory-session-start
     enabled: true
