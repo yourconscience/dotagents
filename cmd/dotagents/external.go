@@ -119,7 +119,7 @@ func externalSourceNames(sources []externalSkillSource) []string {
 }
 
 func writeLockIfChanged(sources []externalSkillSource, home string, repoRoot string, lock lockFile) error {
-	entries := rebuildLockEntries(sources, home)
+	entries := rebuildLockEntries(sources, home, lock)
 	if lockEntriesEqual(lock.ExternalSkills, entries) {
 		return nil
 	}
@@ -159,8 +159,13 @@ func gitCheckoutCommit(repoPath string, commit string, branch string) error {
 		fetchSHA.Stdout = os.Stdout
 		fetchSHA.Stderr = os.Stderr
 		if err := fetchSHA.Run(); err != nil {
-			// Fall back to unshallowing the branch history.
-			fetchAll := exec.Command("git", "-C", repoPath, "fetch", "--unshallow", "origin", branch)
+			// Fall back to fetching the branch history; --unshallow is only
+			// valid while the clone is still shallow.
+			fetchArgs := []string{"-C", repoPath, "fetch", "origin", branch}
+			if gitIsShallow(repoPath) {
+				fetchArgs = []string{"-C", repoPath, "fetch", "--unshallow", "origin", branch}
+			}
+			fetchAll := exec.Command("git", fetchArgs...)
 			fetchAll.Stdout = os.Stdout
 			fetchAll.Stderr = os.Stderr
 			if fallbackErr := fetchAll.Run(); fallbackErr != nil {
@@ -176,6 +181,14 @@ func gitCheckoutCommit(repoPath string, commit string, branch string) error {
 
 func gitHasCommit(repoPath string, commit string) bool {
 	return exec.Command("git", "-C", repoPath, "cat-file", "-e", commit+"^{commit}").Run() == nil
+}
+
+func gitIsShallow(repoPath string) bool {
+	out, err := exec.Command("git", "-C", repoPath, "rev-parse", "--is-shallow-repository").Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "true"
 }
 
 func discoverExternalSkills(sources []externalSkillSource, home string) (map[string]string, error) {
