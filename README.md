@@ -10,12 +10,6 @@ This repo is the canonical `~/.agents` layer. It detects installed agent platfor
 
 ## Install
 
-Homebrew (requires the published tap):
-
-```bash
-brew install yourconscience/tap/dotagents
-```
-
 Prebuilt binaries for macOS and Linux (amd64/arm64) are attached to [GitHub Releases](https://github.com/yourconscience/dotagents/releases). With Go installed:
 
 ```bash
@@ -37,7 +31,7 @@ dotagents status
 dotagents deps check
 ```
 
-Releases are cut by pushing a `v*` tag; CI runs GoReleaser, which publishes archives and updates the Homebrew formula (needs the `HOMEBREW_TAP_GITHUB_TOKEN` secret with push access to `yourconscience/homebrew-tap`).
+Releases are cut by pushing a `v*` tag; CI runs GoReleaser, which builds the archives and publishes the GitHub Release.
 
 ## Alternatives
 
