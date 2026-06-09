@@ -48,6 +48,7 @@ func runDoctor(opts runOptions) error {
 	var results []checkResult
 
 	results = append(results, checkSkillFrontmatter(repoRoot))
+	results = append(results, checkSkillSpec(repoRoot))
 	results = append(results, checkAgentRoles(repoRoot))
 	for _, name := range sortedHarnessNames() {
 		for _, check := range getHarnesses()[name].DoctorChecks {
@@ -60,6 +61,8 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkMemsearchIndex(home))
 	results = append(results, checkExternalPackageAge(repoRoot, cfg, opts.SkipPackageAge, timeNow()))
 	results = append(results, checkExternalSkillSources(cfg, home))
+	results = append(results, checkExternalSkillLock(repoRoot, cfg, home))
+	results = append(results, checkExternalSkillAudit(cfg, home))
 	results = append(results, checkFirstPartyPlugins(cfg))
 
 	fmt.Println("checks:")
