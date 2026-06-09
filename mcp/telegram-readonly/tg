@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Read-only Telegram CLI. Proxies to the telegram-readonly daemon.
+
+Usage:
+  tg dialogs [--query Q] [--limit N]
+  tg read <chat> [--limit N]
+  tg search <chat> <query> [--limit N]
+  tg info <chat>
+  tg daemon status|start|stop|log
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import signal
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+_STATE_DIR = Path(os.getenv(
+    "TELEGRAM_SESSION_PATH",
+    str(Path.home() / ".local" / "share" / "dotagents" / "telegram-readonly" / "telegram.session"),
+)).expanduser().parent
+_SOCK_PATH = _STATE_DIR / "daemon.sock"
+_PID_PATH = _STATE_DIR / "daemon.pid"
+_LOG_PATH = _STATE_DIR / "daemon.log"
+
+
+async def _ensure_daemon() -> None:
+    try:
+        r, w = await asyncio.open_unix_connection(str(_SOCK_PATH))
+        w.close()
+        await w.wait_closed()
+        return
+    except (FileNotFoundError, ConnectionRefusedError, OSError):
+        pass
+
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+    log_fd = open(_LOG_PATH, "a")
+    venv_python = ROOT / ".venv" / "bin" / "python3"
+    exe = str(venv_python) if venv_python.exists() else sys.executable
+    subprocess.Popen(
+        [exe, str(ROOT / "server.py"), "--daemon"],
+        stdin=subprocess.DEVNULL,
+        stdout=log_fd,
+        stderr=log_fd,
+        start_new_session=True,
+    )
+    log_fd.close()
+
+    for _ in range(50):
+        await asyncio.sleep(0.2)
+        try:
+            r, w = await asyncio.open_unix_connection(str(_SOCK_PATH))
+            w.close()
+            await w.wait_closed()
+            return
+        except (FileNotFoundError, ConnectionRefusedError, OSError):
+            continue
+    print(f"Failed to start daemon. Check {_LOG_PATH}", file=sys.stderr)
+    sys.exit(1)
+
+
+async def _call(method: str, params: dict) -> any:
+    await _ensure_daemon()
+    r, w = await asyncio.open_unix_connection(str(_SOCK_PATH))
+    req = {"id": 1, "method": method, "params": params}
+    w.write(json.dumps(req).encode() + b"\n")
+    await w.drain()
+    line = await r.readline()
+    w.close()
+    await w.wait_closed()
+    if not line:
+        print("Daemon closed connection", file=sys.stderr)
+        sys.exit(1)
+    resp = json.loads(line)
+    if "error" in resp:
+        print(f"Error: {resp['error']}", file=sys.stderr)
+        sys.exit(1)
+    return resp["result"]
+
+
+def _print(data: any) -> None:
+    print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def _daemon_status() -> None:
+    if not _PID_PATH.exists():
+        print("stopped (no pid file)")
+        return
+    pid = int(_PID_PATH.read_text().strip())
+    try:
+        os.kill(pid, 0)
+        print(f"running pid={pid} sock={_SOCK_PATH}")
+    except ProcessLookupError:
+        print(f"stale (pid={pid} not found)")
+
+
+def _daemon_stop() -> None:
+    if not _PID_PATH.exists():
+        print("not running")
+        return
+    pid = int(_PID_PATH.read_text().strip())
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"stopped pid={pid}")
+    except ProcessLookupError:
+        print(f"pid={pid} already gone, cleaning up")
+        _PID_PATH.unlink(missing_ok=True)
+        _SOCK_PATH.unlink(missing_ok=True)
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(prog="tg", description="Read-only Telegram CLI")
+    sub = p.add_subparsers(dest="cmd")
+
+    d = sub.add_parser("dialogs", help="List dialogs")
+    d.add_argument("--query", "-q", default=None)
+    d.add_argument("--limit", "-n", type=int, default=20)
+
+    r = sub.add_parser("read", help="Read messages from a chat")
+    r.add_argument("chat")
+    r.add_argument("--limit", "-n", type=int, default=20)
+
+    s = sub.add_parser("search", help="Search messages in a chat")
+    s.add_argument("chat")
+    s.add_argument("query")
+    s.add_argument("--limit", "-n", type=int, default=20)
+
+    i = sub.add_parser("info", help="Chat metadata")
+    i.add_argument("chat")
+
+    dm = sub.add_parser("daemon", help="Manage daemon")
+    dm.add_argument("action", choices=["status", "start", "stop", "log"])
+
+    args = p.parse_args()
+
+    if args.cmd == "daemon":
+        if args.action == "status":
+            _daemon_status()
+        elif args.action == "stop":
+            _daemon_stop()
+        elif args.action == "start":
+            asyncio.run(_ensure_daemon())
+            _daemon_status()
+        elif args.action == "log":
+            if _LOG_PATH.exists():
+                print(_LOG_PATH.read_text()[-4000:])
+            else:
+                print("no log file")
+        return
+
+    if not args.cmd:
+        p.print_help()
+        return
+
+    if args.cmd == "dialogs":
+        params: dict = {"limit": args.limit}
+        if args.query:
+            params["query"] = args.query
+        _print(asyncio.run(_call("list_dialogs", params)))
+    elif args.cmd == "read":
+        _print(asyncio.run(_call("get_recent_messages", {"chat": args.chat, "limit": args.limit})))
+    elif args.cmd == "search":
+        _print(asyncio.run(_call("search_messages", {"chat": args.chat, "query": args.query, "limit": args.limit})))
+    elif args.cmd == "info":
+        _print(asyncio.run(_call("get_chat_info", {"chat": args.chat})))
+
+
+if __name__ == "__main__":
+    main()
