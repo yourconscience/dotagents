@@ -226,9 +226,9 @@ func ampSkillsPathConfigured(raw string, home string) bool {
 
 func appendAmpSkillsPath(raw string) string {
 	if strings.TrimSpace(raw) == "" {
-		return ampSkillsPath
+		return dotagentsSkillsPathValue
 	}
-	return strings.TrimRight(raw, ":") + ":" + ampSkillsPath
+	return strings.TrimRight(raw, ":") + ":" + dotagentsSkillsPathValue
 }
 
 func patchHermesConfig(home string, cfg config) (bool, error) {
@@ -299,7 +299,7 @@ func patchHermesConfig(home string, cfg config) (bool, error) {
 
 func hermesExternalDirValue(home string, target string) string {
 	if target == filepath.Join(home, ".agents", "skills") {
-		return ampSkillsPath
+		return dotagentsSkillsPathValue
 	}
 	return target
 }
