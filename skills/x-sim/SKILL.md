@@ -9,6 +9,25 @@ Use `x-sim` to simulate how real X audiences may react to a draft tweet, bio, pi
 
 This skill is offline-only. It reads scraped X data through `x-cli`, stores local context in SQLite, and produces evaluation reports. Never post, like, reply, follow, DM, or mutate X state from this skill.
 
+## Example: Predicting Model-Announcement Tweets
+
+Real e2e run (2026-06-10): predict how a frontier-model announcement would land, using followed AI accounts as the audience corpus.
+
+```bash
+x-cli following @yourhandle --count 100 --json   # pick relevant accounts from who you follow
+go run ./tools/x-sim init
+for h in AnthropicAI _catwu trq212 karpathy thehypedotnews steipete; do
+  go run ./tools/x-sim source add-account @$h
+done
+go run ./tools/x-sim source add-search "claude fable"
+go run ./tools/x-sim sync --since 3m --limit-per-source 50   # synced 215 attributed tweets
+go run ./tools/x-sim brief --topic "fable" --out /tmp/x-sim-fable-brief.md
+go run ./tools/x-sim eval-tweet --text "Introducing Claude Fable 5, our most capable model yet..." \
+  --topic "fable" --out /tmp/x-sim-pred.md
+```
+
+The brief surfaced the real announcement (`@claudeai`: "a Mythos-class model that we've made safe for general use") plus audience echo (`@karpathy`: "same underlying model as Mythos but with added safeguards"). Comparing the draft against that evidence showed the predicted capability framing matched, but the actual hook was the safety-derivative angle - the kind of gap this skill exists to catch before posting.
+
 ## Core Rules
 
 - Use `x-cli --json` for X reads; do not call raw X endpoints when `x-cli` covers the task.
