@@ -2,6 +2,7 @@ version: 1
 agents:
   - name: claude-code
     enabled: true
+    delivery: sync
     detect: claude
     skill_root: ~/.claude/skills
     agent_root: ~/.claude/agents
@@ -171,7 +172,7 @@ plugins:
       - native-plugin
     agents:
       - claude-code
-    review: 'Self-publication via .claude-plugin/{plugin,marketplace}.json (skills + 4 agent roles auto-discovered from agents/*.md). Claude Code is the only target: Codex plugins require a real copied skills/ inside a subdir (no shared-root, no symlinks - verified against codex 0.136.0), so Codex and all other agents consume these skills via dotagents sync, not a plugin. Local machines keep symlink sync; the plugin is for installs via /plugin marketplace add yourconscience/dotagents. Must stay enabled:false while symlink sync covers claude-code - enabling makes discoverPluginSkills collide with the repo''s own skills, and installing alongside symlinks duplicates every skill (/tg and /dotagents:tg).'
+    review: 'Self-publication via .claude-plugin/{plugin,marketplace}.json (skills + 4 agent roles auto-discovered from agents/*.md). Claude Code is the only target: Codex plugins require a real copied skills/ inside a subdir (no shared-root, no symlinks - verified against codex 0.136.0), so Codex and all other agents consume these skills via dotagents sync, not a plugin. Keep this catalog entry enabled:false; local Claude Code delivery is controlled by agents[].delivery (sync or plugin). delivery: plugin installs dotagents@yourconscience and prunes Claude Code symlink artifacts to avoid duplicate /tg and /dotagents:tg commands.'
 mcp_servers:
   - name: linkedin
     enabled: true

@@ -30,6 +30,11 @@ func runStatus(opts runOptions) error {
 	}
 
 	printReport("status", repoRoot, repoReport, reports, home, cfg)
+	claudeDelivery := checkClaudeDelivery(repoRoot, home, cfg)
+	fmt.Printf("claude delivery: %s (%s)\n\n", claudeDelivery.status, claudeDelivery.detail)
+	if claudeDelivery.status == checkStatusFail {
+		return fmt.Errorf("claude delivery check failed: %s", claudeDelivery.detail)
+	}
 	if repoReport.State != stateSynced {
 		return errors.New("dotagents is not fully synced")
 	}
@@ -167,6 +172,12 @@ func applyAgentSync(reports []agentReport, cfg config, home string) error {
 		}
 		if len(report.Conflicts) > 0 {
 			return fmt.Errorf("%s has conflicts", report.Name)
+		}
+		if report.Name == agentClaudeCode && normalizeDeliveryMode(report.Delivery) == deliveryPlugin {
+			if err := pruneManagedSkillLinks(report.SkillRoot, report.Removes); err != nil {
+				return err
+			}
+			continue
 		}
 		h := harnessFor(report.Name)
 		if h != nil && h.Skills == SkillsConfigDriven {
