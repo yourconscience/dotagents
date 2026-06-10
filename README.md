@@ -62,6 +62,7 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `tg` - read Telegram chats, search messages, and list dialogs through the read-only `tg` CLI.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
 - `x-cli` - unofficial CLI for `x` tooling.
+- `x-sim` - offline X audience simulation for draft tweets and handle positioning.
 
 ## External Skills
 
