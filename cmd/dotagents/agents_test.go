@@ -220,7 +220,11 @@ instructions: |-
 	}
 
 	stale := filepath.Join(repoRoot, "agents", "removed-role.md")
-	if err := os.WriteFile(stale, []byte("old"), 0o644); err != nil {
+	if err := os.WriteFile(stale, []byte("# "+generatedAgentMarker+"\nold"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manual := filepath.Join(repoRoot, "agents", "README.md")
+	if err := os.WriteFile(manual, []byte("hand-written notes"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -236,6 +240,9 @@ instructions: |-
 	}
 	if _, err := os.Stat(stale); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("stale file not removed: %v", err)
+	}
+	if _, err := os.Stat(manual); err != nil {
+		t.Fatalf("manual file was removed: %v", err)
 	}
 
 	roles, err := loadAgentRoles(repoRoot)
