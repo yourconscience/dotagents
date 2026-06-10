@@ -56,11 +56,61 @@ func loadConfig(repoRoot string, home string, overridePath string) (config, erro
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return config{}, fmt.Errorf("yaml decode: %w", err)
 	}
+	if err := applyLocalOverlay(&cfg, configPath); err != nil {
+		return config{}, err
+	}
 	if err := validateConfig(&cfg, home, true); err != nil {
 		return config{}, err
 	}
 
 	return cfg, nil
+}
+
+// applyLocalOverlay merges a gitignored dotagents.local.yaml (next to the main
+// config) into cfg. Entries match by name (agents, mcp_servers, hooks, plugins)
+// or repo name (external_skills): a match replaces the base entry wholesale,
+// anything else is appended. This keeps personal additions out of public git.
+func applyLocalOverlay(cfg *config, configPath string) error {
+	localPath := filepath.Join(filepath.Dir(configPath), "dotagents.local.yaml")
+	data, err := os.ReadFile(localPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read local config %s: %w", localPath, err)
+	}
+	var local config
+	if err := yaml.Unmarshal(data, &local); err != nil {
+		return fmt.Errorf("yaml decode %s: %w", localPath, err)
+	}
+	mergeConfig(cfg, local)
+	return nil
+}
+
+func mergeConfig(base *config, overlay config) {
+	base.Agents = mergeByKey(base.Agents, overlay.Agents, func(a agentConfig) string { return normalizeAgentName(a.Name) })
+	base.ExternalSkills = mergeByKey(base.ExternalSkills, overlay.ExternalSkills, func(s externalSkillSource) string { return repoName(s.URL) })
+	base.MCPServers = mergeByKey(base.MCPServers, overlay.MCPServers, func(s mcpServerConfig) string { return strings.TrimSpace(s.Name) })
+	base.Hooks = mergeByKey(base.Hooks, overlay.Hooks, func(h hookConfig) string { return strings.TrimSpace(h.Name) })
+	base.Plugins = mergeByKey(base.Plugins, overlay.Plugins, func(p pluginConfig) string { return strings.TrimSpace(p.Name) })
+}
+
+func mergeByKey[T any](base []T, overlay []T, key func(T) string) []T {
+	if len(overlay) == 0 {
+		return base
+	}
+	index := make(map[string]int, len(base))
+	for i, item := range base {
+		index[key(item)] = i
+	}
+	for _, item := range overlay {
+		if i, ok := index[key(item)]; ok {
+			base[i] = item
+		} else {
+			base = append(base, item)
+		}
+	}
+	return base
 }
 
 func defaultConfigPath(repoRoot string) string {
