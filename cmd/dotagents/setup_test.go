@@ -132,7 +132,7 @@ func TestPatchHermesConfigAddsPluginSkillDirs(t *testing.T) {
 	}
 	skills := raw["skills"].(map[string]interface{})
 	dirs := skills["external_dirs"].([]interface{})
-	if !containsInterfaceString(dirs, "~/keep") || !containsInterfaceString(dirs, ampSkillsPath) || !containsInterfaceString(dirs, filepath.Join(pluginSource, "skills")) {
+	if !containsInterfaceString(dirs, "~/keep") || !containsInterfaceString(dirs, dotagentsSkillsPathValue) || !containsInterfaceString(dirs, filepath.Join(pluginSource, "skills")) {
 		t.Fatalf("external_dirs = %#v", dirs)
 	}
 }

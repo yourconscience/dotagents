@@ -9,6 +9,11 @@ exclude = [
     "experimental/**",
     "research/**",
     "skills/jobs/tools/portals-scan/portals-scan",
+    # Generated Claude-native subagent renders (agents/*.md, beside the *.yaml
+    # sources). Claude Code's docs require a comma-separated `tools:` string;
+    # agnix wrongly demands a YAML list and cannot parse them. dotagents doctor's
+    # "plugin agents" check validates these instead.
+    "agents/*.md",
 ]
 
 [rules]
@@ -23,17 +28,17 @@ mcp = true
 imports = true
 cross_platform = true
 agents_md = true
-copilot = true
-cursor = true
-cline = true
-opencode = true
-gemini_md = true
+copilot = false
+cursor = false
+cline = false
+opencode = false
+gemini_md = false
 codex = true
-roo_code = true
-windsurf = true
-kiro_steering = true
-kiro_agents = true
-amp_checks = true
+roo_code = false
+windsurf = false
+kiro_steering = false
+kiro_agents = false
+amp_checks = false
 prompt_engineering = true
 generic_instructions = true
 frontmatter_validation = true

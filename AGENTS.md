@@ -17,7 +17,7 @@
 
 - Never guess numerical values. Measure or say it needs measurement.
 - Validate at small scale before scaling. When scaling, change only the scale parameter.
-- For new external package/tool references in ongoing projects, use versions published at least 7 days earlier. Verify publish age from the registry or say it still needs measurement.
+- For new external package/tool references in ongoing projects, use versions published at least 3 days earlier. Verify publish age from the registry or say it still needs measurement.
 
 # Environment
 
@@ -30,7 +30,7 @@
 
 - `~/.agents` is symlinked to this repo. Edit this repo, not generated mirrors.
 - Skills live under `skills/`.
-- Use the `dotagents` skill/tool for status and sync across Claude Code, Codex, Hermes, Droid, and OpenClaw.
+- Use the `dotagents` skill/tool for status and sync across the primary stack: Claude Code, Codex, Hermes, Droid, and Pi/OMP. Amp, OpenClaw, OpenCode, and similar harnesses are compatibility-only unless explicitly requested.
 - Knowledge vault: `$KNOWLEDGE_DIR`.
 - User profile: `$KNOWLEDGE_DIR/profile/`.
 - Search index: `memsearch` collection `ai`; markdown is canonical, index is derived.
