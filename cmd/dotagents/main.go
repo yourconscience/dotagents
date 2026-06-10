@@ -41,6 +41,7 @@ type agentConfig struct {
 	SkillRoot string `yaml:"skill_root"`
 	AgentRoot string `yaml:"agent_root,omitempty"`
 	Detect    string `yaml:"detect,omitempty"`
+	Delivery  string `yaml:"delivery,omitempty"`
 }
 
 type repoLinkReport struct {
@@ -54,6 +55,7 @@ type agentReport struct {
 	Name            string
 	SkillRoot       string
 	AgentRoot       string
+	Delivery        string
 	ExpectedSkills  map[string]string
 	Detected        bool
 	RootPath        string
@@ -85,6 +87,7 @@ type agentReport struct {
 	UpdatesMCP      []string
 	UpdatesHook     []string
 	Removes         []string
+	RemovesAgent    []string
 	Synced          bool
 }
 
@@ -152,8 +155,16 @@ func run(args []string) error {
 		return runMemsearch(args[1:])
 	case "mcp":
 		return runMCP(args[1:])
+	case "plugin":
+		return runPlugin(args[1:])
 	case "skillify":
 		return runSkillify(args[1:])
+	case "render":
+		opts, err := parseSubcommandFlags("render", args[1:])
+		if err != nil {
+			return err
+		}
+		return runRender(opts)
 	case "doctor":
 		opts, err := parseSubcommandFlags("doctor", args[1:])
 		if err != nil {
@@ -236,8 +247,11 @@ func printUsage() {
 	fmt.Println("  dotagents mcp remove <name>                  Remove canonical managed MCP")
 	fmt.Println("  dotagents external list                      Show external skill sources and lock state")
 	fmt.Println("  dotagents external update [name ...]         Move external sources to latest and rewrite the lock")
+	fmt.Println("  dotagents plugin add                         Install Claude Code plugin delivery for claude-code")
+	fmt.Println("  dotagents plugin remove                      Remove Claude Code plugin delivery and restore sync")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
+	fmt.Println("  dotagents render                              Render committed Claude plugin agents (agents/) from agents/*.yaml")
 	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes, package age")
 	fmt.Println("  dotagents dogfood       [--agents ...]           End-to-end self-test: sync + status + doctor")
 }

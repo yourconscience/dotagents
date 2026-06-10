@@ -1,385 +1,386 @@
 version: 1
 agents:
-  - name: claude-code
-    enabled: true
-    detect: claude
-    skill_root: ~/.claude/skills
-    agent_root: ~/.claude/agents
-  - name: codex
-    enabled: true
-    detect: codex
-    skill_root: ~/.codex/skills
-    agent_root: ~/.codex/agents
-  - name: amp
-    enabled: true
-    detect: amp
-    skill_root: ~/.agents/skills
-  - name: hermes
-    enabled: true
-    detect: hermes
-    skill_root: ~/.hermes/skills
-  - name: droid
-    enabled: true
-    detect: droid
-    skill_root: ~/.factory/skills
-    agent_root: ~/.factory/droids
-  - name: pi
-    enabled: true
-    detect: pi
-    skill_root: ~/.omp/agent/skills
+    - name: claude-code
+      enabled: true
+      delivery: plugin
+      detect: claude
+      skill_root: ~/.claude/skills
+      agent_root: ~/.claude/agents
+    - name: codex
+      enabled: true
+      detect: codex
+      skill_root: ~/.codex/skills
+      agent_root: ~/.codex/agents
+    - name: hermes
+      enabled: true
+      detect: hermes
+      skill_root: ~/.hermes/skills
+    - name: droid
+      enabled: true
+      detect: droid
+      skill_root: ~/.factory/skills
+      agent_root: ~/.factory/droids
+    - name: pi
+      enabled: true
+      detect: pi
+      skill_root: ~/.omp/agent/skills
 plugins:
-  - name: browser
-    enabled: true
-    source: codex:openai-bundled/browser
-    format: codex-plugin
-    description: Codex in-app browser automation.
-    surfaces:
-      - skills
-    agents:
-      - claude-code
-      - codex
-      - hermes
-      - droid
-      - pi
-    review: First enabled plugin. Dotagents syncs the skill surface to Claude Code/Codex/Droid and asks Hermes to load the plugin skills dir through external_dirs.
-  - name: chrome
-    enabled: false
-    source: codex:openai-bundled/chrome
-    format: codex-plugin
-    description: Codex Chrome automation with local browser state.
-    surfaces:
-      - skills
-      - native-plugin
-    agents:
-      - claude-code
-      - codex
-      - amp
-      - hermes
-      - droid
-      - pi
-    review: Native in Codex; cross-agent use needs a separate Chrome automation tool or MCP surface.
-  - name: build-ios-apps
-    enabled: true
-    source: codex:openai-curated/build-ios-apps
-    format: codex-plugin
-    description: Codex workflows for iOS App Intents, SwiftUI, profiling, leaks, and simulator debugging.
-    surfaces:
-      - skills
-    agents:
-      - claude-code
-      - codex
-      - hermes
-      - droid
-      - pi
-    review: First enabled plugin. Only the skill surface is enabled first; XcodeBuildMCP/native plugin wiring stays review-only.
-  - name: game-studio
-    enabled: false
-    source: codex:openai-curated/game-studio
-    format: codex-plugin
-    description: Codex browser-game design, implementation, asset, and playtest workflows.
-    surfaces:
-      - skills
-      - native-plugin
-    agents:
-      - claude-code
-      - codex
-      - amp
-      - hermes
-      - droid
-      - pi
-    review: Mostly portable as skills; native Codex plugin metadata is not portable.
-  - name: feature-dev
-    enabled: false
-    source: claude:claude-plugins-official/feature-dev
-    format: claude-plugin
-    description: Claude Code feature development workflow with exploration, architecture, and review agents.
-    surfaces:
-      - skills
-      - agents
-      - commands
-      - native-plugin
-    agents:
-      - claude-code
-      - codex
-      - amp
-      - hermes
-      - droid
-      - pi
-    review: Native in Claude Code; agent roles can be translated for Codex/Droid, while commands need explicit adapters.
-  - name: code-review
-    enabled: false
-    source: claude:claude-plugins-official/code-review
-    format: claude-plugin
-    description: Claude Code pull-request review command.
-    surfaces:
-      - commands
-      - native-plugin
-    agents:
-      - claude-code
-      - codex
-      - amp
-      - hermes
-      - droid
-      - pi
-    review: Native command surface is Claude-only; dotagents should model review as skills, hooks, MCP, or a CLI before enabling broadly.
-  - name: pr-review-toolkit
-    enabled: false
-    source: claude:claude-plugins-official/pr-review-toolkit
-    format: claude-plugin
-    description: Claude Code PR review agents for tests, comments, errors, type design, and simplification.
-    surfaces:
-      - agents
-      - commands
-      - native-plugin
-    agents:
-      - claude-code
-      - codex
-      - amp
-      - hermes
-      - droid
-      - pi
-    review: Agent roles are partly portable to Codex/Droid; command orchestration remains Claude-specific.
-  - name: plugin-dev
-    enabled: false
-    source: claude:claude-plugins-official/plugin-dev
-    format: claude-plugin
-    description: Claude Code toolkit for creating plugins, skills, agents, hooks, and MCP integrations.
-    surfaces:
-      - agents
-      - commands
-      - native-plugin
-    agents:
-      - claude-code
-      - codex
-      - amp
-      - hermes
-      - droid
-      - pi
-    review: Useful reference plugin; dotagents should keep the canonical contract in repo-owned YAML and generated adapters.
-  - name: frontend-design
-    enabled: true
-    source: claude:claude-plugins-official/frontend-design
-    format: claude-plugin
-    description: Claude Code frontend design skill for UI and UX implementation.
-    surfaces:
-      - skills
-    agents:
-      - claude-code
-      - codex
-      - hermes
-      - droid
-      - pi
-    review: First enabled Claude plugin. Dotagents treats it as a portable skill surface for Claude Code, Codex, Droid, and Hermes.
+    - name: browser
+      enabled: true
+      source: codex:openai-bundled/browser
+      format: codex-plugin
+      description: Codex in-app browser automation.
+      surfaces:
+        - skills
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: First enabled plugin. Dotagents syncs the skill surface to Claude Code/Codex/Droid and asks Hermes to load the plugin skills dir through external_dirs.
+    - name: chrome
+      enabled: false
+      source: codex:openai-bundled/chrome
+      format: codex-plugin
+      description: Codex Chrome automation with local browser state.
+      surfaces:
+        - skills
+        - native-plugin
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: Native in Codex; cross-agent use needs a separate Chrome automation tool or MCP surface.
+    - name: build-ios-apps
+      enabled: true
+      source: codex:openai-curated/build-ios-apps
+      format: codex-plugin
+      description: Codex workflows for iOS App Intents, SwiftUI, profiling, leaks, and simulator debugging.
+      surfaces:
+        - skills
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: First enabled plugin. Only the skill surface is enabled first; XcodeBuildMCP/native plugin wiring stays review-only.
+    - name: game-studio
+      enabled: false
+      source: codex:openai-curated/game-studio
+      format: codex-plugin
+      description: Codex browser-game design, implementation, asset, and playtest workflows.
+      surfaces:
+        - skills
+        - native-plugin
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: Mostly portable as skills; native Codex plugin metadata is not portable.
+    - name: feature-dev
+      enabled: false
+      source: claude:claude-plugins-official/feature-dev
+      format: claude-plugin
+      description: Claude Code feature development workflow with exploration, architecture, and review agents.
+      surfaces:
+        - skills
+        - agents
+        - commands
+        - native-plugin
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: Native in Claude Code; agent roles can be translated for Codex/Droid, while commands need explicit adapters.
+    - name: code-review
+      enabled: false
+      source: claude:claude-plugins-official/code-review
+      format: claude-plugin
+      description: Claude Code pull-request review command.
+      surfaces:
+        - commands
+        - native-plugin
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: Native command surface is Claude-only; dotagents should model review as skills, hooks, MCP, or a CLI before enabling broadly.
+    - name: pr-review-toolkit
+      enabled: false
+      source: claude:claude-plugins-official/pr-review-toolkit
+      format: claude-plugin
+      description: Claude Code PR review agents for tests, comments, errors, type design, and simplification.
+      surfaces:
+        - agents
+        - commands
+        - native-plugin
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: Agent roles are partly portable to Codex/Droid; command orchestration remains Claude-specific.
+    - name: plugin-dev
+      enabled: false
+      source: claude:claude-plugins-official/plugin-dev
+      format: claude-plugin
+      description: Claude Code toolkit for creating plugins, skills, agents, hooks, and MCP integrations.
+      surfaces:
+        - agents
+        - commands
+        - native-plugin
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: Useful reference plugin; dotagents should keep the canonical contract in repo-owned YAML and generated adapters.
+    - name: frontend-design
+      enabled: true
+      source: claude:claude-plugins-official/frontend-design
+      format: claude-plugin
+      description: Claude Code frontend design skill for UI and UX implementation.
+      surfaces:
+        - skills
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+      review: First enabled Claude plugin. Dotagents treats it as a portable skill surface for Claude Code, Codex, Droid, and Hermes.
+    - name: dotagents
+      enabled: false
+      source: https://github.com/yourconscience/dotagents
+      format: claude-plugin
+      description: This repo published as a Claude Code plugin (skills + rendered agent roles).
+      surfaces:
+        - skills
+        - agents
+        - native-plugin
+      agents:
+        - claude-code
+      review: 'Self-publication via .claude-plugin/{plugin,marketplace}.json (skills + 4 agent roles auto-discovered from agents/*.md). Claude Code is the only target: Codex plugins require a real copied skills/ inside a subdir (no shared-root, no symlinks - verified against codex 0.136.0), so Codex and all other agents consume these skills via dotagents sync, not a plugin. Keep this catalog entry enabled:false; local Claude Code delivery is controlled by agents[].delivery (sync or plugin). delivery: plugin installs dotagents@yourconscience and prunes Claude Code symlink artifacts to avoid duplicate /tg and /dotagents:tg commands.'
 mcp_servers:
-  - name: linkedin
-    enabled: true
-    command: uvx
-    args:
-      - linkedin-scraper-mcp@latest
-    env:
-      UV_HTTP_TIMEOUT: "300"
-    agents:
-      - claude-code
-      - codex
-      - amp
-      - hermes
-      - droid
-      - pi
-  - name: tavily
-    enabled: true
-    command: npx
-    args:
-      - -y
-      - mcp-remote@0.1.38
-      - https://mcp.tavily.com/mcp
-    agents:
-      - claude-code
-      - codex
-      - amp
-      - hermes
-      - droid
-      - pi
+    - name: linkedin
+      enabled: true
+      command: uvx
+      args:
+        - linkedin-scraper-mcp==4.13.2
+      env:
+        UV_HTTP_TIMEOUT: "300"
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
+    - name: tavily
+      enabled: true
+      command: npx
+      args:
+        - -y
+        - mcp-remote@0.1.38
+        - https://mcp.tavily.com/mcp
+      agents:
+        - claude-code
+        - codex
+        - hermes
+        - droid
+        - pi
 hooks:
-  - name: memory-session-start
-    enabled: true
-    event: SessionStart
-    command: ~/.agents/memory/hooks/session-start.sh
-    timeout: 15
-    agents:
-      - claude-code
-  - name: memory-stop
-    enabled: true
-    event: Stop
-    command: ~/.agents/memory/hooks/stop.sh
-    timeout: 15
-    agents:
-      - claude-code
-  - name: memory-session-end
-    enabled: true
-    event: SessionEnd
-    command: ~/.agents/memory/hooks/session-end.sh
-    timeout: 30
-    agents:
-      - claude-code
-      - hermes
-  - name: pr-triage-stop
-    enabled: true
-    event: Stop
-    command: ~/.agents/skills/pr-triage/hooks/stop.sh
-    timeout: 30
-    agents:
-      - claude-code
-  - name: cmux-codex-session-start
-    enabled: true
-    event: SessionStart
-    command: ~/.agents/hooks/cmux/dispatch.sh codex session-start
-    timeout: 5
-    agents:
-      - codex
-  - name: cmux-codex-prompt-submit
-    enabled: true
-    event: UserPromptSubmit
-    command: ~/.agents/hooks/cmux/dispatch.sh codex prompt-submit
-    timeout: 5
-    agents:
-      - codex
-  - name: cmux-codex-stop
-    enabled: true
-    event: Stop
-    command: ~/.agents/hooks/cmux/dispatch.sh codex stop
-    timeout: 5
-    agents:
-      - codex
-  - name: cmux-codex-feed-pre-tool-use
-    enabled: true
-    event: PreToolUse
-    command: ~/.agents/hooks/cmux/dispatch.sh feed --source codex --event PreToolUse
-    timeout: 120
-    agents:
-      - codex
-  - name: cmux-codex-feed-permission-request
-    enabled: true
-    event: PermissionRequest
-    command: ~/.agents/hooks/cmux/dispatch.sh feed --source codex --event PermissionRequest
-    timeout: 120
-    agents:
-      - codex
-  - name: cmux-droid-session-start
-    enabled: true
-    event: SessionStart
-    command: ~/.agents/hooks/cmux/dispatch.sh factory session-start
-    timeout: 5000
-    agents:
-      - droid
-  - name: cmux-droid-stop
-    enabled: true
-    event: Stop
-    command: ~/.agents/hooks/cmux/dispatch.sh factory stop
-    timeout: 5000
-    agents:
-      - droid
-  - name: cmux-droid-notification
-    enabled: true
-    event: Notification
-    command: ~/.agents/hooks/cmux/dispatch.sh factory stop
-    timeout: 5000
-    agents:
-      - droid
-  - name: cmux-droid-session-end
-    enabled: true
-    event: SessionEnd
-    command: ~/.agents/hooks/cmux/dispatch.sh factory session-end
-    timeout: 5000
-    agents:
-      - droid
-  - name: cmux-droid-feed-pre-tool-use
-    enabled: true
-    event: PreToolUse
-    command: ~/.agents/hooks/cmux/dispatch.sh feed --source factory --event PreToolUse
-    timeout: 120000
-    agents:
-      - droid
-  - name: cmux-hermes-session-start
-    enabled: true
-    event: on_session_start
-    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-start
-    timeout: 5
-    agents:
-      - hermes
-  - name: cmux-hermes-prompt-submit
-    enabled: true
-    event: pre_llm_call
-    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent prompt-submit
-    timeout: 5
-    agents:
-      - hermes
-  - name: cmux-hermes-agent-response
-    enabled: true
-    event: post_llm_call
-    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent agent-response
-    timeout: 5
-    agents:
-      - hermes
-  - name: cmux-hermes-notification
-    enabled: true
-    event: pre_approval_request
-    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent notification
-    timeout: 5
-    agents:
-      - hermes
-  - name: cmux-hermes-approval-response
-    enabled: true
-    event: post_approval_response
-    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent approval-response
-    timeout: 5
-    agents:
-      - hermes
-  - name: cmux-hermes-session-end
-    enabled: true
-    event: on_session_end
-    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-end
-    timeout: 5
-    agents:
-      - hermes
-  - name: cmux-hermes-session-finalize
-    enabled: true
-    event: on_session_finalize
-    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-finalize
-    timeout: 5
-    agents:
-      - hermes
-  - name: cmux-hermes-session-reset
-    enabled: true
-    event: on_session_reset
-    command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-start
-    timeout: 5
-    agents:
-      - hermes
-  - name: cmux-hermes-feed-pre-tool-call
-    enabled: true
-    event: pre_tool_call
-    command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event pre_tool_call
-    timeout: 120
-    agents:
-      - hermes
-  - name: cmux-hermes-feed-post-tool-call
-    enabled: true
-    event: post_tool_call
-    command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event post_tool_call
-    timeout: 120
-    agents:
-      - hermes
-  - name: cmux-hermes-feed-pre-approval-request
-    enabled: true
-    event: pre_approval_request
-    command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event pre_approval_request
-    timeout: 120
-    agents:
-      - hermes
-  - name: cmux-hermes-feed-post-approval-response
-    enabled: true
-    event: post_approval_response
-    command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event post_approval_response
-    timeout: 120
-    agents:
-      - hermes
+    - name: memory-session-start
+      enabled: true
+      event: SessionStart
+      command: ~/.agents/memory/hooks/session-start.sh
+      timeout: 15
+      agents:
+        - claude-code
+    - name: memory-stop
+      enabled: true
+      event: Stop
+      command: ~/.agents/memory/hooks/stop.sh
+      timeout: 15
+      agents:
+        - claude-code
+    - name: memory-session-end
+      enabled: true
+      event: SessionEnd
+      command: ~/.agents/memory/hooks/session-end.sh
+      timeout: 30
+      agents:
+        - claude-code
+        - hermes
+    - name: pr-triage-stop
+      enabled: true
+      event: Stop
+      command: ~/.agents/skills/pr-triage/hooks/stop.sh
+      timeout: 30
+      agents:
+        - claude-code
+    - name: cmux-codex-session-start
+      enabled: true
+      event: SessionStart
+      command: ~/.agents/hooks/cmux/dispatch.sh codex session-start
+      timeout: 5
+      agents:
+        - codex
+    - name: cmux-codex-prompt-submit
+      enabled: true
+      event: UserPromptSubmit
+      command: ~/.agents/hooks/cmux/dispatch.sh codex prompt-submit
+      timeout: 5
+      agents:
+        - codex
+    - name: cmux-codex-stop
+      enabled: true
+      event: Stop
+      command: ~/.agents/hooks/cmux/dispatch.sh codex stop
+      timeout: 5
+      agents:
+        - codex
+    - name: cmux-codex-feed-pre-tool-use
+      enabled: true
+      event: PreToolUse
+      command: ~/.agents/hooks/cmux/dispatch.sh feed --source codex --event PreToolUse
+      timeout: 120
+      agents:
+        - codex
+    - name: cmux-codex-feed-permission-request
+      enabled: true
+      event: PermissionRequest
+      command: ~/.agents/hooks/cmux/dispatch.sh feed --source codex --event PermissionRequest
+      timeout: 120
+      agents:
+        - codex
+    - name: cmux-droid-session-start
+      enabled: true
+      event: SessionStart
+      command: ~/.agents/hooks/cmux/dispatch.sh factory session-start
+      timeout: 5000
+      agents:
+        - droid
+    - name: cmux-droid-stop
+      enabled: true
+      event: Stop
+      command: ~/.agents/hooks/cmux/dispatch.sh factory stop
+      timeout: 5000
+      agents:
+        - droid
+    - name: cmux-droid-notification
+      enabled: true
+      event: Notification
+      command: ~/.agents/hooks/cmux/dispatch.sh factory stop
+      timeout: 5000
+      agents:
+        - droid
+    - name: cmux-droid-session-end
+      enabled: true
+      event: SessionEnd
+      command: ~/.agents/hooks/cmux/dispatch.sh factory session-end
+      timeout: 5000
+      agents:
+        - droid
+    - name: cmux-droid-feed-pre-tool-use
+      enabled: true
+      event: PreToolUse
+      command: ~/.agents/hooks/cmux/dispatch.sh feed --source factory --event PreToolUse
+      timeout: 120000
+      agents:
+        - droid
+    - name: cmux-hermes-session-start
+      enabled: true
+      event: on_session_start
+      command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-start
+      timeout: 5
+      agents:
+        - hermes
+    - name: cmux-hermes-prompt-submit
+      enabled: true
+      event: pre_llm_call
+      command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent prompt-submit
+      timeout: 5
+      agents:
+        - hermes
+    - name: cmux-hermes-agent-response
+      enabled: true
+      event: post_llm_call
+      command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent agent-response
+      timeout: 5
+      agents:
+        - hermes
+    - name: cmux-hermes-notification
+      enabled: true
+      event: pre_approval_request
+      command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent notification
+      timeout: 5
+      agents:
+        - hermes
+    - name: cmux-hermes-approval-response
+      enabled: true
+      event: post_approval_response
+      command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent approval-response
+      timeout: 5
+      agents:
+        - hermes
+    - name: cmux-hermes-session-end
+      enabled: true
+      event: on_session_end
+      command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-end
+      timeout: 5
+      agents:
+        - hermes
+    - name: cmux-hermes-session-finalize
+      enabled: true
+      event: on_session_finalize
+      command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-finalize
+      timeout: 5
+      agents:
+        - hermes
+    - name: cmux-hermes-session-reset
+      enabled: true
+      event: on_session_reset
+      command: ~/.agents/hooks/cmux/dispatch.sh hermes-agent session-start
+      timeout: 5
+      agents:
+        - hermes
+    - name: cmux-hermes-feed-pre-tool-call
+      enabled: true
+      event: pre_tool_call
+      command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event pre_tool_call
+      timeout: 120
+      agents:
+        - hermes
+    - name: cmux-hermes-feed-post-tool-call
+      enabled: true
+      event: post_tool_call
+      command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event post_tool_call
+      timeout: 120
+      agents:
+        - hermes
+    - name: cmux-hermes-feed-pre-approval-request
+      enabled: true
+      event: pre_approval_request
+      command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event pre_approval_request
+      timeout: 120
+      agents:
+        - hermes
+    - name: cmux-hermes-feed-post-approval-response
+      enabled: true
+      event: post_approval_response
+      command: ~/.agents/hooks/cmux/dispatch.sh feed --source hermes-agent --event post_approval_response
+      timeout: 120
+      agents:
+        - hermes
