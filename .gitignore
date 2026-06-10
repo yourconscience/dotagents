@@ -1,6 +1,9 @@
 .DS_Store
 tmp/
 
+# Personal config overlay (merged over dotagents.yaml, never committed)
+dotagents.local.yaml
+
 # Local agent runtime state
 external/
 .claude/
