@@ -2,6 +2,7 @@ version: 1
 agents:
   - name: claude-code
     enabled: true
+    delivery: sync
     detect: claude
     skill_root: ~/.claude/skills
     agent_root: ~/.claude/agents
@@ -160,6 +161,18 @@ plugins:
       - droid
       - pi
     review: First enabled Claude plugin. Dotagents treats it as a portable skill surface for Claude Code, Codex, Droid, and Hermes.
+  - name: dotagents
+    enabled: false
+    source: https://github.com/yourconscience/dotagents
+    format: claude-plugin
+    description: This repo published as a Claude Code plugin (skills + rendered agent roles).
+    surfaces:
+      - skills
+      - agents
+      - native-plugin
+    agents:
+      - claude-code
+    review: 'Self-publication via .claude-plugin/{plugin,marketplace}.json (skills + 4 agent roles auto-discovered from agents/*.md). Claude Code is the only target: Codex plugins require a real copied skills/ inside a subdir (no shared-root, no symlinks - verified against codex 0.136.0), so Codex and all other agents consume these skills via dotagents sync, not a plugin. Keep this catalog entry enabled:false; local Claude Code delivery is controlled by agents[].delivery (sync or plugin). delivery: plugin installs dotagents@yourconscience and prunes Claude Code symlink artifacts to avoid duplicate /tg and /dotagents:tg commands.'
 mcp_servers:
   - name: linkedin
     enabled: true

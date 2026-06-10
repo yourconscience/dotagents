@@ -83,7 +83,7 @@ func TestCheckExternalPackageAgeFailsFreshPackage(t *testing.T) {
 	got := checkExternalPackageAgeWithResolver(t.TempDir(), cfg, false, now, func(ref packageReference) (packageRelease, error) {
 		return packageRelease{Version: "1.0.0", Released: now.Add(-48 * time.Hour)}, nil
 	})
-	if got.status != checkStatusFail || !strings.Contains(got.detail, "newer than 7 days") {
+	if got.status != checkStatusFail || !strings.Contains(got.detail, "newer than 3 days") {
 		t.Fatalf("got %#v, want fresh package failure", got)
 	}
 }
@@ -94,7 +94,7 @@ func TestCheckExternalPackageAgePassesOldPackage(t *testing.T) {
 		Name: "old", Enabled: true, Command: mcpTestUVXCommand, Args: []string{"old-pkg@latest"},
 	}}}
 	got := checkExternalPackageAgeWithResolver(t.TempDir(), cfg, false, now, func(ref packageReference) (packageRelease, error) {
-		return packageRelease{Version: "1.0.0", Released: now.Add(-8 * 24 * time.Hour)}, nil
+		return packageRelease{Version: "1.0.0", Released: now.Add(-3 * 24 * time.Hour)}, nil
 	})
 	if got.status != checkStatusPass {
 		t.Fatalf("got %#v, want pass", got)
