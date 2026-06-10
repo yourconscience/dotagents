@@ -1,0 +1,15 @@
+{
+  "name": "yourconscience",
+  "description": "Self-hosted marketplace for the dotagents cross-agent skill library.",
+  "owner": {
+    "name": "Kirill Korikov",
+    "email": "korikov.kirill@proton.me"
+  },
+  "plugins": [
+    {
+      "name": "dotagents",
+      "source": "./",
+      "description": "Cross-agent skill library and subagent roles from the dotagents repo."
+    }
+  ]
+}

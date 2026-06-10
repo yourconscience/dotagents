@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -185,6 +187,87 @@ instructions: |-
 	}
 	if len(role.Tools) != 2 || role.Tools[0] != "Read" || role.Tools[1] != "Grep" {
 		t.Fatalf("unexpected tools: %#v", role.Tools)
+	}
+}
+
+func TestRenderPluginAgentsIdempotent(t *testing.T) {
+	repoRoot := t.TempDir()
+	agentsDir := filepath.Join(repoRoot, "agents")
+	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte(`name: reviewer
+description: Reviews changes
+model: sonnet
+instructions: |-
+  Review the change.
+`)
+	if err := os.WriteFile(filepath.Join(agentsDir, "reviewer.yaml"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := renderPluginAgents(repoRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	rendered := filepath.Join(repoRoot, "agents", "reviewer.md")
+	first, err := os.ReadFile(rendered)
+	if err != nil {
+		t.Fatalf("rendered file missing: %v", err)
+	}
+	if !strings.Contains(string(first), generatedAgentMarker) {
+		t.Fatalf("rendered file missing generated marker:\n%s", first)
+	}
+
+	stale := filepath.Join(repoRoot, "agents", "removed-role.md")
+	if err := os.WriteFile(stale, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := renderPluginAgents(repoRoot); err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(rendered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatal("second render changed output")
+	}
+	if _, err := os.Stat(stale); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("stale file not removed: %v", err)
+	}
+
+	roles, err := loadAgentRoles(repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roles) != 1 {
+		t.Fatalf("rendered agents/*.md leaked into loadAgentRoles: %d roles", len(roles))
+	}
+}
+
+func TestCommittedPluginAgentsFresh(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := expectedPluginAgentFiles(repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(expected) == 0 {
+		t.Fatal("no agent roles found in repo")
+	}
+	for path, content := range expected {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("%s missing; run: dotagents render", path)
+			continue
+		}
+		if string(data) != content {
+			t.Errorf("%s stale; run: dotagents render", path)
+		}
 	}
 }
 

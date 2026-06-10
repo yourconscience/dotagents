@@ -153,6 +153,12 @@ func run(args []string) error {
 		return runMCP(args[1:])
 	case "skillify":
 		return runSkillify(args[1:])
+	case "render":
+		opts, err := parseSubcommandFlags("render", args[1:])
+		if err != nil {
+			return err
+		}
+		return runRender(opts)
 	case "doctor":
 		opts, err := parseSubcommandFlags("doctor", args[1:])
 		if err != nil {
@@ -233,6 +239,7 @@ func printUsage() {
 	fmt.Println("  dotagents mcp remove <name>                  Remove canonical managed MCP")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
+	fmt.Println("  dotagents render                              Render committed Claude plugin agents (agents/claude/) from agents/*.yaml")
 	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes, package age")
 	fmt.Println("  dotagents dogfood       [--agents ...]           End-to-end self-test: sync + status + doctor")
 }
