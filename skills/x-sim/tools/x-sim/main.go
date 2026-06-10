@@ -339,7 +339,9 @@ func listSources(db *sql.DB) ([]source, error) {
 
 func ingestJSON(db *sql.DB, src source, raw []byte, cutoff time.Time) (int, error) {
 	var payload any
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&payload); err != nil {
 		return 0, err
 	}
 	tweets := extractTweets(payload, src, time.Now().UTC())
@@ -500,6 +502,9 @@ func firstInt(m map[string]any, keys ...string) int64 {
 				return int64(x)
 			case int64:
 				return x
+			case json.Number:
+				n, _ := strconv.ParseInt(x.String(), 10, 64)
+				return n
 			case string:
 				n, _ := strconv.ParseInt(strings.TrimSpace(x), 10, 64)
 				return n

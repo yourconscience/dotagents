@@ -38,6 +38,36 @@ func TestIngestAndBrief(t *testing.T) {
 	}
 }
 
+func TestIngestPreservesNumericSnowflakeIDs(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("X_SIM_DB", filepath.Join(dir, "x-sim.sqlite"))
+	db, err := openDB("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	raw := []byte(`[{"id":1879998888777666555,"text":"Numeric snowflake id.","created_at":"2026-05-01T10:00:00Z","author":{"screen_name":"builder"},"like_count":1879998888777666555}]`)
+	n, err := ingestJSON(db, source{Kind: "search", Value: "ids"}, raw, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("expected 1 tweet, got %d", n)
+	}
+	var id string
+	var likes int64
+	if err := db.QueryRow(`SELECT id, like_count FROM tweets`).Scan(&id, &likes); err != nil {
+		t.Fatal(err)
+	}
+	if id != "1879998888777666555" {
+		t.Fatalf("id = %q, want 1879998888777666555", id)
+	}
+	if likes != 1879998888777666555 {
+		t.Fatalf("like_count = %d, want 1879998888777666555", likes)
+	}
+}
+
 func TestEvalCommandStoresReport(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("X_SIM_DB", filepath.Join(dir, "x-sim.sqlite"))
