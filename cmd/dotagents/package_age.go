@@ -13,7 +13,8 @@ import (
 	"time"
 )
 
-const defaultPackageAgeMinimum = 7 * 24 * time.Hour
+const defaultPackageAgeMinimumDays = 3
+const defaultPackageAgeMinimum = defaultPackageAgeMinimumDays * 24 * time.Hour
 
 const (
 	packageVersionLatest = "latest"
@@ -76,9 +77,9 @@ func checkExternalPackageAgeWithResolver(repoRoot string, cfg config, skip bool,
 		return checkResult{"package age", checkStatusFail, "registry lookup failed: " + strings.Join(unresolved, "; ")}
 	}
 	if len(fresh) > 0 {
-		return checkResult{"package age", checkStatusFail, "package newer than 7 days: " + strings.Join(fresh, "; ")}
+		return checkResult{"package age", checkStatusFail, fmt.Sprintf("package newer than %d days: %s", defaultPackageAgeMinimumDays, strings.Join(fresh, "; "))}
 	}
-	detail := fmt.Sprintf("%d references older than 7 days", len(refs)-exempt)
+	detail := fmt.Sprintf("%d references at least %d days old", len(refs)-exempt, defaultPackageAgeMinimumDays)
 	if exempt > 0 {
 		detail += fmt.Sprintf("; %d package-age exception", exempt)
 		if exempt > 1 {
