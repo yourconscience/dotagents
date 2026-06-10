@@ -62,7 +62,7 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	if err := json.Unmarshal(settingsData, &settings); err != nil {
 		t.Fatal(err)
 	}
-	if settings["amp.skills.path"] != ampSkillsPath {
+	if settings["amp.skills.path"] != dotagentsSkillsPathValue {
 		t.Fatalf("amp.skills.path = %#v", settings["amp.skills.path"])
 	}
 	servers, ok := asMap(settings["amp.mcpServers"])
