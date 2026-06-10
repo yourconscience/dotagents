@@ -1,0 +1,4 @@
+name: x-sim
+display_name: x-sim
+short_description: Offline X audience simulation for draft tweets and handle positioning.
+default_prompt: Evaluate this draft against my local X audience context without posting anything.
