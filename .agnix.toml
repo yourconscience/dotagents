@@ -9,6 +9,11 @@ exclude = [
     "experimental/**",
     "research/**",
     "skills/jobs/tools/portals-scan/portals-scan",
+    # Generated Claude-native subagent renders (agents/*.md, beside the *.yaml
+    # sources). Claude Code's docs require a comma-separated `tools:` string;
+    # agnix wrongly demands a YAML list and cannot parse them. dotagents doctor's
+    # "plugin agents" check validates these instead.
+    "agents/*.md",
 ]
 
 [rules]
