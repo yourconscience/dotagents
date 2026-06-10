@@ -203,6 +203,13 @@ func renderPluginAgents(repoRoot string) error {
 		if _, ok := expected[path]; ok {
 			continue
 		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		if !strings.Contains(string(data), generatedAgentMarker) {
+			continue
+		}
 		if err := os.Remove(path); err != nil {
 			return fmt.Errorf("remove stale %s: %w", path, err)
 		}

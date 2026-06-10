@@ -239,7 +239,7 @@ func printUsage() {
 	fmt.Println("  dotagents mcp remove <name>                  Remove canonical managed MCP")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
-	fmt.Println("  dotagents render                              Render committed Claude plugin agents (agents/claude/) from agents/*.yaml")
+	fmt.Println("  dotagents render                              Render committed Claude plugin agents (agents/) from agents/*.yaml")
 	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes, package age")
 	fmt.Println("  dotagents dogfood       [--agents ...]           End-to-end self-test: sync + status + doctor")
 }

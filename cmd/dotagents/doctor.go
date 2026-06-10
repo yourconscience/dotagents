@@ -135,9 +135,15 @@ func checkPluginAgents(repoRoot string) checkResult {
 			if entry.IsDir() || filepath.Ext(entry.Name()) != ".md" {
 				continue
 			}
-			if _, ok := expected[filepath.Join(dir, entry.Name())]; !ok {
-				extras = append(extras, entry.Name())
+			path := filepath.Join(dir, entry.Name())
+			if _, ok := expected[path]; ok {
+				continue
 			}
+			data, err := os.ReadFile(path)
+			if err != nil || !strings.Contains(string(data), generatedAgentMarker) {
+				continue
+			}
+			extras = append(extras, entry.Name())
 		}
 	}
 	if len(extras) > 0 {
