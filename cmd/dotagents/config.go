@@ -11,6 +11,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	deliverySync   = "sync"
+	deliveryPlugin = "plugin"
+)
+
 func loadContext(opts runOptions) (string, string, config, []agentConfig, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -81,6 +86,7 @@ func validateConfig(cfg *config, home string, expand bool) error {
 	seen := make(map[string]struct{})
 	for i := range cfg.Agents {
 		cfg.Agents[i].Name = normalizeAgentName(cfg.Agents[i].Name)
+		cfg.Agents[i].Delivery = normalizeDeliveryMode(cfg.Agents[i].Delivery)
 		if expand {
 			cfg.Agents[i].SkillRoot = expandPath(cfg.Agents[i].SkillRoot, home)
 			cfg.Agents[i].AgentRoot = expandPath(cfg.Agents[i].AgentRoot, home)
@@ -93,6 +99,12 @@ func validateConfig(cfg *config, home string, expand bool) error {
 		}
 		if _, ok := seen[cfg.Agents[i].Name]; ok {
 			return fmt.Errorf("config agent %s is duplicated", cfg.Agents[i].Name)
+		}
+		if !isSupportedDeliveryMode(cfg.Agents[i].Delivery) {
+			return fmt.Errorf("config agent %s has unsupported delivery %q", cfg.Agents[i].Name, cfg.Agents[i].Delivery)
+		}
+		if cfg.Agents[i].Delivery == deliveryPlugin && cfg.Agents[i].Name != agentClaudeCode {
+			return fmt.Errorf("config agent %s cannot use delivery: plugin (only claude-code supports native plugin delivery)", cfg.Agents[i].Name)
 		}
 		seen[cfg.Agents[i].Name] = struct{}{}
 	}
@@ -332,4 +344,25 @@ func expandPath(path string, home string) string {
 
 func normalizeAgentName(name string) string {
 	return strings.ToLower(strings.TrimSpace(name))
+}
+
+func normalizeDeliveryMode(mode string) string {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		return deliverySync
+	}
+	return mode
+}
+
+func isSupportedDeliveryMode(mode string) bool {
+	switch normalizeDeliveryMode(mode) {
+	case deliverySync, deliveryPlugin:
+		return true
+	default:
+		return false
+	}
+}
+
+func usesPluginDelivery(agent agentConfig) bool {
+	return normalizeAgentName(agent.Name) == agentClaudeCode && normalizeDeliveryMode(agent.Delivery) == deliveryPlugin
 }

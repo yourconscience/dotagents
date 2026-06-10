@@ -64,6 +64,9 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		if report.AgentRoot != "" {
 			fmt.Printf("  agent root: %s\n", report.AgentRoot)
 		}
+		if report.Delivery != "" && report.Delivery != deliverySync {
+			fmt.Printf("  delivery: %s\n", report.Delivery)
+		}
 		if h := harnessFor(report.Name); h != nil && h.IntegrationNote != "" {
 			fmt.Printf("  integration: %s\n", h.IntegrationNote)
 		}
@@ -129,7 +132,7 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 			fmt.Printf("  conflicts (%d): %s\n", len(report.Conflicts), displayList(report.Conflicts))
 		}
 		if mode == "sync" {
-			fmt.Printf("  sync actions: add=%d update=%d remove=%d agent-add=%d agent-update=%d mcp-add=%d mcp-update=%d hook-add=%d hook-update=%d\n", len(report.Adds), len(report.Updates), len(report.Removes), len(report.AddsAgent), len(report.UpdatesAgent), len(report.AddsMCP), len(report.UpdatesMCP), len(report.AddsHook), len(report.UpdatesHook))
+			fmt.Printf("  sync actions: add=%d update=%d remove=%d agent-add=%d agent-update=%d agent-remove=%d mcp-add=%d mcp-update=%d hook-add=%d hook-update=%d\n", len(report.Adds), len(report.Updates), len(report.Removes), len(report.AddsAgent), len(report.UpdatesAgent), len(report.RemovesAgent), len(report.AddsMCP), len(report.UpdatesMCP), len(report.AddsHook), len(report.UpdatesHook))
 		}
 		fmt.Println()
 	}
@@ -168,6 +171,7 @@ func sortReportLists(report *agentReport) {
 	sort.Strings(report.UpdatesMCP)
 	sort.Strings(report.UpdatesHook)
 	sort.Strings(report.Removes)
+	sort.Strings(report.RemovesAgent)
 }
 
 func cloneReports(reports []agentReport) []agentReport {
@@ -189,6 +193,7 @@ func restoreSyncActions(current []agentReport, preflight []agentReport) {
 			current[i].AddsHook = append([]string{}, original.AddsHook...)
 			current[i].Updates = append([]string{}, original.Updates...)
 			current[i].UpdatesAgent = append([]string{}, original.UpdatesAgent...)
+			current[i].RemovesAgent = append([]string{}, original.RemovesAgent...)
 			current[i].UpdatesMCP = append([]string{}, original.UpdatesMCP...)
 			current[i].UpdatesHook = append([]string{}, original.UpdatesHook...)
 			current[i].Removes = append([]string{}, original.Removes...)
