@@ -13,7 +13,7 @@ func testMCPServer() mcpServerConfig {
 	return mcpServerConfig{
 		Name:    "linkedin",
 		Command: "uvx",
-		Args:    []string{"linkedin-scraper-mcp@latest"},
+		Args:    []string{"linkedin-scraper-mcp==4.13.2"},
 		Env:     map[string]string{"UV_HTTP_TIMEOUT": "300"},
 	}
 }
@@ -40,7 +40,7 @@ func TestDroidMCPInspectSynced(t *testing.T) {
     "linkedin": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["linkedin-scraper-mcp@latest"],
+      "args": ["linkedin-scraper-mcp==4.13.2"],
       "env": {"UV_HTTP_TIMEOUT": "300"},
       "disabled": false,
       "local": "kept"
@@ -71,7 +71,7 @@ func TestDroidMCPReadAllowsMissingDisabled(t *testing.T) {
     "linkedin": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["linkedin-scraper-mcp@latest"],
+      "args": ["linkedin-scraper-mcp==4.13.2"],
       "env": {"UV_HTTP_TIMEOUT": "300"}
     }
   }
@@ -671,7 +671,7 @@ func TestDefaultConfigIncludesTavilyMCP(t *testing.T) {
 	if len(tavily.Env) != 0 {
 		t.Fatalf("tavily env = %#v, want no secrets in canonical config", tavily.Env)
 	}
-	wantAgents := []string{agentClaudeCode, agentCodex, agentAmp, agentHermes, agentDroid, agentPi}
+	wantAgents := []string{agentClaudeCode, agentCodex, agentHermes, agentDroid, agentPi}
 	if !stringSlicesEqual(tavily.Agents, wantAgents) {
 		t.Fatalf("tavily agents = %#v, want %#v", tavily.Agents, wantAgents)
 	}

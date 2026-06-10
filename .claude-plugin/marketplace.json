@@ -1,13 +1,16 @@
 {
-  "name": "dotagents",
+  "name": "yourconscience",
+  "description": "Self-hosted marketplace for the dotagents cross-agent skill library: the whole repo as one plugin, plus portable skills as single-skill plugins.",
   "owner": {
-    "name": "yourconscience",
-    "url": "https://github.com/yourconscience"
-  },
-  "metadata": {
-    "description": "Portable, agent-agnostic skills from the dotagents repo. Each plugin is a single skill; install only what you need."
+    "name": "Kirill Korikov",
+    "email": "korikov.kirill@proton.me"
   },
   "plugins": [
+    {
+      "name": "dotagents",
+      "source": "./",
+      "description": "Cross-agent skill library and subagent roles from the dotagents repo."
+    },
     {
       "name": "tech-search",
       "source": "./skills/tech-search",
