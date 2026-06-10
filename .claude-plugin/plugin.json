@@ -1,6 +1,5 @@
 {
   "name": "dotagents",
-  "version": "0.1.0",
   "description": "Cross-agent skill library and subagent roles: cmux, tg, jobs, repo-eval, spawn, spec, grill-me, and more.",
   "author": {
     "name": "Kirill Korikov",
