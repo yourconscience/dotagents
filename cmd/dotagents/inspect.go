@@ -142,11 +142,15 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		Name:           agent.Name,
 		SkillRoot:      agent.SkillRoot,
 		AgentRoot:      agent.AgentRoot,
+		Delivery:       normalizeDeliveryMode(agent.Delivery),
 		ExpectedSkills: expected,
 		Detected:       isDetected(agent),
 	}
 	if !report.Detected {
 		return report, nil
+	}
+	if usesPluginDelivery(agent) {
+		return inspectPluginDeliveryAgent(agent, repoRoot, agentsSkillRoot, cfg, home)
 	}
 	h := harnessFor(agent.Name)
 	if h != nil && h.Skills == SkillsConfigDriven && h.InspectSkills != nil {
@@ -307,6 +311,7 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 		Name:           agent.Name,
 		SkillRoot:      agent.SkillRoot,
 		AgentRoot:      agent.AgentRoot,
+		Delivery:       normalizeDeliveryMode(agent.Delivery),
 		ExpectedSkills: expected,
 		Detected:       isDetected(agent),
 	}
@@ -356,6 +361,7 @@ func inspectHermesAgent(agent agentConfig, expected map[string]string, agentsSki
 		Name:           agent.Name,
 		SkillRoot:      agent.SkillRoot,
 		AgentRoot:      agent.AgentRoot,
+		Delivery:       normalizeDeliveryMode(agent.Delivery),
 		ExpectedSkills: expected,
 		Detected:       isDetected(agent),
 	}
@@ -493,13 +499,25 @@ func isManagedSkillLink(linkPath string, rawTarget string, repoRoot string, agen
 	if targetAbs == agentsSkillRoot || strings.HasPrefix(targetAbs, agentsSkillRoot+string(os.PathSeparator)) {
 		return true
 	}
+	if resolvedTarget, err := filepath.EvalSymlinks(targetAbs); err == nil {
+		if resolvedAgentsRoot, err := filepath.EvalSymlinks(agentsSkillRoot); err == nil && (resolvedTarget == resolvedAgentsRoot || strings.HasPrefix(resolvedTarget, resolvedAgentsRoot+string(os.PathSeparator))) {
+			return true
+		}
+	}
 
 	resolved, err := filepath.EvalSymlinks(targetAbs)
 	if err != nil {
 		return false
 	}
 	repoSkillsRoot := filepath.Join(repoRoot, "skills")
-	return resolved == repoSkillsRoot || strings.HasPrefix(resolved, repoSkillsRoot+string(os.PathSeparator))
+	if resolved == repoSkillsRoot || strings.HasPrefix(resolved, repoSkillsRoot+string(os.PathSeparator)) {
+		return true
+	}
+	resolvedRepoSkillsRoot, err := filepath.EvalSymlinks(repoSkillsRoot)
+	if err != nil {
+		return false
+	}
+	return resolved == resolvedRepoSkillsRoot || strings.HasPrefix(resolved, resolvedRepoSkillsRoot+string(os.PathSeparator))
 }
 
 func absoluteTarget(linkPath string, rawTarget string) string {

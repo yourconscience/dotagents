@@ -63,6 +63,7 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkExternalPackageAge(repoRoot, cfg, opts.SkipPackageAge, timeNow()))
 	results = append(results, checkExternalSkillSources(cfg, home))
 	results = append(results, checkFirstPartyPlugins(cfg))
+	results = append(results, checkClaudeDelivery(repoRoot, home, cfg))
 
 	fmt.Println("checks:")
 	labelWidth := 0
