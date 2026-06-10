@@ -169,7 +169,7 @@ func gitCheckoutCommit(repoPath string, commit string, branch string) error {
 			fetchAll.Stdout = os.Stdout
 			fetchAll.Stderr = os.Stderr
 			if fallbackErr := fetchAll.Run(); fallbackErr != nil {
-				return fmt.Errorf("fetch pinned commit: %w", err)
+				return fmt.Errorf("fetch pinned commit: sha fetch: %v; branch fetch: %w", err, fallbackErr)
 			}
 		}
 	}
