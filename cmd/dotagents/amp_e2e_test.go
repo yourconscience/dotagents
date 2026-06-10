@@ -49,7 +49,7 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if repoLink != repoRoot {
+	if filepath.Clean(repoLink) != filepath.Clean(repoRoot) {
 		t.Fatalf("~/.agents target = %q, want %q", repoLink, repoRoot)
 	}
 
