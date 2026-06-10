@@ -10,10 +10,6 @@ agents:
     detect: codex
     skill_root: ~/.codex/skills
     agent_root: ~/.codex/agents
-  - name: amp
-    enabled: true
-    detect: amp
-    skill_root: ~/.agents/skills
   - name: hermes
     enabled: true
     detect: hermes
@@ -53,7 +49,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -83,7 +78,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -101,7 +95,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -117,7 +110,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -134,7 +126,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -151,7 +142,6 @@ plugins:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -175,13 +165,12 @@ mcp_servers:
     enabled: true
     command: uvx
     args:
-      - linkedin-scraper-mcp@latest
+      - linkedin-scraper-mcp==4.13.2
     env:
       UV_HTTP_TIMEOUT: "300"
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
@@ -195,10 +184,10 @@ mcp_servers:
     agents:
       - claude-code
       - codex
-      - amp
       - hermes
       - droid
       - pi
+
 hooks:
   - name: memory-session-start
     enabled: true
