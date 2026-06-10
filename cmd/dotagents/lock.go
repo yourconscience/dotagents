@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -101,6 +102,9 @@ func rebuildLockEntries(sources []externalSkillSource, home string, lock lockFil
 			Commit: commit,
 		})
 	}
+	// Keep the lock file order-stable so reordering config sources does not
+	// rewrite it.
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 	return entries
 }
 
