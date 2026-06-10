@@ -6,6 +6,7 @@ external/
 .claude/
 .amp/
 .hermes/
+.omx/
 .worktrees/
 .skill-lock.json
 __pycache__/

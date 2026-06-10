@@ -477,6 +477,12 @@ func applyAgentRoleSync(reports []agentReport, selected []agentConfig, repoRoot 
 		if len(report.Conflicts) > 0 {
 			return fmt.Errorf("%s has conflicts", report.Name)
 		}
+		if usesPluginDelivery(agent) {
+			if err := pruneManagedAgentFiles(agent.AgentRoot, report.RemovesAgent); err != nil {
+				return err
+			}
+			continue
+		}
 		expected, err := expectedAgentRoles(repoRoot, agent)
 		if err != nil {
 			return err
