@@ -304,7 +304,7 @@ func runXCLI(src source, limit int) ([]byte, error) {
 	var args []string
 	switch src.Kind {
 	case "account":
-		args = []string{"timeline", "user", src.Value, "--count", strconv.Itoa(limit), "--json"}
+		args = []string{"timeline", "user", "@" + src.Value, "--count", strconv.Itoa(limit), "--json"}
 	case "search":
 		args = []string{"search", src.Value, "--type", "latest", "--count", strconv.Itoa(limit), "--json"}
 	default:
