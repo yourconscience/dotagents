@@ -42,7 +42,6 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 
 ## Skills
 
-- `bittorrent` - manage legal BitTorrent downloads, magnet links, metadata inspection, and client diagnostics.
 - `cmux` - control cmux workspaces, panes, terminal/browser surfaces, markdown viewers, and visible agent workspaces.
 - `tmux` - generic tmux reference for sessions, windows, panes, screen capture, and input.
 - `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
@@ -56,6 +55,7 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 - `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
 - `spawn` - spawn and manage Claude Code agent teams with model routing and cmux integration.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
+- `tg` - read Telegram chats, search messages, and list dialogs via the read-only `tg` CLI.
 - `x-cli` - unofficial CLI for `x` tooling.
 
 ## External Skills
@@ -73,7 +73,7 @@ external_skills:
 
 ## Plugins
 
-Dotagents treats plugins as first-party catalog entries in `dotagents.yaml`, not as committed `.codex-plugin`, `.claude-plugin`, `.amp/`, or `.hermes/` runtime directories. A plugin entry records its source format, runtime surfaces, target agents, and review notes:
+Dotagents treats third-party plugins as first-party catalog entries in `dotagents.yaml`, not as committed `.codex-plugin`, `.amp/`, or `.hermes/` runtime directories. (The repo's own `.claude-plugin/` manifests are the one exception; see "Installing this repo as a Claude Code plugin" below.) A plugin entry records its source format, runtime surfaces, target agents, and review notes:
 
 ```yaml
 plugins:
@@ -97,6 +97,25 @@ Compatibility model:
 - `hooks` are supported only where dotagents has verified hook config support.
 - `native-plugin` is host-specific: `.codex-plugin` stays Codex-native and `.claude-plugin` stays Claude-native.
 - `commands` are currently Claude-native unless re-modeled as skills, hooks, MCP, or a repo-owned CLI.
+
+### Installing this repo as a Claude Code plugin
+
+The repo doubles as a self-hosted Claude Code plugin and single-plugin marketplace via `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`:
+
+```
+/plugin marketplace add yourconscience/dotagents
+/plugin install dotagents@yourconscience
+```
+
+The repo is private, so `marketplace add` requires working GitHub git auth (ssh or `gh auth`) on the machine.
+
+The plugin ships every skill under `skills/` (namespaced as `/dotagents:<skill>`) plus the four subagent roles. The roles are rendered from `agents/*.yaml` into `agents/*.md` (beside the sources) by `dotagents render`; Claude Code auto-discovers them from the top-level `agents/` directory. `dotagents doctor` and CI tests fail (`plugin agents` check) when the rendered copies drift from the YAML.
+
+Plugin skills are byte-identical to the symlink-synced ones - same directories, same repo. Machines running `dotagents sync` should NOT also install the plugin: every skill would appear twice (`/tg` and `/dotagents:tg`). The plugin is the install path for machines and people not running dotagents. Note that plugin installs snapshot the repo at install time; consumers pick up new skills with `/plugin update`, unlike the always-live symlinks.
+
+**Why Claude Code only.** Claude Code is the one supported agent whose native plugin format fits a shared-root skill library: it auto-discovers `skills/` and `agents/` from the plugin (repo) root. Codex has a plugin system too, but its plugins must live in a subdirectory with a *real, copied* `skills/` inside the plugin directory - it ignores symlinks and rejects a plugin at the marketplace root (verified against `codex 0.136.0`). Bundling our 31MB shared `skills/` into a committed subdir would mean a second source of truth, so Codex - like Droid, Amp, Hermes, and Pi - consumes dotagents skills through `dotagents sync`, not a plugin. `SKILL.md` directories remain the genuinely portable cross-tool convention.
+
+> Codex marketplace caveat: the `.codex-plugin/plugin.json` manifest follows the [official Codex schema](https://developers.openai.com/codex/plugins/build), but the repo-scoped `.agents/plugins/marketplace.json` schema and `source.path` semantics are doc-derived and not yet verified against a live `codex plugin marketplace add`. Verify on first install.
 
 ## Agent Integration Status
 
