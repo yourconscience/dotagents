@@ -179,7 +179,7 @@ The `knowledge-sync` tool source lives at `memory/tools/knowledge-sync/`. See it
 
 Current managed MCP set lives in root `dotagents.yaml` under `mcp_servers:`. Minimal examples in this repo:
 
-- `linkedin` -> `uvx linkedin-scraper-mcp@latest`
+- `linkedin` -> `uvx linkedin-scraper-mcp@4.13.2`
 - `tavily` -> `npx -y mcp-remote@0.1.38 https://mcp.tavily.com/mcp`
 - `telegram_readonly` -> repo-local Telegram MCP server
 
