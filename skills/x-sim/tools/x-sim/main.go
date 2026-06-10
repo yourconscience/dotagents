@@ -175,6 +175,7 @@ func migrate(db *sql.DB) error {
 			kind TEXT NOT NULL CHECK(kind IN ('tweet', 'handle')),
 			input_text TEXT NOT NULL,
 			audience TEXT,
+			topic TEXT,
 			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);`,
 		`CREATE TABLE IF NOT EXISTS evaluations (
@@ -197,6 +198,10 @@ func migrate(db *sql.DB) error {
 		if _, err := db.Exec(stmt); err != nil {
 			return err
 		}
+	}
+	// Migrate sessions tables created before the topic column existed.
+	if _, err := db.Exec(`ALTER TABLE sessions ADD COLUMN topic TEXT`); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		return err
 	}
 	return nil
 }
@@ -694,7 +699,7 @@ func evalCommand(db *sql.DB, kind string, args []string, stdout io.Writer) error
 		return err
 	}
 	sessionID := newSessionID(kind)
-	if _, err := db.Exec(`INSERT INTO sessions(id, kind, input_text, audience) VALUES(?, ?, ?, ?)`, sessionID, kind, input, *audience); err != nil {
+	if _, err := db.Exec(`INSERT INTO sessions(id, kind, input_text, audience, topic) VALUES(?, ?, ?, ?, ?)`, sessionID, kind, input, *audience, *topic); err != nil {
 		return err
 	}
 	evals := simulate(kind, input, *audience, contextTweets)
@@ -729,8 +734,8 @@ func reportCommand(db *sql.DB, args []string, stdout io.Writer) error {
 	if *sessionID == "" {
 		return errors.New("report requires --session")
 	}
-	var kind, input, audience string
-	if err := db.QueryRow(`SELECT kind, input_text, COALESCE(audience, '') FROM sessions WHERE id = ?`, *sessionID).Scan(&kind, &input, &audience); err != nil {
+	var kind, input, audience, topic string
+	if err := db.QueryRow(`SELECT kind, input_text, COALESCE(audience, ''), COALESCE(topic, '') FROM sessions WHERE id = ?`, *sessionID).Scan(&kind, &input, &audience, &topic); err != nil {
 		return err
 	}
 	rows, err := db.Query(`SELECT persona, clarity, novelty, credibility, audience_fit, reply_potential, risk, rationale, risks FROM evaluations WHERE session_id = ? ORDER BY id`, *sessionID)
@@ -749,7 +754,12 @@ func reportCommand(db *sql.DB, args []string, stdout io.Writer) error {
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	report := renderSessionReport(*sessionID, kind, input, audience, evals, nil)
+	cutoff, _ := parseWindowCutoff(defaultRetention, time.Now())
+	contextTweets, err := queryTweets(db, topic, cutoff, 60)
+	if err != nil {
+		return err
+	}
+	report := renderSessionReport(*sessionID, kind, input, audience, evals, contextTweets)
 	if *out != "" {
 		if err := os.WriteFile(*out, []byte(report), 0o644); err != nil {
 			return err
