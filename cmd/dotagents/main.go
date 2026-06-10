@@ -29,9 +29,10 @@ type pluginConfig struct {
 }
 
 type externalSkillSource struct {
-	URL      string `yaml:"url"`
-	SkillDir string `yaml:"skill_dir"`
-	Branch   string `yaml:"branch"`
+	URL      string   `yaml:"url"`
+	SkillDir string   `yaml:"skill_dir"`
+	Branch   string   `yaml:"branch"`
+	Skills   []string `yaml:"skills,omitempty"`
 }
 
 type agentConfig struct {
@@ -170,6 +171,8 @@ func run(args []string) error {
 			return err
 		}
 		return runDoctor(opts)
+	case "external":
+		return runExternal(args[1:])
 	case "promote":
 		return runPromote(args[1:])
 	case "dogfood":
@@ -242,6 +245,8 @@ func printUsage() {
 	fmt.Println("  dotagents mcp add <name> --command <cmd>     Add/update canonical managed MCP")
 	fmt.Println("  dotagents mcp import <agent> <name>          Import native MCP into canonical config")
 	fmt.Println("  dotagents mcp remove <name>                  Remove canonical managed MCP")
+	fmt.Println("  dotagents external list                      Show external skill sources and lock state")
+	fmt.Println("  dotagents external update [name ...]         Move external sources to latest and rewrite the lock")
 	fmt.Println("  dotagents plugin add                         Install Claude Code plugin delivery for claude-code")
 	fmt.Println("  dotagents plugin remove                      Remove Claude Code plugin delivery and restore sync")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
