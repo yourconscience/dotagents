@@ -6,6 +6,7 @@ external/
 .claude/
 .amp/
 .hermes/
+.omx/
 .worktrees/
 .skill-lock.json
 __pycache__/
@@ -26,3 +27,4 @@ skills/jobs/tools/portals-scan/portals-scan
 skills/remote-access/tools/remote-access-bridge/remote-access-bridge
 skills/handoff/bin/
 research/
+skills/cua-driver
