@@ -426,19 +426,27 @@ func extractTweets(payload any, src source, fetchedAt time.Time) []tweet {
 func tweetFromMap(m map[string]any, src source, fetchedAt time.Time) (tweet, bool) {
 	id := firstString(m, "id", "id_str", "rest_id", "tweet_id", "tweetId")
 	text := firstString(m, "text", "full_text", "tweetText", "content")
-	if id == "" || text == "" {
+	if text == "" {
+		text = nestedString(m, []string{"legacy"}, "full_text", "text")
+	}
+	if id == "" || text == "" || !isDigits(id) {
 		return tweet{}, false
 	}
 	raw, _ := json.Marshal(m)
+	authorContainers := []string{"author", "user", "core", "user_results", "result", "legacy"}
 	authorHandle := firstString(m, "author_handle", "authorHandle", "screen_name", "username", "handle")
 	authorName := firstString(m, "author_name", "authorName", "name")
 	if authorHandle == "" {
-		authorHandle = nestedString(m, []string{"author", "user", "core", "legacy"}, "screen_name", "username", "handle")
+		authorHandle = nestedString(m, authorContainers, "screen_name", "username", "handle")
 	}
 	if authorName == "" {
-		authorName = nestedString(m, []string{"author", "user", "core", "legacy"}, "name")
+		authorName = nestedString(m, authorContainers, "name")
 	}
-	postedAt := parseAnyTime(firstString(m, "created_at", "createdAt", "posted_at", "postedAt", "time", "timestamp"))
+	postedAtRaw := firstString(m, "created_at", "createdAt", "posted_at", "postedAt", "time", "timestamp")
+	if postedAtRaw == "" {
+		postedAtRaw = nestedString(m, []string{"legacy"}, "created_at")
+	}
+	postedAt := parseAnyTime(postedAtRaw)
 	if postedAt.IsZero() {
 		postedAt = fetchedAt
 	}
@@ -454,10 +462,10 @@ func tweetFromMap(m map[string]any, src source, fetchedAt time.Time) (tweet, boo
 		Text:         strings.TrimSpace(text),
 		URL:          url,
 		PostedAt:     postedAt.UTC(),
-		LikeCount:    firstInt(m, "like_count", "likes", "favorite_count", "favoriteCount"),
-		RepostCount:  firstInt(m, "repost_count", "retweet_count", "retweets", "reposts"),
-		ReplyCount:   firstInt(m, "reply_count", "replies"),
-		QuoteCount:   firstInt(m, "quote_count", "quotes"),
+		LikeCount:    tweetInt(m, "like_count", "likes", "favorite_count", "favoriteCount"),
+		RepostCount:  tweetInt(m, "repost_count", "retweet_count", "retweets", "reposts"),
+		ReplyCount:   tweetInt(m, "reply_count", "replies"),
+		QuoteCount:   tweetInt(m, "quote_count", "quotes"),
 		RawJSON:      string(raw),
 	}, true
 }
@@ -478,6 +486,25 @@ func firstString(m map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func isDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func tweetInt(m map[string]any, keys ...string) int64 {
+	if n := firstInt(m, keys...); n != 0 {
+		return n
+	}
+	if legacy, ok := m["legacy"].(map[string]any); ok {
+		return firstInt(legacy, keys...)
+	}
+	return 0
 }
 
 func nestedString(m map[string]any, containers []string, keys ...string) string {

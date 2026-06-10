@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,6 +67,32 @@ func TestIngestPreservesNumericSnowflakeIDs(t *testing.T) {
 	}
 	if likes != 1879998888777666555 {
 		t.Fatalf("like_count = %d, want 1879998888777666555", likes)
+	}
+}
+
+func TestExtractTweetsFromGraphQLResult(t *testing.T) {
+	raw := []byte(`{"tweet_results":{"result":{"rest_id":"2064394146916229443",
+		"core":{"user_results":{"result":{"rest_id":"999","legacy":{"screen_name":"claudeai","name":"Claude"}}}},
+		"legacy":{"full_text":"Introducing Claude Fable 5.","created_at":"Tue Jun 09 17:08:13 +0000 2026","favorite_count":17693,"retweet_count":2100}}}}`)
+	var payload any
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	tweets := extractTweets(payload, source{Kind: "account", Value: "AnthropicAI"}, time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC))
+	if len(tweets) != 1 {
+		t.Fatalf("expected 1 tweet, got %d", len(tweets))
+	}
+	tw := tweets[0]
+	if tw.ID != "2064394146916229443" || tw.AuthorHandle != "claudeai" || tw.AuthorName != "Claude" {
+		t.Fatalf("unexpected tweet identity: %+v", tw)
+	}
+	if tw.LikeCount != 17693 || tw.RepostCount != 2100 {
+		t.Fatalf("unexpected counts: %+v", tw)
+	}
+	if got, want := tw.PostedAt.Format(time.RFC3339), "2026-06-09T17:08:13Z"; got != want {
+		t.Fatalf("posted_at = %s, want %s", got, want)
 	}
 }
 
