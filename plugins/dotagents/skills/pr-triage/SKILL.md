@@ -7,17 +7,17 @@ description: Inspect PR failed checks and unresolved review comments, fix valid 
 
 Inspect, fix, commit, push, wait, reinspect. One bounded cycle per invocation.
 
-Prefer the configured GitHub MCP server for PR/check/thread data when the agent can access MCP tools. Use the local `pr-triage` tool for deterministic CLI inspection and hook runtime:
+Prefer the configured GitHub MCP server for PR/check/thread data when the agent can access MCP tools. Use the local `pr-triage` tool for deterministic CLI inspection and hook runtime. `$SKILL_DIR` below means this skill's own directory (the base directory reported when the skill loads); the tool ships with the skill, so this works from any install location and from inside any Go module (`-C` runs in the tool dir; `PR_TRIAGE_PWD` keeps gh on the session repo):
 
 ```bash
-go run ~/.agents/skills/pr-triage/tools/pr-triage inspect --format markdown
-go run ~/.agents/skills/pr-triage/tools/pr-triage inspect --format json
+PR_TRIAGE_PWD="$PWD" go -C "$SKILL_DIR"/tools/pr-triage run . inspect --format markdown
+PR_TRIAGE_PWD="$PWD" go -C "$SKILL_DIR"/tools/pr-triage run . inspect --format json
 ```
 
 The read-only Stop hook entrypoint is:
 
 ```bash
-~/.agents/skills/pr-triage/hooks/stop.sh
+"$SKILL_DIR"/hooks/stop.sh
 ```
 
 ## Creation and merge gate
@@ -37,7 +37,7 @@ If local commits were created on unrelated history while the remote base has com
 Run the tool first:
 
 ```bash
-go run ~/.agents/skills/pr-triage/tools/pr-triage inspect --format markdown
+PR_TRIAGE_PWD="$PWD" go -C "$SKILL_DIR"/tools/pr-triage run . inspect --format markdown
 ```
 
 If MCP tools are available, use GitHub MCP to cross-check the same surface:
