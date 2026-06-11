@@ -36,12 +36,12 @@ gws docs documents get --params '{"documentId": "ID"}'
 
 ## Google Doc To Markdown With Comments
 
-When the user asks to download or fetch a specific Google Doc with comments in Markdown, use the skill-local helper instead of hand-assembling the pipeline:
+When the user asks to download or fetch a specific Google Doc with comments in Markdown, use the skill-local helper instead of hand-assembling the pipeline (`$SKILL_DIR` = this skill's own directory):
 
 ```
-go run ~/.agents/skills/gws/tools/google_doc_markdown/main.go \
+go -C "$SKILL_DIR"/tools/google_doc_markdown run . \
   --doc 'https://docs.google.com/document/d/FILE_ID/edit' \
-  --output ./doc-with-comments.md
+  --output /absolute/path/doc-with-comments.md
 ```
 
 Behavior:

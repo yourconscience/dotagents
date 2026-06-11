@@ -118,10 +118,10 @@ Next action: <single command or instruction>
 
 ## Bridge maintenance
 
-Build or refresh the Mac runtime binary:
+Build or refresh the Mac runtime binary (`$SKILL_DIR` = this skill's own directory):
 
 ```bash
-~/.agents/skills/remote-access/tools/remote-access-bridge/build.sh
+"$SKILL_DIR"/tools/remote-access-bridge/build.sh
 launchctl kickstart -k "gui/$(id -u)/com.conscience.remote-access.bridge"
 ```
 
