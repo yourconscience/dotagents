@@ -230,6 +230,8 @@ Codex plugin installs require a *real, copied* `skills/` inside the plugin direc
 
 There is no `delivery:` switch for Codex: a machine managed by dotagents keeps the live symlink sync and should not install the Codex plugin on top (skills would appear twice). The plugin is the install path for machines that do not run dotagents. Like the Claude plugin, the manifest intentionally omits a fixed `version` so updates never hide behind a stale version pin; to pick up new skills, run `codex plugin marketplace upgrade`, then `codex plugin remove dotagents@yourconscience` and `codex plugin add dotagents@yourconscience` (re-adding refreshes the cached copy - verified against codex 0.136.0).
 
+Known limitation for plugin-only consumers: some skills shell out to tools in the dotagents checkout (`~/.agents/skills/<name>/tools/...`) - for example `pr-triage`'s inspect CLI and the `x-sim` CLI. The plugin ships those tool sources, but the documented commands assume the checkout exists; without it those skills degrade to instructions-only. For full tool support, use the CLI + `dotagents setup` flow instead.
+
 `SKILL.md` directories remain the genuinely portable cross-tool convention; harnesses without a plugin system (Hermes, Droid, Pi, Amp) consume them through `dotagents sync` or by pointing at `skills/` directly.
 
 ## Agent Integration Status
