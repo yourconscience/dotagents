@@ -14,6 +14,18 @@ This repo is the canonical `~/.agents` layer. It detects installed agent platfor
 
 ## Install
 
+Two ways to consume this repo - pick exactly one per machine and harness:
+
+| You want | Do this |
+|---|---|
+| Just the skills in Claude Code | `/plugin marketplace add yourconscience/dotagents` then `/plugin install dotagents@yourconscience` |
+| Just the skills in Codex | `codex plugin marketplace add https://github.com/yourconscience/dotagents` then `codex plugin add dotagents@yourconscience` |
+| The full managed setup (skills, roles, MCP, hooks) on any supported harness - Claude Code, Codex, Hermes, Factory Droid, Pi/OMP | Install the `dotagents` CLI (below), clone the repo, run `dotagents setup` |
+
+Plugins snapshot the repo at install time and update through each harness's plugin update flow. `dotagents sync` keeps live symlinks instead. Do not combine both on the same harness or skills appear twice; see "Installing this repo as a plugin" for details and how `delivery:` arbitrates this for Claude Code.
+
+### CLI install
+
 Prebuilt binaries for macOS and Linux (amd64/arm64) are attached to [GitHub Releases](https://github.com/yourconscience/dotagents/releases). With Go installed:
 
 ```bash
@@ -28,9 +40,10 @@ go install ./cmd/dotagents
 
 Ensure the Go install directory is on `PATH`. If `go env GOBIN` is non-empty, add that directory; otherwise add `$(go env GOPATH)/bin`.
 
-After that, use `dotagents` directly:
+After that, run first-time machine setup (creates `~/.agents`, patches detected agent configs, syncs), or inspect state directly:
 
 ```bash
+dotagents setup
 dotagents status
 dotagents deps check
 ```
@@ -133,7 +146,7 @@ External sources are pinned in `dotagents.lock` (commit this file): the first sy
 
 ## Plugins
 
-Dotagents treats third-party plugins as first-party catalog entries in `dotagents.yaml`, not as committed `.codex-plugin`, `.amp/`, or `.hermes/` runtime directories. (The repo's own `.claude-plugin/` manifests are the one exception; see "Installing this repo as a Claude Code plugin" below.) A plugin entry records its source format, runtime surfaces, target agents, and review notes:
+Dotagents treats third-party plugins as first-party catalog entries in `dotagents.yaml`, not as committed `.codex-plugin`, `.amp/`, or `.hermes/` runtime directories. (The repo's own self-publication manifests - `.claude-plugin/`, `.agents/plugins/marketplace.json`, and `plugins/dotagents/` - are the exception; see "Installing this repo as a plugin" below.) A plugin entry records its source format, runtime surfaces, target agents, and review notes:
 
 ```yaml
 plugins:
@@ -158,9 +171,16 @@ Compatibility model:
 - `native-plugin` is host-specific: `.codex-plugin` stays Codex-native and `.claude-plugin` stays Claude-native.
 - `commands` are currently Claude-native unless re-modeled as skills, hooks, MCP, or a repo-owned CLI.
 
-### Installing this repo as a Claude Code plugin
+### Installing this repo as a plugin
 
-The repo doubles as a self-hosted Claude Code plugin and single-plugin marketplace via `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`:
+The repo self-publishes as a plugin for the two harnesses that have plugin systems:
+
+- Claude Code, via `.claude-plugin/{plugin,marketplace}.json` at the repo root.
+- Codex, via `.agents/plugins/marketplace.json` and the `plugins/dotagents/` plugin directory.
+
+Hermes, Factory Droid, and Pi/OMP have no plugin system; they consume skills through `dotagents setup` / `dotagents sync`.
+
+For Claude Code:
 
 ```
 /plugin marketplace add yourconscience/dotagents
@@ -195,7 +215,24 @@ dotagents plugin remove
 
 That uninstalls the Claude plugin, removes the marketplace entry, sets `delivery: sync`, and runs `dotagents sync --agents=claude-code`. Plugin installs snapshot the repo at install time; consumers pick up new skills with `/plugin update`, unlike the always-live symlinks. The plugin manifest intentionally omits a fixed `version` so Claude Code uses the git commit SHA and every new commit can be updated.
 
-**Why Claude Code only.** Claude Code is the one supported agent whose native plugin format fits a shared-root skill library: it auto-discovers `skills/` and `agents/` from the plugin (repo) root. Codex has a plugin system too, but its plugins must live in a subdirectory with a *real, copied* `skills/` inside the plugin directory - it ignores symlinks and rejects a plugin at the marketplace root (verified against `codex 0.136.0`). Bundling our 31MB shared `skills/` into a committed subdir would mean a second source of truth, so Codex - like Droid, Amp, Hermes, and Pi - consumes dotagents skills through `dotagents sync`, not a plugin. `SKILL.md` directories remain the genuinely portable cross-tool convention.
+### Installing this repo as a Codex plugin
+
+For Codex:
+
+```bash
+codex plugin marketplace add https://github.com/yourconscience/dotagents
+codex plugin add dotagents@yourconscience
+```
+
+The repo is private, so `marketplace add` requires working GitHub git auth on the machine.
+
+Codex plugin installs require a *real, copied* `skills/` inside the plugin directory - symlinks are silently dropped and a plugin at the marketplace root is rejected (verified against `codex 0.136.0`). So `plugins/dotagents/skills/` is a rendered copy of the canonical `skills/` tree (tracked files only, a few hundred KB), regenerated by `dotagents render` alongside the Claude agent renders. `dotagents doctor` (`codex plugin` check) and CI fail when the copy drifts, which keeps the single-source-of-truth guarantee.
+
+There is no `delivery:` switch for Codex: a machine managed by dotagents keeps the live symlink sync and should not install the Codex plugin on top (skills would appear twice). The plugin is the install path for machines that do not run dotagents. Like the Claude plugin, the manifest intentionally omits a fixed `version` so updates never hide behind a stale version pin; to pick up new skills, run `codex plugin marketplace upgrade`, then `codex plugin remove dotagents@yourconscience` and `codex plugin add dotagents@yourconscience` (re-adding refreshes the cached copy - verified against codex 0.136.0).
+
+Plugins ship full skills, tools included. Skill tool commands resolve relative to the skill's own directory (the base directory the harness reports when a skill loads), never to a fixed checkout path, so bundled CLIs like `pr-triage` inspect and `x-sim` run from any install root - checkout, symlink, or plugin cache. The exceptions are the machine-management skills (`dotagents`, `cmux` hooks, memory sync) which inherently operate on a dotagents-managed machine and say so.
+
+`SKILL.md` directories remain the genuinely portable cross-tool convention; harnesses without a plugin system (Hermes, Droid, Pi, Amp) consume them through `dotagents sync` or by pointing at `skills/` directly.
 
 ## Agent Integration Status
 

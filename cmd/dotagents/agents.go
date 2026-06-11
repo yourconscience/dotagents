@@ -161,7 +161,10 @@ func runRender(opts runOptions) error {
 	if err != nil {
 		return err
 	}
-	return renderPluginAgents(repoRoot)
+	if err := renderPluginAgents(repoRoot); err != nil {
+		return err
+	}
+	return renderCodexPluginSkills(repoRoot)
 }
 
 func renderPluginAgents(repoRoot string) error {
