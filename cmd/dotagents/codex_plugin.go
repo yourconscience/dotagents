@@ -57,16 +57,16 @@ func renderCodexPluginSkills(repoRoot string) error {
 	written, unchanged := 0, 0
 	for _, rel := range files {
 		sub := strings.TrimPrefix(rel, "skills/")
-		expected[filepath.FromSlash(sub)] = true
 		src := filepath.Join(repoRoot, filepath.FromSlash(rel))
 		dest := filepath.Join(destRoot, filepath.FromSlash(sub))
 		data, err := os.ReadFile(src)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
-				continue // tracked but deleted in worktree
+				continue // tracked but deleted in worktree; leave unexpected so the copy is pruned
 			}
 			return fmt.Errorf("read %s: %w", src, err)
 		}
+		expected[filepath.FromSlash(sub)] = true
 		current, err := os.ReadFile(dest)
 		if err == nil && bytes.Equal(current, data) {
 			unchanged++
