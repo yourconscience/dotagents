@@ -310,6 +310,9 @@ func resolvePackageRelease(ref packageReference) (packageRelease, error) {
 }
 
 func resolvePyPIRelease(ref packageReference) (packageRelease, error) {
+	if ref.Version != "" && ref.Version != packageVersionLatest {
+		return resolvePyPIVersionedRelease(ref)
+	}
 	endpoint := "https://pypi.org/pypi/" + url.PathEscape(ref.Package) + "/json"
 	var doc struct {
 		Info struct {
@@ -335,6 +338,28 @@ func resolvePyPIRelease(ref packageReference) (packageRelease, error) {
 		return packageRelease{}, fmt.Errorf("parse upload time: %w", err)
 	}
 	return packageRelease{Version: version, Released: released, SourceURL: endpoint}, nil
+}
+
+// resolvePyPIVersionedRelease uses the per-version endpoint, which omits the
+// full release index that can exceed the HTTP timeout for large packages.
+func resolvePyPIVersionedRelease(ref packageReference) (packageRelease, error) {
+	endpoint := "https://pypi.org/pypi/" + url.PathEscape(ref.Package) + "/" + url.PathEscape(ref.Version) + "/json"
+	var doc struct {
+		URLs []struct {
+			UploadTime string `json:"upload_time_iso_8601"`
+		} `json:"urls"`
+	}
+	if err := getJSON(endpoint, &doc); err != nil {
+		return packageRelease{}, err
+	}
+	if len(doc.URLs) == 0 {
+		return packageRelease{}, fmt.Errorf("version %q not found", ref.Version)
+	}
+	released, err := time.Parse(time.RFC3339, strings.TrimSuffix(doc.URLs[0].UploadTime, "Z")+"Z")
+	if err != nil {
+		return packageRelease{}, fmt.Errorf("parse upload time: %w", err)
+	}
+	return packageRelease{Version: ref.Version, Released: released, SourceURL: endpoint}, nil
 }
 
 func resolveNPMRelease(ref packageReference) (packageRelease, error) {
