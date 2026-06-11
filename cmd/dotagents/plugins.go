@@ -123,6 +123,27 @@ func allPluginSkillBasesForAgent(plugins []pluginConfig, home string, agentName 
 	return pluginSkillBasesForAgentMode(plugins, home, agentName, false)
 }
 
+// pluginSourceRootsForAgent returns plugin source paths without version
+// resolution, so links into superseded version dirs still classify as
+// plugin-managed instead of external.
+func pluginSourceRootsForAgent(plugins []pluginConfig, home string, agentName string) []string {
+	var roots []string
+	for _, plugin := range plugins {
+		if strings.TrimSpace(plugin.Source) == "" {
+			continue
+		}
+		if !pluginTargetsAgent(plugin, agentName) || !pluginHasSurface(plugin, pluginSurfaceSkills) {
+			continue
+		}
+		root, err := pluginSourcePath(plugin, home)
+		if err != nil {
+			continue
+		}
+		roots = append(roots, root)
+	}
+	return roots
+}
+
 func pluginSkillBasesForAgentMode(plugins []pluginConfig, home string, agentName string, enabledOnly bool) ([]string, error) {
 	var bases []string
 	for _, plugin := range plugins {

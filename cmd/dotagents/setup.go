@@ -260,21 +260,31 @@ func patchHermesConfig(home string, cfg config) (bool, error) {
 	}
 	targets = append(targets, pluginTargets...)
 
+	targetSet := make(map[string]bool, len(targets))
+	for _, target := range targets {
+		targetSet[target] = true
+	}
+	pruneRoots := hermesStaleDirPruneRoots(cfg, home)
+
 	existing := make(map[string]bool)
 	dirsRaw, ok := skills["external_dirs"]
 	var dirs []interface{}
+	changed := !ok
 	if ok {
 		if existingDirs, ok := dirsRaw.([]interface{}); ok {
-			dirs = append(dirs, existingDirs...)
-			for _, d := range dirs {
-				if s, ok := d.(string); ok {
+			for _, d := range existingDirs {
+				if s, isStr := d.(string); isStr {
 					expanded := expandPath(strings.TrimSpace(s), home)
+					if !targetSet[expanded] && pathUnderAny(expanded, pruneRoots) {
+						changed = true
+						continue
+					}
 					existing[expanded] = true
 				}
+				dirs = append(dirs, d)
 			}
 		}
 	}
-	changed := !ok
 	for _, target := range targets {
 		if existing[target] {
 			continue
@@ -295,6 +305,23 @@ func patchHermesConfig(home string, cfg config) (bool, error) {
 		return false, fmt.Errorf("write %s: %w", configPath, err)
 	}
 	return true, nil
+}
+
+// hermesStaleDirPruneRoots returns roots under which non-target external_dirs
+// entries are dotagents-managed leftovers (superseded plugin version dirs and
+// the legacy ~/.agents/plugin-roots location) and safe to prune.
+func hermesStaleDirPruneRoots(cfg config, home string) []string {
+	roots := pluginSourceRootsForAgent(cfg.Plugins, home, agentHermes)
+	return append(roots, filepath.Join(home, ".agents", "plugin-roots"))
+}
+
+func pathUnderAny(path string, roots []string) bool {
+	for _, root := range roots {
+		if path == root || strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func hermesExternalDirValue(home string, target string) string {

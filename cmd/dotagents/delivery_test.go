@@ -98,6 +98,59 @@ instructions: Test helper.
 	}
 }
 
+func TestRunSyncManagesPluginSkillsForClaudePluginDelivery(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+
+	pluginSource := filepath.Join(home, "plugins", "browser")
+	currentSkillDir := filepath.Join(pluginSource, "2.0.0", "skills", "browser-skill")
+	writeSyncTestFile(t, filepath.Join(currentSkillDir, "SKILL.md"), []byte("---\nname: browser-skill\n---\n"))
+
+	writeSyncTestFile(t, filepath.Join(repoRoot, "dotagents.yaml"), []byte(`version: 1
+agents:
+  - name: claude-code
+    enabled: true
+    delivery: plugin
+    skill_root: ~/.claude/skills
+    agent_root: ~/.claude/agents
+plugins:
+  - name: browser
+    enabled: true
+    source: `+pluginSource+`
+    format: codex-plugin
+    surfaces:
+      - skills
+    agents:
+      - claude-code
+`))
+
+	claudeSkillRoot := filepath.Join(home, ".claude", "skills")
+	if err := os.MkdirAll(claudeSkillRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	staleLink := filepath.Join(claudeSkillRoot, "dropped-skill")
+	if err := os.Symlink(filepath.Join(pluginSource, "1.0.0", "skills", "dropped-skill"), staleLink); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runSync(runOptions{Agents: agentClaudeCode}); err != nil {
+		t.Fatal(err)
+	}
+
+	linked, err := os.Readlink(filepath.Join(claudeSkillRoot, "browser-skill"))
+	if err != nil {
+		t.Fatalf("expected plugin skill symlink: %v", err)
+	}
+	if linked != currentSkillDir {
+		t.Fatalf("browser-skill -> %s, want %s", linked, currentSkillDir)
+	}
+	if _, err := os.Lstat(staleLink); !os.IsNotExist(err) {
+		t.Fatalf("stale plugin link still exists, stat err = %v", err)
+	}
+}
+
 func TestClaudeDeliveryCheckPluginInstalled(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
