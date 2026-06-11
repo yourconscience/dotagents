@@ -411,6 +411,12 @@ func writeHook(response hookResponse) error {
 
 func runGH(args ...string) (string, error) {
 	cmd := exec.Command("gh", args...)
+	// The hook wrapper cds into this tool's module dir to `go run`; PR_TRIAGE_PWD
+	// carries the session's original working directory so gh resolves the repo
+	// the session is actually in, not the dotagents checkout.
+	if dir := strings.TrimSpace(os.Getenv("PR_TRIAGE_PWD")); dir != "" {
+		cmd.Dir = dir
+	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout

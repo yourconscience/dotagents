@@ -65,6 +65,35 @@ func TestRenderCodexPluginSkillsMirrorsTrackedAndPrunesStale(t *testing.T) {
 	}
 }
 
+func TestRenderCodexPluginSkillsPrunesTrackedButDeletedFiles(t *testing.T) {
+	repoRoot := initCodexPluginTestRepo(t)
+	deleted := filepath.Join(repoRoot, "skills", "alpha", "gone.md")
+	writeCodexPluginTestFile(t, deleted, "soon gone\n")
+	cmd := exec.Command("git", "-C", repoRoot, "add", "skills")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, out)
+	}
+
+	if err := renderCodexPluginSkills(repoRoot); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(codexPluginSkillsDir(repoRoot), "alpha", "gone.md")
+	if _, err := os.Stat(dest); err != nil {
+		t.Fatalf("expected rendered copy: %v", err)
+	}
+
+	// Tracked in the index but deleted from the worktree: the copy must go.
+	if err := os.Remove(deleted); err != nil {
+		t.Fatal(err)
+	}
+	if err := renderCodexPluginSkills(repoRoot); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatalf("copy of deleted tracked file still exists, stat err = %v", err)
+	}
+}
+
 func TestCheckCodexPluginDetectsDrift(t *testing.T) {
 	repoRoot := initCodexPluginTestRepo(t)
 	writeCodexPluginTestFile(t, filepath.Join(repoRoot, "skills", "alpha", "SKILL.md"), "---\nname: alpha\n---\n")
