@@ -1,0 +1,4 @@
+interface:
+  display_name: "X CLI"
+  short_description: "Operate x-cli for X timeline and profile retrieval"
+  default_prompt: "Use $x-cli to authenticate with X, fetch the needed timeline, tweet, user, search, or social-graph data, and return the exact commands and outputs."

@@ -1,0 +1,16 @@
+{
+  "name": "yourconscience",
+  "interface": {
+    "displayName": "dotagents"
+  },
+  "plugins": [
+    {
+      "name": "dotagents",
+      "source": {
+        "source": "local",
+        "path": "./plugins/dotagents"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
