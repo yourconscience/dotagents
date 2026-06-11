@@ -177,6 +177,9 @@ func applyAgentSync(reports []agentReport, cfg config, home string) error {
 			if err := pruneManagedSkillLinks(report.SkillRoot, report.Removes); err != nil {
 				return err
 			}
+			if err := linkExpectedSkills(report); err != nil {
+				return err
+			}
 			continue
 		}
 		h := harnessFor(report.Name)
@@ -198,22 +201,35 @@ func applyAgentSync(reports []agentReport, cfg config, home string) error {
 			}
 		}
 
-		for _, name := range append(append([]string{}, report.Adds...), report.Updates...) {
-			path := filepath.Join(report.SkillRoot, name)
-			if _, err := os.Lstat(path); err == nil {
-				if err := os.Remove(path); err != nil {
-					return fmt.Errorf("remove %s before relink: %w", path, err)
-				}
-			} else if !errors.Is(err, fs.ErrNotExist) {
-				return fmt.Errorf("stat %s: %w", path, err)
+		if err := linkExpectedSkills(report); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func linkExpectedSkills(report agentReport) error {
+	if len(report.Adds)+len(report.Updates) == 0 {
+		return nil
+	}
+	if err := os.MkdirAll(report.SkillRoot, 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", report.SkillRoot, err)
+	}
+	for _, name := range append(append([]string{}, report.Adds...), report.Updates...) {
+		path := filepath.Join(report.SkillRoot, name)
+		if _, err := os.Lstat(path); err == nil {
+			if err := os.Remove(path); err != nil {
+				return fmt.Errorf("remove %s before relink: %w", path, err)
 			}
-			target, ok := report.ExpectedSkills[name]
-			if !ok {
-				return fmt.Errorf("%s expected skill %q has no target", report.Name, name)
-			}
-			if err := os.Symlink(target, path); err != nil {
-				return fmt.Errorf("symlink %s -> %s: %w", path, target, err)
-			}
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("stat %s: %w", path, err)
+		}
+		target, ok := report.ExpectedSkills[name]
+		if !ok {
+			return fmt.Errorf("%s expected skill %q has no target", report.Name, name)
+		}
+		if err := os.Symlink(target, path); err != nil {
+			return fmt.Errorf("symlink %s -> %s: %w", path, target, err)
 		}
 	}
 	return nil

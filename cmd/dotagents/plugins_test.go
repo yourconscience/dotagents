@@ -208,6 +208,49 @@ func TestInspectAgentRemovesDisabledPluginSkillLinks(t *testing.T) {
 	}
 }
 
+func TestInspectAgentRemovesSupersededPluginVersionLinks(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	agentsSkillRoot := filepath.Join(home, ".agents", "skills")
+	source := filepath.Join(home, "plugins", "browser")
+
+	currentSkillDir := filepath.Join(source, "2.0.0", "skills", "browser")
+	if err := os.MkdirAll(currentSkillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(currentSkillDir, "SKILL.md"), []byte("---\nname: browser\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	agentSkillRoot := filepath.Join(home, ".codex", "skills")
+	if err := os.MkdirAll(agentSkillRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Link into a superseded version dir that no longer exists on disk.
+	staleTarget := filepath.Join(source, "1.0.0", "skills", "dropped-skill")
+	if err := os.Symlink(staleTarget, filepath.Join(agentSkillRoot, "dropped-skill")); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config{Plugins: []pluginConfig{{
+		Name:     "browser",
+		Enabled:  true,
+		Source:   source,
+		Surfaces: []string{pluginSurfaceSkills},
+		Agents:   []string{agentCodex},
+	}}}
+	report, err := inspectAgent(agentConfig{Name: agentCodex, SkillRoot: agentSkillRoot}, map[string]string{}, repoRoot, agentsSkillRoot, cfg, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.StaleManaged) != 1 || report.StaleManaged[0] != "dropped-skill" {
+		t.Fatalf("stale managed = %#v, want dropped-skill", report.StaleManaged)
+	}
+	if len(report.External) != 0 {
+		t.Fatalf("external = %#v, want none", report.External)
+	}
+}
+
 func TestAllPluginSkillBasesSkipsMissingDisabledPluginSource(t *testing.T) {
 	home := t.TempDir()
 
