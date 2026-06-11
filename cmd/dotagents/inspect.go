@@ -217,6 +217,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	if err != nil {
 		return agentReport{}, err
 	}
+	pluginSkillBases = append(pluginSkillBases, pluginSourceRootsForAgent(cfg.Plugins, home, agent.Name)...)
 	if !rootMissing {
 		for name, entry := range entryMap {
 			if _, ok := expected[name]; ok {
@@ -386,13 +387,17 @@ func inspectHermesAgent(agent agentConfig, expected map[string]string, agentsSki
 	if err != nil {
 		return agentReport{}, err
 	}
-	ok, err := hermesHasExternalSkillsDirs(expectedDirs)
+	ok, stale, err := hermesExternalSkillsDirsState(expectedDirs, cfg, home)
 	if err != nil {
 		return agentReport{}, err
 	}
 	if !ok {
 		report.Missing = append(report.Missing, "config skills.external_dirs")
 		report.Adds = append(report.Adds, "config skills.external_dirs")
+	}
+	for _, dir := range stale {
+		report.StaleManaged = append(report.StaleManaged, "config dir "+dir)
+		report.Removes = append(report.Removes, "config dir "+dir)
 	}
 	report.Managed = append(report.Managed, sortedKeys(report.ExpectedSkills)...)
 	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
@@ -417,39 +422,46 @@ func hermesExternalSkillDirs(agentsSkillRoot string, cfg config, home string) ([
 	return dirs, nil
 }
 
-func hermesHasExternalSkillsDirs(expected []string) (bool, error) {
+func hermesExternalSkillsDirsState(expected []string, cfg config, configHome string) (bool, []string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return false, fmt.Errorf("resolve home: %w", err)
+		return false, nil, fmt.Errorf("resolve home: %w", err)
 	}
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return false, fmt.Errorf("read %s: %w", configPath, err)
+		return false, nil, fmt.Errorf("read %s: %w", configPath, err)
 	}
 
 	var raw map[string]interface{}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return false, fmt.Errorf("parse %s: %w", configPath, err)
+		return false, nil, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 
 	skillsRaw, ok := raw["skills"]
 	if !ok {
-		return false, nil
+		return false, nil, nil
 	}
 	skills, ok := skillsRaw.(map[string]interface{})
 	if !ok {
-		return false, nil
+		return false, nil, nil
 	}
 	dirsRaw, ok := skills["external_dirs"]
 	if !ok {
-		return false, nil
+		return false, nil, nil
 	}
 	dirs, ok := dirsRaw.([]interface{})
 	if !ok {
-		return false, nil
+		return false, nil, nil
 	}
 
+	expectedSet := make(map[string]bool, len(expected))
+	for _, dir := range expected {
+		expectedSet[dir] = true
+	}
+	pruneRoots := hermesStaleDirPruneRoots(cfg, configHome)
+
+	var stale []string
 	found := make(map[string]bool, len(expected))
 	for _, d := range dirs {
 		s, ok := d.(string)
@@ -457,19 +469,21 @@ func hermesHasExternalSkillsDirs(expected []string) (bool, error) {
 			continue
 		}
 		expanded := expandPath(strings.TrimSpace(s), home)
-		for _, dir := range expected {
-			if expanded == dir {
-				found[dir] = true
-			}
+		if expectedSet[expanded] {
+			found[expanded] = true
+			continue
+		}
+		if pathUnderAny(expanded, pruneRoots) {
+			stale = append(stale, expanded)
 		}
 	}
 
 	for _, dir := range expected {
 		if !found[dir] {
-			return false, nil
+			return false, stale, nil
 		}
 	}
-	return true, nil
+	return true, stale, nil
 }
 
 func linkMatches(linkPath string, rawTarget string, expectedTarget string) bool {
