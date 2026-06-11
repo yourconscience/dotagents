@@ -251,7 +251,7 @@ func printUsage() {
 	fmt.Println("  dotagents plugin remove                      Remove Claude Code plugin delivery and restore sync")
 	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
-	fmt.Println("  dotagents render                              Render committed Claude plugin agents (agents/) from agents/*.yaml")
+	fmt.Println("  dotagents render                              Render committed plugin artifacts: Claude agents (agents/) and Codex plugin skills (plugins/dotagents/)")
 	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes, package age")
 	fmt.Println("  dotagents dogfood       [--agents ...]           End-to-end self-test: sync + status + doctor")
 }
