@@ -137,6 +137,61 @@ func TestPatchHermesConfigAddsPluginSkillDirs(t *testing.T) {
 	}
 }
 
+func TestPatchHermesConfigPrunesStalePluginVersionDirs(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".hermes", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	pluginSource := filepath.Join(home, "plugins", "browser")
+	currentSkillDir := filepath.Join(pluginSource, "2.0.0", "skills", "browser")
+	if err := os.MkdirAll(currentSkillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(currentSkillDir, "SKILL.md"), []byte("---\nname: browser\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	staleVersionDir := filepath.Join(pluginSource, "1.0.0", "skills")
+	legacyRootDir := filepath.Join(home, ".agents", "plugin-roots", "claude", "frontend-design", "skills")
+	configBody := "skills:\n  external_dirs:\n    - ~/keep\n    - " + staleVersionDir + "\n    - " + legacyRootDir + "\n"
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	patched, err := patchHermesConfig(home, config{Plugins: []pluginConfig{{
+		Name:     "browser",
+		Enabled:  true,
+		Source:   pluginSource,
+		Surfaces: []string{pluginSurfaceSkills},
+		Agents:   []string{agentHermes},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !patched {
+		t.Fatal("patchHermesConfig reported no changes")
+	}
+
+	out, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(out, &raw); err != nil {
+		t.Fatal(err)
+	}
+	skills := raw["skills"].(map[string]interface{})
+	dirs := skills["external_dirs"].([]interface{})
+	if containsInterfaceString(dirs, staleVersionDir) || containsInterfaceString(dirs, legacyRootDir) {
+		t.Fatalf("stale dirs not pruned: %#v", dirs)
+	}
+	if !containsInterfaceString(dirs, "~/keep") || !containsInterfaceString(dirs, filepath.Join(pluginSource, "2.0.0", "skills")) {
+		t.Fatalf("external_dirs = %#v", dirs)
+	}
+}
+
 func containsInterfaceString(items []interface{}, want string) bool {
 	for _, item := range items {
 		if item == want {
