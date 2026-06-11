@@ -32,13 +32,66 @@ func inspectPluginDeliveryAgent(agent agentConfig, repoRoot string, agentsSkillR
 		return report, nil
 	}
 
-	skills, external, err := claudeManagedSkillArtifacts(agent.SkillRoot, repoRoot, agentsSkillRoot)
+	// Repo skills arrive through the native Claude plugin, so their symlinks
+	// are pruned; codex-plugin skills still need symlink delivery.
+	expected, err := discoverPluginSkills(cfg.Plugins, home, agent.Name)
 	if err != nil {
 		return agentReport{}, err
 	}
-	report.StaleManaged = append(report.StaleManaged, skills...)
-	report.Removes = append(report.Removes, skills...)
-	report.External = append(report.External, external...)
+	report.ExpectedSkills = expected
+	sourceRoots := pluginSourceRootsForAgent(cfg.Plugins, home, agent.Name)
+
+	seen := make(map[string]bool)
+	entries, err := os.ReadDir(agent.SkillRoot)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return agentReport{}, fmt.Errorf("read %s: %w", agent.SkillRoot, err)
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		seen[name] = true
+		path := filepath.Join(agent.SkillRoot, name)
+		if entry.Type()&os.ModeSymlink == 0 {
+			if _, ok := expected[name]; ok {
+				report.Conflicts = append(report.Conflicts, fmt.Sprintf("%s exists but is not a symlink", path))
+				continue
+			}
+			report.External = append(report.External, name)
+			continue
+		}
+		rawTarget, err := os.Readlink(path)
+		if err != nil {
+			return agentReport{}, fmt.Errorf("readlink %s: %w", path, err)
+		}
+		if isManagedSkillLink(path, rawTarget, repoRoot, agentsSkillRoot) {
+			report.StaleManaged = append(report.StaleManaged, name)
+			report.Removes = append(report.Removes, name)
+			continue
+		}
+		if target, ok := expected[name]; ok {
+			if linkMatches(path, rawTarget, target) {
+				report.Managed = append(report.Managed, name)
+			} else {
+				report.Drifted = append(report.Drifted, name)
+				report.Updates = append(report.Updates, name)
+			}
+			continue
+		}
+		if isPluginSkillLink(path, rawTarget, sourceRoots) {
+			report.StaleManaged = append(report.StaleManaged, name)
+			report.Removes = append(report.Removes, name)
+			continue
+		}
+		report.External = append(report.External, name)
+	}
+	for _, name := range sortedKeys(expected) {
+		if !seen[name] {
+			report.Missing = append(report.Missing, name)
+			report.Adds = append(report.Adds, name)
+		}
+	}
 
 	agentFiles, err := claudeManagedAgentArtifacts(agent.AgentRoot)
 	if err != nil {
