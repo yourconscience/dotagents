@@ -52,6 +52,7 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkSkillSpec(repoRoot))
 	results = append(results, checkAgentRoles(repoRoot))
 	results = append(results, checkPluginAgents(repoRoot))
+	results = append(results, checkCodexPlugin(repoRoot))
 	for _, name := range sortedHarnessNames() {
 		for _, check := range getHarnesses()[name].DoctorChecks {
 			results = append(results, check.Run(repoRoot, home, cfg))
