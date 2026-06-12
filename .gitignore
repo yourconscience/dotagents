@@ -31,3 +31,6 @@ skills/remote-access/tools/remote-access-bridge/remote-access-bridge
 skills/handoff/bin/
 research/
 skills/cua-driver
+
+# Local DX/test reports - keep out of the repo
+docs/reports/*-dx.md

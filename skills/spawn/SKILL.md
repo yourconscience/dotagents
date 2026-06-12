@@ -218,3 +218,30 @@ Enable `multi_agent = true` in `~/.codex/config.toml`. Codex spawns child agents
 - No shared task list across sessions
 - No bi-directional messaging between independent sessions
 - Coordination is single-session only
+
+---
+
+## Ghostex execution
+
+Use when the terminal is managed by Ghostex (detect: `GHOSTEX_*` env vars set, e.g. `GHOSTEX_ZMX_BIN`; `gx state` succeeding alone only proves the server is running somewhere). The bundled `ghostex-agent-orchestration` skill in the app is the authoritative command reference; this section only covers the spawn loop.
+
+```bash
+gx sessions --json                                  # inspect projects/sessions
+gx create-session "task title" --project-id <id>    # registers the session
+gx send-message <selector> "self-contained prompt"  # send prompt + Enter
+gx read-text <selector> --lines 80 --json           # read output
+gx kill <selector> --json                           # clean up
+```
+
+Known gaps (gxserver 0.1.0):
+
+- CLI-created sessions lazy-start: the PTY does not exist until a client attaches. Headless workaround: pre-start the daemon with the bundled zmx (not on PATH) before sending input:
+
+  ```bash
+  zmx="/Applications/Ghostex.app/Contents/Resources/Web/bin/zmx"
+  "$zmx" run "<zmxName from sessions --json>" -d --initial-command /bin/zsh -lic 'exec /bin/zsh -li'
+  ```
+
+- `gx send-key ctrl-c`, `gx wait-for`, `gx focus` are broken headlessly; interrupt via `printf '\x03' | "$zmx" send <zmxName>` and wait by polling `read-text`.
+- Agent buttons (`create-agent`/`run-agent`) do not auto-dispatch their startup command without the UI; send it manually after the zmx pre-start.
+- No cmux-style markdown viewer: show reports by opening the .md in the embedded Code editor. `gx edit <file>` is the intended path but currently fails (missing `openPaths` gxserver endpoint); until it lands, ask the user to open the file in the Ghostex editor, or print the path. Upstream CLI TDZ-crash fix: maddada/Ghostex#21.
