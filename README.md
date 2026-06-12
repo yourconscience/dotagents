@@ -263,6 +263,9 @@ Dotagents keeps `~/.agents` as the source of truth and adapts each agent through
 | Hermes | Config path to `~/.agents/skills` | Not managed | `~/.hermes/config.yaml` | `~/.hermes/config.yaml` for known lifecycle hooks | Reads configured Hermes context | Uses `skills.external_dirs`; do not mirror into `~/.hermes/skills` because bundled categories can collide. |
 | Factory Droid | Symlink mirror to `~/.factory/skills` | Generated to `~/.factory/droids` | `~/.factory/mcp.json` | `~/.factory/settings.json` | `~/.factory/AGENTS.md` symlink | Full managed mirror for skills, roles, MCP, and supported hooks. |
 | Pi/OMP | Symlink mirror to `~/.omp/agent/skills` | Not managed | `~/.omp/agent/mcp.json` | Not managed | Reads configured OMP context | Primary OMP target for shared skills, MCP entries, and portable plugin skill surfaces. |
+| Amp | Compatibility-only via explicit local config | Not managed | Supported by CLI when locally targeted | Not managed | Not managed | Intentionally absent from canonical `dotagents.yaml`; use a gitignored local overlay for one-off migration or preservation work. |
+| OpenCode | Not managed | Not managed | Not managed | Not managed | Not managed | Compatibility research only; no verified native skill/MCP surface is managed by dotagents yet. |
+| OpenClaw | Not managed | Not managed | Not managed | Not managed | Not managed | Compatibility research only; needs an owner and verified config surface before dotagents treats it as managed. |
 
 Compatibility-only harness support may remain in the CLI for migration, hook cleanup, trailer stripping, or one-off local configs. Those harnesses are intentionally absent from the canonical `dotagents.yaml` managed target list.
 

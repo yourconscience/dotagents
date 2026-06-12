@@ -120,7 +120,7 @@ cmux send --workspace workspace:N --surface surface:N "droid"
 cmux send-key --workspace workspace:N --surface surface:N "Enter"
 ```
 
-cmux-specific launchers include `cmux codex-teams`, `cmux claude-teams`, `cmux hermes`, `cmux omx`, and `cmux omo`. Use the normal agent CLI directly when you need exact command control.
+cmux-specific launchers include `cmux codex-teams`, `cmux claude-teams`, and `cmux hermes`. Use the normal agent CLI directly when you need exact command control.
 
 ## Hooks
 
