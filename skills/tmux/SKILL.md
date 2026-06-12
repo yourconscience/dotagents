@@ -5,18 +5,20 @@ description: Generic tmux reference for sessions, windows, panes, screen capture
 
 # tmux
 
-Use this skill for terminal multiplexing when the current terminal is not managed by cmux.
+Use this skill for terminal multiplexing when the current terminal is not managed by cmux or Ghostex.
 
 ## Detection
 
 ```bash
 env | grep '^CMUX_'         # if present, switch to the cmux skill
+env | grep '^GHOSTEX_'      # if present, the terminal is Ghostex-managed: use its bundled ghostex-agent-orchestration skill
 test -n "$TMUX" && echo tmux
 command -v tmux
 ```
 
 Routing:
 - If `CMUX_WORKSPACE_ID` and `CMUX_SURFACE_ID` are set, use the `cmux` skill.
+- Else if `GHOSTEX_*` env vars are set (e.g. `GHOSTEX_ZMX_BIN`), the terminal is Ghostex-managed: use the bundled `ghostex-agent-orchestration` skill (zmx underneath). A merely-running Ghostex app elsewhere does not count - `gx state` succeeding is server state, not terminal ownership.
 - Else if `TMUX` is set, target the current tmux server/session.
 - Else if `tmux` exists, create or attach a tmux session before relying on pane operations.
 - Else, no supported queryable pane manager is active.
