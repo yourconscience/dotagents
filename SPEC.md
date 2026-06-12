@@ -57,7 +57,7 @@ Steps:
 
 Acceptance:
 - `tmp/verify-harnesses.sh` exits 0 covering all 8 harnesses.
-- 4 live-run transcripts captured in `tmp/verify-results.md`, each showing a synced skill visible to the agent.
+- 4 live-run transcripts captured in `tmp/verify-results.md`, each showing a synced skill visible to the agent. A transcript captured by an authenticated external session (e.g. the user's Claude Code) counts; the executor must not re-run checks that require auth its environment does not have — treat the recorded transcript as the evidence.
 - `dotagents status` clean globally.
 - Any harness that cannot pass gets a fix or a documented limitation in README (compatibility table), not silence.
 
