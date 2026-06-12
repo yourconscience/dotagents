@@ -86,22 +86,40 @@ Reference these from TeamCreate teammates, Claude Code subagent types, or Codex 
 
 ## Skills
 
-- `cmux` - control cmux workspaces, panes, terminal/browser surfaces, markdown viewers, and visible agent workspaces.
-- `tmux` - generic tmux reference for sessions, windows, panes, screen capture, and input.
-- `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
-- `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
-- `gws` - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex and CLI helpers.
-- `humanizer` - final-pass rewriting for concise writing that keeps the user's voice.
-- `jobs` - track job search pipeline, analyze fit for postings, generate interview quizzes, grade answers.
-- `remote-access` - search local Droid/Codex sessions and send scoped continuation instructions through the Mac bridge from mobile.
-- `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
+Grouped by category, with the execution surface each skill drives. See `docs/reports/skill-categorization.md` for the full analysis.
+
+Orchestration and delegation:
+
+- `spawn` - decide how to delegate work to subagents or teams across Droid, Claude Code, Hermes, Codex, and multiplexer surfaces (tmux/cmux/Ghostex).
+- `cmux` - control cmux workspaces, panes, terminal/browser surfaces, markdown viewers, and visible agent workspaces. Surface: `cmux` CLI. Under replacement trial by Ghostex; kept until the trial concludes.
+- `tmux` - generic tmux reference for sessions, windows, panes, screen capture, and input. Surface: `tmux` CLI; fallback when neither cmux nor Ghostex manages the terminal.
+- `remote-access` - search local Droid/Codex sessions and send scoped continuation instructions through the Mac bridge from mobile. Surface: ssh/Tailscale + takopi.
+
+Ghostex ships its own bundled skills (`ghostex-agent-orchestration`, `ghostex-browser-use`, etc.); dotagents does not duplicate them - skills detect the surface and defer to the bundled reference when running inside Ghostex.
+
+Research:
+
 - `repo-eval` - find, triage, and deep-evaluate GitHub repos for a given need.
-- `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
-- `spawn` - spawn and manage Claude Code agent teams with model routing and cmux integration.
-- `tg` - read Telegram chats, search messages, and list dialogs through the read-only `tg` CLI.
 - `tech-search` - gather high-signal opinions from tech communities and blogs on a topic.
-- `x-cli` - unofficial CLI for `x` tooling.
 - `x-sim` - offline X audience simulation for draft tweets and handle positioning.
+
+Writing and process:
+
+- `grill-me` - pressure-test a plan one question at a time until scope and decisions are concrete.
+- `humanizer` - final-pass rewriting for concise writing that keeps the user's voice.
+- `spec` - produce a small `SPEC.md` for complex or ambiguous work before implementation.
+- `jobs` - track job search pipeline, analyze fit for postings, generate interview quizzes, grade answers.
+- `pr-triage` - inspect PR failures and unresolved review threads, then drive a single fix-commit-push loop.
+
+Integrations (CLI wrappers):
+
+- `gws` - Google Workspace workflows. On Hermes, prefer the bundled native `google-workspace` skill; this repo's `skills/gws` remains the shared source for Claude Code/Codex and CLI helpers.
+- `tg` - read Telegram chats, search messages, and list dialogs through the read-only `tg` CLI.
+- `x-cli` - unofficial CLI for `x` tooling.
+
+Infrastructure:
+
+- `dotagents` - inspect and sync the repo-owned skill links across supported coding agents.
 
 ## Installing these skills without dotagents
 
