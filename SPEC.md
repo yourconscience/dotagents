@@ -32,7 +32,7 @@ HUMAN GATE before the flip.
 
 Steps:
 1. Run gitleaks (or trufflehog) over the full history: `gitleaks detect --source . --log-opts="--all"`. Zero findings, or each finding explicitly waived by the user.
-2. Produce `tmp/audit-history.md`: every file ever committed (`git log --all --name-only --format=`), flagging personal-data candidates (jobs pipeline, telegram/linkedin configs, memory hooks, names/emails beyond git identity).
+2. Produce `tmp/audit-history.md`: every file ever committed (`git log --all --name-only --format= | sort -u | grep -v '^$'`), flagging personal-data candidates (jobs pipeline, telegram/linkedin configs, memory hooks, names/emails beyond git identity).
 3. HUMAN GATE: user reviews the audit summary and approves the flip.
 4. After approval: `gh repo edit --visibility public`.
 
