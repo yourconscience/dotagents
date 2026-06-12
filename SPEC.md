@@ -23,7 +23,7 @@ omx (oh-my-codex) is retired from the machine and from repo surfaces.
 
 Acceptance:
 - `omx uninstall` has been run; `command -v omx` exits non-zero (manual removal of the binary is allowed after uninstall).
-- `grep -rn "omx" --include="*.md" . | grep -v node_modules | grep -v experimental/` returns no hits in `skills/` or `README.md` (history/experimental notes may stay).
+- `grep -rn --include="*.md" "omx" README.md skills/ plugins/dotagents/skills/` returns no hits (history/experimental notes may stay).
 - `codex exec "echo ok"` works on the cleaned setup.
 
 ### M0: history audit, then flip to public
@@ -43,10 +43,10 @@ Acceptance:
 
 ### M1: verify all 8 harness integrations
 
-Two-tier bar. Tier 1 (all 8: Claude Code, Codex, Droid, Hermes, Pi/OMP, OpenCode, OpenClaw, Amp): scripted, deterministic. Tier 2 (harnesses with a headless mode: Claude Code, Codex, Droid, Hermes): a live skill invocation.
+Two-tier bar. Tier 1 (all 8: Claude Code, Codex, Droid, Hermes, Pi/OMP, OpenCode, OpenClaw, Amp): scripted, deterministic. Managed harnesses get sync/native-location/status assertions; compatibility-only harnesses get documented-limitation assertions. Tier 2 (harnesses with a headless mode: Claude Code, Codex, Droid, Hermes): a live skill invocation.
 
 Steps:
-1. Write `tmp/verify-harnesses.sh` (not committed): for each harness, run `dotagents sync`, then assert skills/MCP land in the harness's native location, then `dotagents status` reports clean for that harness.
+1. Write `tmp/verify-harnesses.sh` (not committed): for managed harnesses, run `dotagents sync`, assert skills/MCP land in the harness's native location, and confirm `dotagents status` reports clean; for compatibility-only harnesses, assert the README documents the limitation instead of requiring a managed native surface.
 2. Tier 2 live runs, one cheap prompt each, asserting the agent can see a synced skill:
    - `claude -p "list available skills, one per line"` contains `tech-search`
    - `codex exec "list available skills"` contains `tech-search`
