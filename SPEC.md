@@ -73,6 +73,7 @@ Content:
   3. Add a skill once, it appears in every harness: create `skills/foo/SKILL.md`, `dotagents sync`, show it visible in 2+ harnesses.
 - Comparison table reused from README (dotagents vs skillshare/vsync/agents-cli).
 - Link to repo and releases.
+- Footer easter egg: one small muted line linking to https://yourconscience.github.io/mushroom/ with a 🍄 icon and a short caption (e.g. "agent-built in one evening"). Keep it footer-only; do not feature it in the main content.
 
 Copy process: draft -> humanizer pass (skill is synced and available) -> HUMAN GATE: user reviews and approves the final copy before deploy. Do not deploy unreviewed copy.
 
