@@ -82,11 +82,11 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 15px; line-height: 1.7; color: #c8d0e0; overflow-x: auto;
   }
-  .p { color: #5a6378; }
+  .p { color: #7d8699; }
   .c { color: #e8edf7; font-weight: 600; }
   .g { color: var(--green); }
   .h { color: var(--orange); font-weight: 700; }
-  .d { color: #5a6378; }
+  .d { color: #7d8699; }
 
   /* Sections */
   section { margin-top: 72px; }
@@ -159,7 +159,7 @@
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { padding: 12px 14px; border-bottom: 1px solid rgba(245,241,232,.08); vertical-align: middle; }
   th { color: var(--muted); text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 900; }
-  td:first-child { font-weight: 800; color: var(--ink); }
+  td:first-child, th[scope="row"] { font-weight: 800; color: var(--ink); text-align: left; }
   tr:last-child td { border-bottom: 0; }
   .y { color: var(--green); font-weight: 900; }
   .n { color: var(--red); font-weight: 900; }
@@ -384,11 +384,11 @@
       <table>
         <thead><tr><th>Harness</th><th>Skills</th><th>Agent roles</th><th>MCP</th><th>Hooks</th><th>Root instructions</th></tr></thead>
         <tbody>
-          <tr><td>Claude Code</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">CLAUDE.md shim</td></tr>
-          <tr><td>Codex</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS.md</td></tr>
-          <tr><td>Factory Droid</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS link</td></tr>
-          <tr><td>Hermes</td><td class="y">yes</td><td class="n">--</td><td class="y">yes</td><td class="y">yes</td><td style="color:var(--gold)">native ctx</td></tr>
-          <tr><td>Pi</td><td class="y">yes</td><td class="n">--</td><td class="y">yes</td><td class="n">--</td><td style="color:var(--gold)">OMP ctx</td></tr>
+          <tr><th scope="row">Claude Code</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">CLAUDE.md shim</td></tr>
+          <tr><th scope="row">Codex</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS.md</td></tr>
+          <tr><th scope="row">Factory Droid</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS link</td></tr>
+          <tr><th scope="row">Hermes</th><td class="y">yes</td><td class="n">--</td><td class="y">yes</td><td class="y">yes</td><td style="color:var(--gold)">native ctx</td></tr>
+          <tr><th scope="row">Pi</th><td class="y">yes</td><td class="n">--</td><td class="y">yes</td><td class="n">--</td><td style="color:var(--gold)">OMP ctx</td></tr>
         </tbody>
       </table>
       </div>
@@ -406,14 +406,14 @@
       <table>
         <thead><tr><th></th><th>dotagents</th><th>skillshare</th><th>vsync</th><th>agents-cli</th></tr></thead>
         <tbody>
-          <tr><td>Skills sync</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td></tr>
-          <tr><td>MCP sync</td><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="y">yes</td></tr>
-          <tr><td>Hooks sync</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><td>Agent roles</td><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="n">no</td></tr>
-          <tr><td>Plugin catalog</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><td>Skill pinning</td><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><td>Security audit</td><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><td>Private overlay</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th scope="row">Skills sync</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td></tr>
+          <tr><th scope="row">MCP sync</th><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="y">yes</td></tr>
+          <tr><th scope="row">Hooks sync</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th scope="row">Agent roles</th><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="n">no</td></tr>
+          <tr><th scope="row">Plugin catalog</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th scope="row">Skill pinning</th><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th scope="row">Security audit</th><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th scope="row">Private overlay</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
         </tbody>
       </table>
       </div>
