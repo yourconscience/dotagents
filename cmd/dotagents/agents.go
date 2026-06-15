@@ -346,19 +346,15 @@ func writeTOMLString(b *strings.Builder, key string, value string) {
 	}
 	b.WriteString(key)
 	b.WriteString(" = ")
-	b.WriteString(tomlQuote(value))
+	b.WriteString(strconv.Quote(value))
 	b.WriteString("\n")
 }
 
 func writeTOMLMultiline(b *strings.Builder, key string, value string) {
 	b.WriteString(key)
 	b.WriteString(" = ")
-	b.WriteString(tomlQuote(value))
+	b.WriteString(strconv.Quote(value))
 	b.WriteString("\n")
-}
-
-func tomlQuote(value string) string {
-	return strconv.Quote(value)
 }
 
 func codexModelFor(model string) string {

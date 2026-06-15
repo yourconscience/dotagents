@@ -93,6 +93,7 @@ func mergeConfig(base *config, overlay config) {
 	base.MCPServers = mergeByKey(base.MCPServers, overlay.MCPServers, func(s mcpServerConfig) string { return strings.TrimSpace(s.Name) })
 	base.Hooks = mergeByKey(base.Hooks, overlay.Hooks, func(h hookConfig) string { return strings.TrimSpace(h.Name) })
 	base.Plugins = mergeByKey(base.Plugins, overlay.Plugins, func(p pluginConfig) string { return strings.TrimSpace(p.Name) })
+	base.Sources = mergeByKey(base.Sources, overlay.Sources, func(s sourceConfig) string { return strings.TrimSpace(s.Name) })
 }
 
 func mergeByKey[T any](base []T, overlay []T, key func(T) string) []T {

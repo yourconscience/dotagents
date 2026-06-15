@@ -395,25 +395,24 @@
     </div>
   </section>
 
-  <!-- Comparison -->
+  <!-- Landscape -->
   <section>
-    <h2>Alternatives</h2>
-    <p class="section-sub">Other tools solve parts of this. dotagents covers the full surface across the post-IDE agent stack.</p>
+    <h2>Landscape</h2>
+    <p class="section-sub">Content packs target one agent. Skills syncing covers breadth but not depth. dotagents syncs the full config surface across harnesses.</p>
 
     <div class="panel">
-      <h3>Comparison</h3>
+      <h3>How it compares</h3>
       <div class="table-wrap">
       <table>
-        <thead><tr><th></th><th>dotagents</th><th>skillshare</th><th>vsync</th><th>agents-cli</th></tr></thead>
+        <thead><tr><th></th><th>dotagents</th><th><a href="https://github.com/garrytan/gstack">gstack</a></th><th><a href="https://github.com/SuperClaude-Org/SuperClaude_Framework">SuperClaude</a></th><th><a href="https://github.com/runkids/skillshare">skillshare</a></th></tr></thead>
         <tbody>
-          <tr><th scope="row">Skills sync</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td></tr>
-          <tr><th scope="row">MCP sync</th><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="y">yes</td></tr>
-          <tr><th scope="row">Hooks sync</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><th scope="row">Agent roles</th><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="n">no</td></tr>
-          <tr><th scope="row">Plugin catalog</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><th scope="row">Skill pinning</th><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><th scope="row">Security audit</th><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><th scope="row">Private overlay</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th scope="row">Skills sync</th><td class="y">yes</td><td class="n">--</td><td class="n">--</td><td class="y">yes</td></tr>
+          <tr><th scope="row">MCP sync</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th scope="row">Hooks sync</th><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="n">no</td></tr>
+          <tr><th scope="row">Agent roles</th><td class="y">yes</td><td style="color:var(--gold)">23 built-in</td><td style="color:var(--gold)">20 built-in</td><td class="n">no</td></tr>
+          <tr><th scope="row">Security audit</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="y">yes</td></tr>
+          <tr><th scope="row">Multi-harness</th><td class="y">5 managed + 3 compat</td><td class="n">Claude Code</td><td class="n">Claude Code</td><td class="y">60+</td></tr>
+          <tr><th scope="row">Install</th><td style="color:var(--gold)">plugin or CLI</td><td style="color:var(--gold)">CC plugin</td><td style="color:var(--gold)">pipx</td><td style="color:var(--gold)">go install</td></tr>
         </tbody>
       </table>
       </div>

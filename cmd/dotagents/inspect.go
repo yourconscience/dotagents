@@ -335,7 +335,7 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 	}
 
 	sortReportLists(&report)
-	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0 && len(report.MissingHook) == 0 && len(report.DriftedHook) == 0
+	report.Synced = isReportSynced(report)
 	return report, nil
 }
 
@@ -408,7 +408,7 @@ func inspectHermesAgent(agent agentConfig, expected map[string]string, agentsSki
 	}
 
 	sortReportLists(&report)
-	report.Synced = len(report.Missing) == 0 && len(report.Drifted) == 0 && len(report.Conflicts) == 0 && len(report.StaleManaged) == 0 && len(report.MissingMCP) == 0 && len(report.DriftedMCP) == 0 && len(report.MissingHook) == 0 && len(report.DriftedHook) == 0
+	report.Synced = isReportSynced(report)
 	return report, nil
 }
 

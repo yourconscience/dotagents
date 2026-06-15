@@ -7,8 +7,6 @@ description: Control cmux workspaces, panes, terminal and browser surfaces, mark
 
 Use this skill when the current terminal is managed by cmux, or when the task needs cmux browser surfaces, workspace layout, markdown viewing, or cmux-specific agent launchers.
 
-Status: under replacement trial by Ghostex (since 2026-06-12). If the terminal is managed by Ghostex instead (`GHOSTEX_*` env vars set, no `CMUX_*` env), use Ghostex's bundled `ghostex-agent-orchestration` and `ghostex-browser-use` skills. This skill stays until the trial concludes.
-
 ## Detection
 
 ```bash
