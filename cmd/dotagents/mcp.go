@@ -103,7 +103,7 @@ func applyAgentMCPSync(reports []agentReport, cfg config, home string) error {
 }
 
 func inspectMCPServer(agentName string, server mcpServerConfig, home string) (string, error) {
-	target, err := mcpTargetForAgent(agentName)
+	target, err := mcpTargetForHarness(agentName)
 	if err != nil {
 		return stateMissing, err
 	}
@@ -111,7 +111,7 @@ func inspectMCPServer(agentName string, server mcpServerConfig, home string) (st
 }
 
 func patchMCPServer(agentName string, server mcpServerConfig, home string) error {
-	target, err := mcpTargetForAgent(agentName)
+	target, err := mcpTargetForHarness(agentName)
 	if err != nil {
 		return err
 	}
@@ -119,16 +119,13 @@ func patchMCPServer(agentName string, server mcpServerConfig, home string) error
 }
 
 func readNativeMCPServer(agentName string, name string, home string) (mcpServerConfig, error) {
-	target, err := mcpTargetForAgent(agentName)
+	target, err := mcpTargetForHarness(agentName)
 	if err != nil {
 		return mcpServerConfig{}, err
 	}
 	return target.read(target, name, home)
 }
 
-func mcpTargetForAgent(agentName string) (mcpTarget, error) {
-	return mcpTargetForHarness(agentName)
-}
 
 func inspectJSONMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {
 	configPath := target.configPath(home)
