@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -60,8 +61,8 @@ var sourceRegistry = []sourceDef{
 	{
 		Name: "x.com", Desc: "X.com / Twitter", DefaultOn: true, ToSRisk: "high",
 		Methods: []sourceMethodDef{
-			{Name: "x-api-v2", Type: methodAPI, Priority: 0, Check: "test -s ~/.x-api/credentials.json", Auth: "~/.x-api/credentials.json", Setup: "register OAuth consumer app at developer.x.com"},
 			{Name: "x-cli", Type: methodCLI, Priority: 1, Detect: "x-cli", Auth: "~/.x-cli/credentials.json", Setup: "x-cli auth login"},
+			{Name: "x-api-v2", Type: methodAPI, Priority: 2, Check: "test -s ~/.x-api/credentials.json", Auth: "~/.x-api/credentials.json", Setup: "register OAuth consumer app at developer.x.com"},
 			{Name: "websearch", Type: methodFallback, Priority: 99},
 		},
 	},
@@ -178,13 +179,43 @@ func checkMethodAvailability(m sourceMethodDef, cfg config, home string) (bool, 
 
 func runShellCheck(cmd string, home string) (bool, string) {
 	cmd = strings.ReplaceAll(cmd, "~", home)
+	parts := strings.Fields(cmd)
+	if len(parts) >= 3 && parts[0] == "test" {
+		op := parts[1]
+		arg := strings.Trim(parts[2], "\"'")
+		switch op {
+		case "-s":
+			info, err := os.Stat(arg)
+			if err != nil {
+				return false, err.Error()
+			}
+			if info.Size() == 0 {
+				return false, "file is empty"
+			}
+			return true, ""
+		case "-d":
+			info, err := os.Stat(arg)
+			if err != nil {
+				return false, err.Error()
+			}
+			if !info.IsDir() {
+				return false, "not a directory"
+			}
+			return true, ""
+		case "-n":
+			if strings.HasPrefix(arg, "$") {
+				if os.Getenv(strings.TrimPrefix(arg, "$")) == "" {
+					return false, "environment variable not set"
+				}
+				return true, ""
+			}
+		}
+	}
 	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
 	if err != nil {
 		reason := strings.TrimSpace(string(out))
 		if reason == "" {
-			if cmd != "" {
-				reason = "check failed"
-			}
+			reason = "check failed"
 		}
 		return false, reason
 	}
@@ -233,19 +264,9 @@ func resolveSourceStatus(cfg config, home string) []sourceStatus {
 			if avail && m.Name == preferred {
 				ss.Best = m.Name
 				bestPriority = -1
-			} else if avail && m.Priority < bestPriority && ss.Best == "" {
+			} else if avail && m.Priority < bestPriority {
 				ss.Best = m.Name
 				bestPriority = m.Priority
-			}
-		}
-
-		// If preferred was set but not available, still pick best available
-		if ss.Best == "" {
-			for _, ms := range ss.Methods {
-				if ms.Available && ms.Priority < bestPriority {
-					ss.Best = ms.Name
-					bestPriority = ms.Priority
-				}
 			}
 		}
 

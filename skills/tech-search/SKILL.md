@@ -111,7 +111,7 @@ On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browse
 
 Use the method shown by `dotagents sources x.com`. Treat X as commentary unless the author is primary to the topic.
 
-**Power users:** @karpathy, @fcholet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
+**Power users:** @karpathy, @fchollet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
 
 **x-cli** (when best method is x-cli):
 ```bash
