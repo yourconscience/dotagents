@@ -32,6 +32,7 @@ Do not fabricate credentials, dates, metrics, motivations, links, or results. If
 
 - **Rewrite**: improve an existing draft while preserving meaning.
 - **Voice match**: analyze 1-3 samples, then rewrite using that rhythm, directness, and vocabulary level.
+- **Voice preset**: use a named voice from `voices/`. Invoke with `--voice <name>` or "in the style of <name>". Load the voice file, follow its style rules, use its samples as few-shot examples. Available presets are markdown files in `voices/`.
 - **Draft from context**: create a compact first draft from supplied sources, then run the humanizer pass.
 - **Audit only**: list AI tells and concrete fixes without rewriting.
 
@@ -68,6 +69,20 @@ Do not fabricate credentials, dates, metrics, motivations, links, or results. If
    - For rewrite, voice match, or draft-from-context: return the finished text first.
    - For audit only: use the "Quick Audit Output" format.
    - Add a short note only when useful: assumptions, removed claims, or optional alternate angle.
+
+## Voice Presets
+
+Named voice presets live in `voices/` as markdown files. Each file contains style rules and sample posts.
+
+When a preset is requested (`--voice huawei`, "write this in huawei style", etc.):
+1. Read `voices/<name>.md`.
+2. Follow the style rules section exactly.
+3. Use the sample posts as few-shot reference for tone, structure, emoji density, and vocabulary.
+4. Adapt the user's input content to the voice while preserving the factual core.
+5. Do NOT mix the preset voice with the default user voice. The preset fully overrides.
+
+Available presets:
+- `huawei` -- ALL CAPS corporate shitposting from ПОЛНЫЙ ХУАВЕЙ channel. Russian. Heavy emoji. Corporate satire with insider jargon.
 
 ## User Voice Defaults
 
