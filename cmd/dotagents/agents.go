@@ -357,7 +357,6 @@ func writeTOMLMultiline(b *strings.Builder, key string, value string) {
 	b.WriteString("\n")
 }
 
-
 func codexModelFor(model string) string {
 	switch strings.ToLower(strings.TrimSpace(model)) {
 	case "haiku":

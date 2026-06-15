@@ -126,7 +126,6 @@ func readNativeMCPServer(agentName string, name string, home string) (mcpServerC
 	return target.read(target, name, home)
 }
 
-
 func inspectJSONMCPServer(target mcpTarget, server mcpServerConfig, home string) (string, error) {
 	configPath := target.configPath(home)
 	data, err := os.ReadFile(configPath)
