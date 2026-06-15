@@ -31,7 +31,9 @@ The guiding rule: broad web finds the map; source-specific searches verify the t
 
 ## Sources
 
-Search sources in parallel when practical, but do not force every source. Skipped sources are fine when they are irrelevant, unauthenticated, or low-signal.
+Before searching, run `dotagents sources --compact` to discover available methods. Use the best available method for each source; fall back to the next if it fails at runtime.
+
+Search sources in parallel when practical, but do not force every source. Skipped sources are fine when they are irrelevant, unauthenticated, or low-signal. If a source shows as disabled in `dotagents sources`, do not attempt it.
 
 Reference: `references/reddit-discord-cli-eval.md` records the repo evaluation behind the `rdt-cli` and `discord-cli` recommendations.
 
@@ -86,38 +88,44 @@ Read threads at `https://news.ycombinator.com/item?id=<objectID>` and cite the H
 
 ### 4. Reddit
 
-Preferred path when installed:
+Use the method shown by `dotagents sources reddit`.
 
+**Target subreddits:** r/ExperiencedDevs, r/ClaudeAI, r/ClaudeCode, r/LocalLLaMA, r/MachineLearning, r/devops, r/commandline, r/neovim, r/Python, r/mcp, r/cybersecurity
+
+Pick 2-3 relevant subreddits. Avoid broad Reddit for ambiguous terms; it will chase engagement from irrelevant communities. Add context keywords, e.g. `uv poetry Python packaging`, not `poetry`.
+
+**rdt-cli** (when best method is rdt-cli):
 ```bash
 rdt search "<topic>" -s relevance -t month -n 10 --compact --json
 rdt search "<topic>" -r <subreddit> -s top -t year -n 10 --compact --json
 rdt read <post_id> -n 20 --json
 ```
 
-**Target subreddits:** r/ExperiencedDevs, r/ClaudeAI, r/ClaudeCode, r/LocalLLaMA, r/MachineLearning, r/devops, r/commandline, r/neovim, r/Python, r/mcp, r/cybersecurity
+On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat.
 
-Pick 2-3 relevant subreddits. Avoid broad Reddit for ambiguous terms; it will chase engagement from irrelevant communities. Add context keywords, e.g. `uv poetry Python packaging`, not `poetry`.
+**pullpush** (fallback for historical posts or VPS): `https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`
 
-Raw Reddit `.json` endpoints often 403 and should be treated as a fallback only. On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browser cookies; do not copy cookie secrets into chat. For historical posts or VPS fallback, use Pullpush API (`https://api.pullpush.io/reddit/search/submission/?q=<topic>&size=5&sort=desc&sort_type=score`).
+**websearch** (fallback): `site:reddit.com <topic>` via WebSearch.
 
 ### 5. X.com
 
-Use `x-cli` for X.com searches. Check auth with `x-cli auth status`.
+Use the method shown by `dotagents sources x.com`. Treat X as commentary unless the author is primary to the topic.
 
-**Power users:** @karpathy, @fchollet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
+**Power users:** @karpathy, @fcholet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
 
+**x-cli** (when best method is x-cli):
 ```bash
 x-cli search "(from:karpathy OR from:fchollet) <topic>" --type latest --count 10 --json
 x-cli search "<topic> (recommended OR \"game changer\")" --type top --count 10 --json
 ```
 
-Fallback: `site:x.com <topic>` via WebSearch if x-cli auth is broken. Treat X as commentary unless the author is primary to the topic.
+**websearch** (fallback): `site:x.com <topic>` via WebSearch.
 
 ### 6. Discord
 
-Discord remains opt-in because it uses user-token auth and may carry account-risk. Search Discord only when the topic is relevant to known communities (ML, LLMs, Claude, agents, evals, fine-tuning, etc). Skip for generic/unrelated topics.
+Discord is disabled by default (ToS risk). If `dotagents sources` shows it disabled, skip entirely. When enabled, search only for topics relevant to known communities (ML, LLMs, Claude, agents, evals, fine-tuning). Skip for generic/unrelated topics.
 
-**Preferred CLI for repeated/community monitoring**: `discord-cli` (`uv tool install kabi-discord-cli`) can sync accessible Discord channels into local SQLite, then search/export them with structured YAML/JSON. Use it only for accounts the user controls. Do not ask the user to paste raw Discord tokens into chat logs.
+**discord-cli** (when enabled and available): can sync accessible Discord channels into local SQLite, then search/export with structured YAML/JSON. Do not ask the user to paste raw Discord tokens into chat logs.
 
 ```bash
 discord status --yaml

@@ -3,12 +3,24 @@
 Centralized reference for every external data source accessible to dotagents skills, MCPs, and CLIs.
 Each source entry covers: what it is, how we access it, auth requirements, which skills use it, known limitations, and gaps.
 
+## Runtime status
+
+```bash
+dotagents sources             # table: what's available now
+dotagents sources --compact   # one-liner for skill prompts
+dotagents sources --json      # structured output
+dotagents sources x.com       # single source detail with auth/setup info
+```
+
+Configure in `dotagents.yaml` under `sources:`. Per-machine overrides in `dotagents.local.yaml`.
+
 ## Design goals
 
 1. One place to check "can I get data from X?" before writing a new skill or wiring a new MCP.
-2. Each source has a canonical access method. Fallbacks are documented, not discovered ad-hoc.
+2. Each source has a canonical access method with a priority. `dotagents sources` picks the best available.
 3. Auth credentials live in known locations; never duplicated across tools or pasted into chat.
 4. Read-only by default. Write/mutate actions require explicit opt-in per source.
+5. Configurable per machine: set `preferred: x-api-v2` in `dotagents.local.yaml` to override method selection.
 
 ## Access method taxonomy
 

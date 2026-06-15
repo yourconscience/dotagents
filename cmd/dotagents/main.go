@@ -15,6 +15,7 @@ type config struct {
 	ExternalSkills []externalSkillSource `yaml:"external_skills"`
 	Plugins        []pluginConfig        `yaml:"plugins,omitempty"`
 	Hooks          []hookConfig          `yaml:"hooks,omitempty"`
+	Sources        []sourceConfig        `yaml:"sources,omitempty"`
 }
 
 type pluginConfig struct {
@@ -171,6 +172,8 @@ func run(args []string) error {
 			return err
 		}
 		return runDoctor(opts)
+	case "sources":
+		return runSources(args[1:])
 	case "external":
 		return runExternal(args[1:])
 	case "promote":
@@ -245,6 +248,7 @@ func printUsage() {
 	fmt.Println("  dotagents mcp add <name> --command <cmd>     Add/update canonical managed MCP")
 	fmt.Println("  dotagents mcp import <agent> <name>          Import native MCP into canonical config")
 	fmt.Println("  dotagents mcp remove <name>                  Remove canonical managed MCP")
+	fmt.Println("  dotagents sources   [--json|--compact] [name] Show external data source availability")
 	fmt.Println("  dotagents external list                      Show external skill sources and lock state")
 	fmt.Println("  dotagents external update [name ...]         Move external sources to latest and rewrite the lock")
 	fmt.Println("  dotagents plugin add                         Install Claude Code plugin delivery for claude-code")
