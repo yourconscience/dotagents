@@ -211,6 +211,33 @@ mcp_servers:
         - hermes
         - droid
         - pi
+sources:
+    - name: x.com
+      enabled: true
+    - name: reddit
+      enabled: true
+    - name: hacker-news
+      enabled: true
+    - name: discord
+      enabled: false
+    - name: github
+      enabled: true
+    - name: linkedin
+      enabled: true
+    - name: telegram
+      enabled: true
+    - name: google
+      enabled: true
+    - name: web-search
+      enabled: true
+    - name: job-portals
+      enabled: true
+    - name: glassdoor
+      enabled: true
+    - name: hugging-face
+      enabled: true
+    - name: ra
+      enabled: false
 hooks:
     - name: memory-session-start
       enabled: true

@@ -271,6 +271,14 @@ func claudeHooksConfigPath(home string) string {
 }
 
 func inspectClaudeHookMap(raw map[string]interface{}, hook hookConfig) string {
+	return inspectGroupedHookMap(raw, hook, false)
+}
+
+func inspectNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) string {
+	return inspectGroupedHookMap(raw, hook, true)
+}
+
+func inspectGroupedHookMap(raw map[string]interface{}, hook hookConfig, requireType bool) string {
 	hooksRoot, ok := raw["hooks"].(map[string]interface{})
 	if !ok {
 		return stateMissing
@@ -295,7 +303,7 @@ func inspectClaudeHookMap(raw map[string]interface{}, hook hookConfig) string {
 				continue
 			}
 			found = true
-			if hookTimeoutMatches(item, hook.Timeout) {
+			if (!requireType || item["type"] == "command") && hookTimeoutMatches(item, hook.Timeout) {
 				return stateSynced
 			}
 		}
@@ -307,83 +315,14 @@ func inspectClaudeHookMap(raw map[string]interface{}, hook hookConfig) string {
 }
 
 func upsertClaudeHookMap(raw map[string]interface{}, hook hookConfig) {
-	hooksRoot, _ := raw["hooks"].(map[string]interface{})
-	if hooksRoot == nil {
-		hooksRoot = map[string]interface{}{}
-		raw["hooks"] = hooksRoot
-	}
-	groups, _ := hooksRoot[hook.Event].([]interface{})
-	if len(groups) == 0 {
-		groups = []interface{}{map[string]interface{}{"hooks": []interface{}{}}}
-	}
-	targetIndex := 0
-	for i, groupRaw := range groups {
-		group, ok := groupRaw.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		items, _ := group["hooks"].([]interface{})
-		if containsHookCommand(items, hook.Command) {
-			targetIndex = i
-			break
-		}
-	}
-	for i, groupRaw := range groups {
-		group, _ := groupRaw.(map[string]interface{})
-		if group == nil {
-			if i != targetIndex {
-				continue
-			}
-			group = map[string]interface{}{}
-			groups[i] = group
-		}
-		items, _ := group["hooks"].([]interface{})
-		items = removeHookCommand(items, hook.Command)
-		if i == targetIndex {
-			items = append(items, renderHookEntry(hook))
-		}
-		group["hooks"] = items
-	}
-	hooksRoot[hook.Event] = groups
-}
-
-func inspectNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) string {
-	hooksRoot, ok := raw["hooks"].(map[string]interface{})
-	if !ok {
-		return stateMissing
-	}
-	groups, ok := hooksRoot[hook.Event].([]interface{})
-	if !ok {
-		return stateMissing
-	}
-	found := false
-	for _, groupRaw := range groups {
-		group, ok := groupRaw.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		items, ok := group["hooks"].([]interface{})
-		if !ok {
-			continue
-		}
-		for _, itemRaw := range items {
-			item, ok := itemRaw.(map[string]interface{})
-			if !ok || !hookCommandMatches(item["command"], hook.Command) {
-				continue
-			}
-			found = true
-			if item["type"] == "command" && hookTimeoutMatches(item, hook.Timeout) {
-				return stateSynced
-			}
-		}
-	}
-	if found {
-		return stateDrifted
-	}
-	return stateMissing
+	upsertGroupedHookMap(raw, hook, renderHookEntry)
 }
 
 func upsertNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) {
+	upsertGroupedHookMap(raw, hook, renderNestedHookEntry)
+}
+
+func upsertGroupedHookMap(raw map[string]interface{}, hook hookConfig, render func(hookConfig) map[string]interface{}) {
 	hooksRoot, _ := raw["hooks"].(map[string]interface{})
 	if hooksRoot == nil {
 		hooksRoot = map[string]interface{}{}
@@ -417,7 +356,7 @@ func upsertNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) {
 		items, _ := group["hooks"].([]interface{})
 		items = removeHookCommand(items, hook.Command)
 		if i == targetIndex {
-			items = append(items, renderNestedHookEntry(hook))
+			items = append(items, render(hook))
 		}
 		group["hooks"] = items
 	}

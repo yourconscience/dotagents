@@ -218,3 +218,6 @@ Enable `multi_agent = true` in `~/.codex/config.toml`. Codex spawns child agents
 - No shared task list across sessions
 - No bi-directional messaging between independent sessions
 - Coordination is single-session only
+
+---
+
