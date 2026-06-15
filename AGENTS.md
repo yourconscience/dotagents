@@ -52,6 +52,7 @@
 - Create new git worktrees only under the local repository directory at `.worktrees/$worktree_name`; do not use `/tmp`, `/private/tmp`, sibling workspace dirs, or tool-specific worktree dirs unless explicitly requested.
 - Commit messages: short single line; no `Co-Authored-By` or `Co-authored-by` trailers. Agents must not add bot co-author trailers to commits. Install `hooks/commit-msg` as a git hook to strip them automatically.
 - Use the configured git identity. Do not override author or committer fields.
+- PR descriptions: do not include "Generated with Claude Code" or similar bot attribution footers.
 - Push only when asked.
 - PR work defaults to `/pr-triage`: inspect comments/checks, fix valid feedback, and stop before merge unless merge is explicitly approved.
 - Do not post GitHub issue/PR comments directly by default. Draft, copy, and open the URL for user review, except direct replies to bot comments are allowed.
