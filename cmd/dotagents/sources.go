@@ -178,40 +178,44 @@ func checkMethodAvailability(m sourceMethodDef, cfg config, home string) (bool, 
 }
 
 func runShellCheck(cmd string, home string) (bool, string) {
-	cmd = strings.ReplaceAll(cmd, "~", home)
-	parts := strings.Fields(cmd)
-	if len(parts) >= 3 && parts[0] == "test" {
-		op := parts[1]
-		arg := strings.Trim(parts[2], "\"'")
-		switch op {
-		case "-s":
-			info, err := os.Stat(arg)
-			if err != nil {
-				return false, err.Error()
-			}
-			if info.Size() == 0 {
-				return false, "file is empty"
+	if strings.HasPrefix(cmd, "test -s ") {
+		path := strings.TrimSpace(strings.TrimPrefix(cmd, "test -s "))
+		path = strings.Trim(path, "\"'")
+		path = strings.ReplaceAll(path, "~", home)
+		info, err := os.Stat(path)
+		if err != nil {
+			return false, err.Error()
+		}
+		if info.Size() == 0 {
+			return false, "file is empty"
+		}
+		return true, ""
+	}
+	if strings.HasPrefix(cmd, "test -d ") {
+		path := strings.TrimSpace(strings.TrimPrefix(cmd, "test -d "))
+		path = strings.Trim(path, "\"'")
+		path = strings.ReplaceAll(path, "~", home)
+		info, err := os.Stat(path)
+		if err != nil {
+			return false, err.Error()
+		}
+		if !info.IsDir() {
+			return false, "not a directory"
+		}
+		return true, ""
+	}
+	if strings.HasPrefix(cmd, "test -n ") {
+		val := strings.TrimSpace(strings.TrimPrefix(cmd, "test -n "))
+		val = strings.Trim(val, "\"'")
+		if strings.HasPrefix(val, "$") {
+			if os.Getenv(strings.TrimPrefix(val, "$")) == "" {
+				return false, "environment variable not set"
 			}
 			return true, ""
-		case "-d":
-			info, err := os.Stat(arg)
-			if err != nil {
-				return false, err.Error()
-			}
-			if !info.IsDir() {
-				return false, "not a directory"
-			}
-			return true, ""
-		case "-n":
-			if strings.HasPrefix(arg, "$") {
-				if os.Getenv(strings.TrimPrefix(arg, "$")) == "" {
-					return false, "environment variable not set"
-				}
-				return true, ""
-			}
 		}
 	}
-	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+	cmdExpanded := strings.ReplaceAll(cmd, "~", home)
+	out, err := exec.Command("sh", "-c", cmdExpanded).CombinedOutput()
 	if err != nil {
 		reason := strings.TrimSpace(string(out))
 		if reason == "" {
