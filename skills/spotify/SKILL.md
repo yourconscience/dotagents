@@ -17,7 +17,7 @@ Control Spotify playback via `spotify_player` CLI.
 
 - Playing, pausing, skipping tracks
 - Searching for songs, albums, artists, playlists
-- Managing the playback queue
+- Viewing the playback queue
 - Listing and selecting playback devices
 - Creating and modifying playlists
 - Checking what is currently playing
@@ -41,56 +41,69 @@ Control Spotify playback via `spotify_player` CLI.
 
 ```bash
 spotify_player playback play-pause
+spotify_player playback play
+spotify_player playback pause
 spotify_player playback next
 spotify_player playback previous
-spotify_player playback play --name "track or album name"
-spotify_player playback start --uri spotify:track:TRACKID
 spotify_player playback shuffle
 spotify_player playback repeat
-spotify_player playback volume --offset 10
-spotify_player playback volume --volume 50
+spotify_player playback seek 30000              # seek forward 30s (offset in ms)
+spotify_player playback volume 50               # set volume to 50%
+spotify_player playback volume 10 --offset      # increase by 10%
+spotify_player playback volume -10 --offset     # decrease by 10%
+```
+
+### Play by Name or ID
+
+```bash
+spotify_player playback start track --name "bohemian rhapsody"
+spotify_player playback start track --id TRACKID
+spotify_player playback start context album --name "kind of blue"
+spotify_player playback start context playlist --name "chill vibes"
+spotify_player playback start context playlist --id PLAYLISTID --shuffle
 ```
 
 ### Now Playing
 
 ```bash
 spotify_player get key playback
+spotify_player get key queue
 ```
 
 ### Search
 
 ```bash
-spotify_player search --query "bohemian rhapsody" --type track
-spotify_player search --query "miles davis" --type artist
-spotify_player search --query "chill vibes" --type playlist
-```
-
-### Queue
-
-```bash
-spotify_player queue --uri spotify:track:TRACKID
+spotify_player search "bohemian rhapsody"
+spotify_player search "miles davis"
 ```
 
 ### Devices
 
 ```bash
 spotify_player get key devices
-spotify_player playback transfer --device "device name"
+spotify_player connect --name "Living Room Speaker"
+spotify_player connect --id DEVICEID
 ```
 
 ### Playlists
 
 ```bash
-spotify_player get key playlists
-spotify_player playlist create --name "My Playlist"
-spotify_player playlist delete --id PLAYLISTID
+spotify_player get key user-playlists
+spotify_player playlist list
+spotify_player playlist new "My Playlist"
+spotify_player playlist new "Collab List" --public --collab
+spotify_player playlist delete PLAYLISTID
+spotify_player playlist edit add PLAYLISTID --track-id TRACKID
+spotify_player playlist edit delete PLAYLISTID --track-id TRACKID
 ```
 
 ### Library
 
 ```bash
-spotify_player get key tracks
-spotify_player get key albums
+spotify_player get key user-liked-tracks
+spotify_player get key user-saved-albums
+spotify_player get key user-followed-artists
+spotify_player get key user-top-tracks
 ```
 
 ## Troubleshooting
