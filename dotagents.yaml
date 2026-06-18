@@ -241,7 +241,7 @@ sources:
 # external_skills: third-party skill libraries fetched by dotagents sync.
 # Entries here are opt-in: uncomment or copy to dotagents.local.yaml to enable.
 #
-# mattpocock/skills (github.com/mattpocock/skills, 135k stars, MIT)
+# mattpocock/skills (github.com/mattpocock/skills, MIT)
 # Selected skills from skills/engineering/:
 #   tdd             - test-driven development workflow
 #   diagnosing-bugs - structured bug isolation process

@@ -34,23 +34,26 @@ esac
 echo "Fetching latest release..."
 LATEST_URL="https://api.github.com/repos/${REPO}/releases/latest"
 if command -v curl >/dev/null 2>&1; then
-  VERSION="$(curl -fsSL "$LATEST_URL" | grep '"tag_name"' | sed 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/')"
+  TAG="$(curl -fsSL "$LATEST_URL" | grep '"tag_name"' | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')"
 elif command -v wget >/dev/null 2>&1; then
-  VERSION="$(wget -qO- "$LATEST_URL" | grep '"tag_name"' | sed 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/')"
+  TAG="$(wget -qO- "$LATEST_URL" | grep '"tag_name"' | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')"
 else
   echo "error: curl or wget is required" >&2
   exit 1
 fi
 
-if [ -z "$VERSION" ]; then
-  echo "error: could not determine latest release version" >&2
+if [ -z "$TAG" ]; then
+  echo "error: could not determine latest release tag" >&2
   exit 1
 fi
+
+# Strip leading v for archive filename (goreleaser convention)
+VERSION="${TAG#v}"
 
 echo "Installing ${BINARY} ${VERSION} (${OS}/${ARCH})..."
 
 ARCHIVE="${BINARY}_${VERSION}_${OS}_${ARCH}.tar.gz"
-BASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
+BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 ARCHIVE_URL="${BASE_URL}/${ARCHIVE}"
 CHECKSUM_URL="${BASE_URL}/checksums.txt"
 
@@ -79,7 +82,8 @@ download "$CHECKSUM_URL" "${TMP_DIR}/checksums.txt"
 echo "Verifying checksum..."
 EXPECTED="$(grep "${ARCHIVE}" "${TMP_DIR}/checksums.txt" | awk '{print $1}')"
 if [ -z "$EXPECTED" ]; then
-  echo "warning: archive not found in checksums.txt; skipping verification" >&2
+  echo "error: archive not found in checksums.txt" >&2
+  exit 1
 elif command -v sha256sum >/dev/null 2>&1; then
   ACTUAL="$(sha256sum "${TMP_DIR}/${ARCHIVE}" | awk '{print $1}')"
   if [ "$ACTUAL" != "$EXPECTED" ]; then

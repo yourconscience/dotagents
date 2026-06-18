@@ -116,11 +116,11 @@ Only runs when the user passes `--fix` or explicitly asks to fix findings.
 For each finding rated critical or high with a concrete fix:
 
 1. Apply the fix (use the builder role if available, otherwise fix directly)
-2. Re-run only the relevant persona on the changed file
+2. Re-run the persona that originally flagged the finding on the changed file
 3. If the reviewer confirms the fix, mark as resolved
 4. If the reviewer finds a new issue with the fix, iterate (max 3 rounds per finding)
 
-After all fixes, re-run the full aggregate step on the final diff. Report what was fixed, what remains, and what needs the user's decision.
+After all fixes, re-run all personas on the final diff to catch issues introduced by fixes. The final aggregate uses only fresh findings from this re-run, not stale output from the original review.
 
 ## Rules
 

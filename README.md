@@ -50,9 +50,9 @@ Prebuilt binaries for macOS and Linux (amd64/arm64) on [Releases](https://github
 
 ## Skills
 
-16 skills ship with this repo:
+19 skills ship with this repo:
 
-`spawn` `cmux` `tmux` `remote-access` `repo-eval` `tech-search` `x-sim` `grill-me` `humanizer` `spec` `jobs` `pr-triage` `gws` `tg` `x-cli` `dotagents`
+`spawn` `cmux` `tmux` `remote-access` `repo-eval` `review` `tech-search` `x-sim` `grill-me` `humanizer` `spec` `jobs` `pr-triage` `gws` `tg` `x-cli` `spotify` `lila` `dotagents`
 
 A skill is a `SKILL.md` in a directory under `skills/`. Add one, run `dotagents sync`, it shows up everywhere.
 
