@@ -238,6 +238,28 @@ sources:
       enabled: true
     - name: ra
       enabled: false
+# external_skills: third-party skill libraries fetched by dotagents sync.
+# Entries here are opt-in: uncomment or copy to dotagents.local.yaml to enable.
+#
+# mattpocock/skills (github.com/mattpocock/skills, 135k stars, MIT)
+# Selected skills from skills/engineering/:
+#   tdd             - test-driven development workflow
+#   diagnosing-bugs - structured bug isolation process
+#   domain-modeling - domain model design sessions
+#   grill-with-docs - drill a topic using its own documentation
+# Note: handoff (in skills/productivity/) requires a separate entry at the same URL,
+# which the current config format does not support. Add it manually if needed by
+# pointing skill_dir: skills/productivity with skills: [handoff].
+#
+# external_skills:
+#     - url: https://github.com/mattpocock/skills
+#       branch: main
+#       skill_dir: skills/engineering
+#       skills:
+#           - tdd
+#           - diagnosing-bugs
+#           - domain-modeling
+#           - grill-with-docs
 hooks:
     - name: memory-session-start
       enabled: true

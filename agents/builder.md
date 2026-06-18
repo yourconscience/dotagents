@@ -1,7 +1,6 @@
 ---
 name: "builder"
 description: "Implements code changes following specs or architect designs. Use for feature implementation, bug fixes, and script writing. Focused on writing correct, minimal code."
-model: "sonnet"
 effort: "high"
 tools: Read, Glob, Grep, Bash, Write, Edit
 color: "yellow"
