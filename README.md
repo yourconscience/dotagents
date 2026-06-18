@@ -16,7 +16,19 @@ Go CLI that keeps skills, MCP servers, hooks, and agent roles in one `~/.agents`
 **Full setup** (all harnesses):
 
 ```bash
+# curl installer (macOS/Linux, no Go required)
+curl -fsSL https://raw.githubusercontent.com/yourconscience/dotagents/main/scripts/install.sh | sh
+
+# or via mise
+mise use -g github:yourconscience/dotagents
+
+# or with Go
 go install github.com/yourconscience/dotagents/cmd/dotagents@latest
+```
+
+Then clone and initialize:
+
+```bash
 git clone https://github.com/yourconscience/dotagents ~/.agents
 dotagents setup
 ```
@@ -38,9 +50,9 @@ Prebuilt binaries for macOS and Linux (amd64/arm64) on [Releases](https://github
 
 ## Skills
 
-16 skills ship with this repo:
+19 skills ship with this repo:
 
-`spawn` `cmux` `tmux` `remote-access` `repo-eval` `tech-search` `x-sim` `grill-me` `humanizer` `spec` `jobs` `pr-triage` `gws` `tg` `x-cli` `dotagents`
+`spawn` `cmux` `tmux` `remote-access` `repo-eval` `review` `tech-search` `x-sim` `grill-me` `humanizer` `spec` `jobs` `pr-triage` `gws` `tg` `x-cli` `spotify` `lila` `dotagents`
 
 A skill is a `SKILL.md` in a directory under `skills/`. Add one, run `dotagents sync`, it shows up everywhere.
 
@@ -88,6 +100,6 @@ Private additions go in `dotagents.local.yaml` (gitignored).
 | Agent roles | yes | 23 built-in | 20 built-in | no |
 | Security audit | yes | no | no | yes |
 | Multi-harness | 5 managed + 3 compat | Claude Code | Claude Code | 60+ |
-| Install | plugin or `go install` | CC plugin | pipx | `go install` |
+| Install | plugin, curl, or `go install` | CC plugin | pipx | `go install` |
 
 gstack and SuperClaude are content packs for Claude Code. skillshare syncs skills broadly but not MCP, hooks, or roles. dotagents is the full config layer across harnesses.
