@@ -14,7 +14,7 @@ Not the same as `/pr-triage`, which reacts to existing PR comments and CI failur
 ```
 /review                          # review staged + unstaged changes
 /review HEAD~3..HEAD             # review last 3 commits
-/review main..HEAD               # review current branch vs main
+/review main..HEAD               # review current branch vs base
 /review --fix                    # review and fix findings (iterative)
 /review --persona security       # single-persona review
 ```
@@ -29,9 +29,11 @@ If the user provided a range, use it. Otherwise detect:
 # If there are staged/unstaged changes, review those
 git diff HEAD
 
-# If clean working tree, review current branch vs base
-git log --oneline main..HEAD
-git diff main...HEAD
+# If clean working tree, review current branch vs default base
+BASE="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')"
+BASE="${BASE:-main}"
+git log --oneline "${BASE}..HEAD"
+git diff "${BASE}...HEAD"
 ```
 
 Identify relevant context files: CONTRIBUTING.md, coding standards, project CLAUDE.md/AGENTS.md, any spec or PRD referenced in recent commit messages.
@@ -116,7 +118,8 @@ Only runs when the user passes `--fix` or explicitly asks to fix findings.
 For each finding rated critical or high with a concrete fix:
 
 1. Apply the fix (use the builder role if available, otherwise fix directly)
-2. Re-run the persona that originally flagged the finding on the changed file
+2. Run tests or build if available to catch regressions before re-review
+3. Re-run the persona that originally flagged the finding on the changed file
 3. If the reviewer confirms the fix, mark as resolved
 4. If the reviewer finds a new issue with the fix, iterate (max 3 rounds per finding)
 
