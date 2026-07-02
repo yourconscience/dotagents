@@ -27,6 +27,7 @@ _STATE_DIR = Path(os.getenv(
 _SOCK_PATH = _STATE_DIR / "daemon.sock"
 _PID_PATH = _STATE_DIR / "daemon.pid"
 _LOG_PATH = _STATE_DIR / "daemon.log"
+_MAX_READ_BATCH = 100
 
 
 async def _ensure_daemon() -> None:
@@ -87,6 +88,39 @@ def _print(data: any) -> None:
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
+async def _read_messages(chat: str, limit: int, batch_size: int, offset_id: int | None = None) -> list[dict]:
+    if limit < 1:
+        raise ValueError("--limit must be at least 1")
+    if batch_size < 1:
+        raise ValueError("--batch-size must be at least 1")
+    batch_size = min(batch_size, _MAX_READ_BATCH)
+
+    pages: list[list[dict]] = []
+    remaining = limit
+    next_offset_id = offset_id
+
+    while remaining > 0:
+        page_limit = min(batch_size, remaining)
+        params: dict = {"chat": chat, "limit": page_limit}
+        if next_offset_id is not None:
+            params["offset_id"] = next_offset_id
+
+        page = await _call("get_recent_messages", params)
+        if not page:
+            break
+        if next_offset_id is not None and page[0]["id"] >= next_offset_id:
+            raise RuntimeError("daemon does not support paged reads; run `tg daemon stop` and retry")
+
+        pages.append(page)
+        remaining -= len(page)
+        next_offset_id = page[0]["id"]
+
+        if len(page) < page_limit:
+            break
+
+    return [msg for page in reversed(pages) for msg in page]
+
+
 def _daemon_status() -> None:
     if not _PID_PATH.exists():
         print("stopped (no pid file)")
@@ -124,6 +158,8 @@ def main() -> None:
     r = sub.add_parser("read", help="Read messages from a chat")
     r.add_argument("chat")
     r.add_argument("--limit", "-n", type=int, default=20)
+    r.add_argument("--batch-size", type=int, default=_MAX_READ_BATCH, help=f"messages per daemon request, max {_MAX_READ_BATCH}")
+    r.add_argument("--offset-id", type=int, default=None, help="read messages older than this Telegram message id")
 
     s = sub.add_parser("search", help="Search messages in a chat")
     s.add_argument("chat")
@@ -163,7 +199,11 @@ def main() -> None:
             params["query"] = args.query
         _print(asyncio.run(_call("list_dialogs", params)))
     elif args.cmd == "read":
-        _print(asyncio.run(_call("get_recent_messages", {"chat": args.chat, "limit": args.limit})))
+        try:
+            _print(asyncio.run(_read_messages(args.chat, args.limit, args.batch_size, args.offset_id)))
+        except (RuntimeError, ValueError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
     elif args.cmd == "search":
         _print(asyncio.run(_call("search_messages", {"chat": args.chat, "query": args.query, "limit": args.limit})))
     elif args.cmd == "info":

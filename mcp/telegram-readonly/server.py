@@ -59,6 +59,7 @@ _LOCK_PATH = _STATE_DIR / "daemon.lock"
 _PID_PATH = _STATE_DIR / "daemon.pid"
 _LOG_PATH = _STATE_DIR / "daemon.log"
 _IDLE_TIMEOUT = 1800
+_MAX_MESSAGES_PER_CALL = 100
 
 
 # ── Helpers (shared by daemon) ───────────────────────────────────────────
@@ -183,7 +184,12 @@ async def _daemon_main() -> None:
         if method == "get_recent_messages":
             entity = await _resolve_chat(client, params["chat"])
             msgs = []
-            async for msg in client.iter_messages(entity, limit=max(1, min(params.get("limit", 30), 200))):
+            kwargs = {
+                "limit": max(1, min(params.get("limit", 30), _MAX_MESSAGES_PER_CALL)),
+            }
+            if params.get("offset_id") is not None:
+                kwargs["offset_id"] = int(params["offset_id"])
+            async for msg in client.iter_messages(entity, **kwargs):
                 msgs.append(_message_to_dict(msg))
             return list(reversed(msgs))
         if method == "search_messages":
@@ -353,9 +359,12 @@ async def list_dialogs(limit: int = 50, query: str | None = None) -> Any:
 
 
 @mcp.tool()
-async def get_recent_messages(chat: str, limit: int = 30) -> Any:
+async def get_recent_messages(chat: str, limit: int = 30, offset_id: int | None = None) -> Any:
     """Read recent messages from a chat by username, id, exact title, or title substring."""
-    return await _proxy_call("get_recent_messages", {"chat": chat, "limit": limit})
+    params: dict = {"chat": chat, "limit": limit}
+    if offset_id is not None:
+        params["offset_id"] = offset_id
+    return await _proxy_call("get_recent_messages", params)
 
 
 @mcp.tool()
