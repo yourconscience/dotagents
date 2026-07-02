@@ -20,7 +20,7 @@ The daemon auto-starts on first use and shuts down after 30 min idle.
 
 ```bash
 tg dialogs [--query Q] [--limit N]    # list chats
-tg read <chat> [--limit N]            # read messages
+tg read <chat> [--limit N]            # read messages, batched automatically
 tg search <chat> <query> [--limit N]  # search in a chat
 tg info <chat>                        # chat metadata
 tg daemon status|start|stop|log       # manage daemon
@@ -32,6 +32,13 @@ Output is JSON. Pipe through `jq` for filtering:
 
 ```bash
 tg read max_akhmedov -n 10 | jq '.[] | select(.sender_name != "K K") | .text'
+```
+
+Large reads are paged through the daemon in batches of up to 100 messages,
+then printed as one JSON array:
+
+```bash
+tg read max_akhmedov -n 1000 > messages.json
 ```
 
 ## Why CLI + skill, not MCP

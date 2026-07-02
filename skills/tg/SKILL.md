@@ -14,7 +14,7 @@ tg dialogs                       # list recent chats (default 20)
 tg dialogs --query "Berlin"      # filter by name substring
 tg dialogs --limit 50            # more results
 
-tg read <chat> [--limit N]       # read recent messages
+tg read <chat> [--limit N]       # read recent messages, batched automatically
 tg search <chat> <query> [-n N]  # search within a chat
 tg info <chat>                   # chat metadata
 
@@ -38,6 +38,12 @@ All commands output JSON. Pipe through `jq` for filtering:
 
 ```bash
 tg read wq67753 -n 5 | jq '.[] | select(.sender_name == "Модник") | .text'
+```
+
+For larger history reads, `tg read` fetches daemon-safe batches and joins them into one JSON array:
+
+```bash
+tg read wq67753 -n 1000 > messages.json
 ```
 
 ## Architecture
