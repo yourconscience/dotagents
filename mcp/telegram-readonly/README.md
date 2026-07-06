@@ -21,6 +21,7 @@ The daemon auto-starts on first use and shuts down after 30 min idle.
 ```bash
 tg dialogs [--query Q] [--limit N]    # list chats
 tg read <chat> [--limit N]            # read messages, batched automatically
+tg download <chat> <message_id>       # download one media message
 tg search <chat> <query> [--limit N]  # search in a chat
 tg info <chat>                        # chat metadata
 tg daemon status|start|stop|log       # manage daemon
@@ -39,6 +40,15 @@ then printed as one JSON array:
 
 ```bash
 tg read max_akhmedov -n 1000 > messages.json
+```
+
+Media messages include `media_kind`, `file_name`, and `mime_type` when known.
+That makes it easy to spot Telegram circles (`video_note`) and download them
+as parseable video files:
+
+```bash
+tg read max_akhmedov -n 200 | jq '.[] | select(.media_kind == "video_note")'
+tg download max_akhmedov 123456 --output ~/Downloads/tg/
 ```
 
 ## Why CLI + skill, not MCP
