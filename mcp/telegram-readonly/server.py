@@ -95,7 +95,7 @@ def _download_target(output: str | None) -> Path:
     if output is None:
         return Path.cwd().resolve()
     target = Path(output).expanduser()
-    if (target.exists() and target.is_dir()) or output.endswith(os.sep):
+    if (target.exists() and target.is_dir()) or output.endswith(("/", "\\")):
         target.mkdir(parents=True, exist_ok=True)
         return target.resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -127,15 +127,16 @@ def _entity_kind(entity: Any) -> str:
 
 def _message_to_dict(msg: Any) -> dict[str, Any]:
     sender = getattr(msg, "sender", None)
-    file_name, mime_type = _file_info(msg)
+    has_media = bool(getattr(msg, "media", None))
+    file_name, mime_type = _file_info(msg) if has_media else (None, None)
     return {
         "id": msg.id,
         "date": msg.date.astimezone(timezone.utc).isoformat() if msg.date else None,
         "sender_id": getattr(msg, "sender_id", None),
         "sender_name": _entity_name(sender) if sender else None,
         "text": msg.message or "",
-        "has_media": bool(getattr(msg, "media", None)),
-        "media_kind": _media_kind(msg),
+        "has_media": has_media,
+        "media_kind": _media_kind(msg) if has_media else None,
         "file_name": file_name,
         "mime_type": mime_type,
         "reply_to_msg_id": getattr(getattr(msg, "reply_to", None), "reply_to_msg_id", None),

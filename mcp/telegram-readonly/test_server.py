@@ -62,6 +62,27 @@ class ServerHelpersTest(unittest.TestCase):
         self.assertEqual(data["file_name"], "round.mp4")
         self.assertEqual(data["mime_type"], "video/mp4")
 
+    def test_message_to_dict_skips_media_fields_without_media(self) -> None:
+        server = _load_server()
+        msg = SimpleNamespace(
+            id=43,
+            date=None,
+            sender_id=7,
+            sender=None,
+            message="hello",
+            media=None,
+            reply_to=None,
+            file=SimpleNamespace(name="ignored.mp4", mime_type="video/mp4"),
+            video_note=True,
+        )
+
+        data = server._message_to_dict(msg)
+
+        self.assertFalse(data["has_media"])
+        self.assertIsNone(data["media_kind"])
+        self.assertIsNone(data["file_name"])
+        self.assertIsNone(data["mime_type"])
+
     def test_download_target_creates_directory_output(self) -> None:
         server = _load_server()
         with tempfile.TemporaryDirectory() as tmp:
