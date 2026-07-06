@@ -64,6 +64,43 @@ _MAX_MESSAGES_PER_CALL = 100
 
 # ── Helpers (shared by daemon) ───────────────────────────────────────────
 
+def _media_kind(msg: Any) -> str | None:
+    if getattr(msg, "video_note", None):
+        return "video_note"
+    if getattr(msg, "voice", None):
+        return "voice"
+    if getattr(msg, "video", None):
+        return "video"
+    if getattr(msg, "gif", None):
+        return "animation"
+    if getattr(msg, "sticker", None):
+        return "sticker"
+    if getattr(msg, "audio", None):
+        return "audio"
+    if getattr(msg, "photo", None):
+        return "photo"
+    if getattr(msg, "document", None):
+        return "document"
+    return None
+
+
+def _file_info(msg: Any) -> tuple[str | None, str | None]:
+    file = getattr(msg, "file", None)
+    if file is None:
+        return None, None
+    return getattr(file, "name", None), getattr(file, "mime_type", None)
+
+
+def _download_target(output: str | None) -> Path:
+    if output is None:
+        return Path.cwd().resolve()
+    target = Path(output).expanduser()
+    if (target.exists() and target.is_dir()) or output.endswith(("/", "\\")):
+        target.mkdir(parents=True, exist_ok=True)
+        return target.resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target.resolve()
+
 def _entity_name(entity: Any) -> str:
     from telethon.tl.types import User
     if isinstance(entity, User):
@@ -90,13 +127,18 @@ def _entity_kind(entity: Any) -> str:
 
 def _message_to_dict(msg: Any) -> dict[str, Any]:
     sender = getattr(msg, "sender", None)
+    has_media = bool(getattr(msg, "media", None))
+    file_name, mime_type = _file_info(msg) if has_media else (None, None)
     return {
         "id": msg.id,
         "date": msg.date.astimezone(timezone.utc).isoformat() if msg.date else None,
         "sender_id": getattr(msg, "sender_id", None),
         "sender_name": _entity_name(sender) if sender else None,
         "text": msg.message or "",
-        "has_media": bool(getattr(msg, "media", None)),
+        "has_media": has_media,
+        "media_kind": _media_kind(msg) if has_media else None,
+        "file_name": file_name,
+        "mime_type": mime_type,
         "reply_to_msg_id": getattr(getattr(msg, "reply_to", None), "reply_to_msg_id", None),
     }
 
@@ -201,6 +243,25 @@ async def _daemon_main() -> None:
             async for msg in client.iter_messages(entity, search=q, limit=max(1, min(params.get("limit", 30), 200))):
                 msgs.append(_message_to_dict(msg))
             return msgs
+        if method == "download_message_media":
+            entity = await _resolve_chat(client, params["chat"])
+            msg = await client.get_messages(entity, ids=int(params["message_id"]))
+            if msg is None:
+                raise ValueError(f"Message not found: {params['message_id']}")
+            if not getattr(msg, "media", None):
+                raise ValueError(f"Message has no media: {params['message_id']}")
+            target = _download_target(params.get("output"))
+            saved_path = await client.download_media(msg, file=str(target))
+            if saved_path is None:
+                raise RuntimeError(f"Failed to download media for message {params['message_id']}")
+            file_name, mime_type = _file_info(msg)
+            return {
+                "message_id": msg.id,
+                "path": str(Path(saved_path).resolve()),
+                "media_kind": _media_kind(msg),
+                "file_name": file_name,
+                "mime_type": mime_type,
+            }
         if method == "get_chat_info":
             from telethon.utils import get_peer_id
             entity = await _resolve_chat(client, params["chat"])
@@ -371,6 +432,15 @@ async def get_recent_messages(chat: str, limit: int = 30, offset_id: int | None 
 async def search_messages(chat: str, query: str, limit: int = 30) -> Any:
     """Search messages in one chat. Read-only."""
     return await _proxy_call("search_messages", {"chat": chat, "query": query, "limit": limit})
+
+
+@mcp.tool()
+async def download_message_media(chat: str, message_id: int, output: str | None = None) -> Any:
+    """Download one media message by chat and Telegram message id."""
+    params: dict[str, Any] = {"chat": chat, "message_id": message_id}
+    if output is not None:
+        params["output"] = output
+    return await _proxy_call("download_message_media", params)
 
 
 @mcp.tool()

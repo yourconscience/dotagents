@@ -4,6 +4,7 @@
 Usage:
   tg dialogs [--query Q] [--limit N]
   tg read <chat> [--limit N]
+  tg download <chat> <message_id> [--output PATH]
   tg search <chat> <query> [--limit N]
   tg info <chat>
   tg daemon status|start|stop|log
@@ -166,6 +167,11 @@ def main() -> None:
     s.add_argument("query")
     s.add_argument("--limit", "-n", type=int, default=20)
 
+    dl = sub.add_parser("download", help="Download media from one message")
+    dl.add_argument("chat")
+    dl.add_argument("message_id", type=int)
+    dl.add_argument("--output", "-o", default=str(Path.cwd()), help="destination file or directory")
+
     i = sub.add_parser("info", help="Chat metadata")
     i.add_argument("chat")
 
@@ -206,6 +212,12 @@ def main() -> None:
             sys.exit(1)
     elif args.cmd == "search":
         _print(asyncio.run(_call("search_messages", {"chat": args.chat, "query": args.query, "limit": args.limit})))
+    elif args.cmd == "download":
+        _print(asyncio.run(_call("download_message_media", {
+            "chat": args.chat,
+            "message_id": args.message_id,
+            "output": args.output,
+        })))
     elif args.cmd == "info":
         _print(asyncio.run(_call("get_chat_info", {"chat": args.chat})))
 

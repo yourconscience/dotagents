@@ -15,6 +15,7 @@ tg dialogs --query "Berlin"      # filter by name substring
 tg dialogs --limit 50            # more results
 
 tg read <chat> [--limit N]       # read recent messages, batched automatically
+tg download <chat> <message_id>  # download one media message
 tg search <chat> <query> [-n N]  # search within a chat
 tg info <chat>                   # chat metadata
 
@@ -44,6 +45,13 @@ For larger history reads, `tg read` fetches daemon-safe batches and joins them i
 
 ```bash
 tg read wq67753 -n 1000 > messages.json
+```
+
+To find and download Telegram circles as video:
+
+```bash
+tg read wq67753 -n 200 | jq '.[] | select(.media_kind == "video_note")'
+tg download wq67753 123456 --output ~/Downloads/tg/
 ```
 
 ## Architecture
