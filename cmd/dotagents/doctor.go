@@ -107,7 +107,7 @@ func checkAgentRoles(repoRoot string) checkResult {
 		return checkResult{"agent roles", checkStatusFail, err.Error()}
 	}
 	if len(roles) == 0 {
-		return checkResult{"agent roles", checkStatusWarn, "no agents/*.yaml roles found"}
+		return checkResult{"agent roles", checkStatusWarn, "no agent roles found in agents/subagents.yaml"}
 	}
 	return checkResult{"agent roles", checkStatusPass, fmt.Sprintf("%d roles valid", len(roles))}
 }
@@ -118,7 +118,7 @@ func checkPluginAgents(repoRoot string) checkResult {
 		return checkResult{"plugin agents", checkStatusFail, err.Error()}
 	}
 	if len(expected) == 0 {
-		return checkResult{"plugin agents", checkStatusWarn, "no agents/*.yaml roles found"}
+		return checkResult{"plugin agents", checkStatusWarn, "no agent roles found in agents/subagents.yaml"}
 	}
 
 	var stale []string
