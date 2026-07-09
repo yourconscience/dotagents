@@ -94,6 +94,16 @@ func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 		return repoLinkReport{}, fmt.Errorf("stat %s: %w", linkPath, err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
+		// Support the documented `git clone ... ~/.agents` install path: when
+		// the repo is cloned directly to ~/.agents, the path is a real
+		// directory that already *is* repoRoot, so no symlink is needed and
+		// the layout is already correct. Only a foreign non-symlink path
+		// (something other than the repo) is a genuine conflict.
+		if info.IsDir() && sameResolvedPath(linkPath, repoRoot) {
+			report.ActualTarget = linkPath
+			report.State = stateSynced
+			return report, nil
+		}
 		report.State = stateConflict
 		report.ActualTarget = "non-symlink path exists"
 		return report, nil
@@ -111,6 +121,21 @@ func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 
 	report.State = stateDrifted
 	return report, nil
+}
+
+// sameResolvedPath reports whether a and b refer to the same location after
+// resolving symlinks. Used to detect an in-place ~/.agents clone (the repo
+// cloned directly to ~/.agents) where a symlink to itself is unnecessary.
+func sameResolvedPath(a, b string) bool {
+	ra, err := filepath.EvalSymlinks(a)
+	if err != nil {
+		return false
+	}
+	rb, err := filepath.EvalSymlinks(b)
+	if err != nil {
+		return false
+	}
+	return ra == rb
 }
 
 func inspectAgents(selected []agentConfig, expected map[string]string, repoRoot string, home string, cfg config) ([]agentReport, error) {
