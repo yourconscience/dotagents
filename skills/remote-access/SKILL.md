@@ -17,7 +17,7 @@ Do not use this for session transfer, live terminal sharing, tmux, Warp/TUI scra
 
 [takopi](https://github.com/banteg/takopi) bridges Pi to a Telegram bot. Install: `uv tool install -U takopi`. Docs: [takopi.dev](https://takopi.dev/).
 
-The user's bot is `@gamrevinu_bot`. Config lives at `~/.takopi/takopi.toml`.
+The bot handle is configured in `~/.takopi/takopi.toml`.
 
 ### Quick reference
 
