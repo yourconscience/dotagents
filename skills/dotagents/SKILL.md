@@ -117,7 +117,7 @@ dotagents dogfood
 - Detects agents by checking if their binary is on PATH (`detect` field in config).
 - Treats repo skills under `skills/` as the managed set for each detected agent.
 - Treats repo hooks under `hooks/`, memory hooks under `memory/hooks/`, and skill hook entrypoints as managed only when declared in `dotagents.yaml`.
-- Renders canonical repo roles under `agents/*.yaml` to each detected agent's native `agent_root` format where supported:
+- Renders canonical repo roles from `agents/subagents.yaml` to each detected agent's native `agent_root` format where supported:
   - Claude Code: `~/.claude/agents/<name>.md`
   - Codex: `~/.codex/agents/<name>.toml`
   - Factory Droid: `~/.factory/droids/<name>.md`
