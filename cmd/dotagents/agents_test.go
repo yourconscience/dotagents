@@ -312,6 +312,20 @@ agents:
 	}
 }
 
+func TestLoadAgentRolesRejectsEscapingInstructionsFile(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1
+agents:
+  - name: reviewer
+    description: Reviews changes
+    instructions_file: ../outside.md
+`)
+
+	if _, err := loadAgentRoles(repoRoot); err == nil || !strings.Contains(err.Error(), "must be a relative path within the agents directory") {
+		t.Fatalf("want escaping path error, got %v", err)
+	}
+}
+
 func TestRenderPluginAgentsIdempotent(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1

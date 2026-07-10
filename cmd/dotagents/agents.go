@@ -223,7 +223,11 @@ func finalizeAgentRole(role *agentRole, source string, agentsDir string) error {
 		return fmt.Errorf("%s: role %s sets both instructions and instructions_file; use exactly one", source, role.Name)
 	}
 	if role.InstructionsFile != "" {
-		path := filepath.Join(agentsDir, filepath.FromSlash(role.InstructionsFile))
+		cleaned := filepath.Clean(filepath.FromSlash(role.InstructionsFile))
+		if filepath.IsAbs(cleaned) || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("%s: role %s instructions_file %q must be a relative path within the agents directory", source, role.Name, role.InstructionsFile)
+		}
+		path := filepath.Join(agentsDir, cleaned)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("%s: role %s instructions_file: %w", source, role.Name, err)
