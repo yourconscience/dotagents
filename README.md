@@ -58,7 +58,7 @@ A skill is a `SKILL.md` in a directory under `skills/`. Add one, run `dotagents 
 
 ## Agent roles
 
-Four roles defined in `agents/*.yaml`, rendered to each harness's native format:
+Four roles defined in `agents/subagents.yaml`, rendered to each harness's native format:
 
 `architect` `builder` `researcher` `reviewer`
 
