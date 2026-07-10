@@ -48,6 +48,7 @@
 
 # Git
 
+- Start each new fix or feature in its own git worktree by default; keep the main checkout clean. Work directly on the main checkout only for trivial, single-commit edits.
 - Preserve unrelated worktree changes: inspect `git -C <target> status` and `git worktree list` before removing, pruning, or switching worktrees, and only touch worktrees explicitly in scope.
 - Create new git worktrees only under the local repository directory at `.worktrees/$worktree_name`; do not use `/tmp`, `/private/tmp`, sibling workspace dirs, or tool-specific worktree dirs unless explicitly requested.
 - Commit messages: short single line; no `Co-Authored-By` or `Co-authored-by` trailers. Agents must not add bot co-author trailers to commits. Install `hooks/commit-msg` as a git hook to strip them automatically.
