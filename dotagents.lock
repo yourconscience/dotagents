@@ -1,0 +1,7 @@
+# Managed by dotagents sync / dotagents external update. Pins external skill sources.
+version: 1
+external_skills:
+    - name: skills
+      url: https://github.com/mattpocock/skills
+      branch: main
+      commit: d574778f94cf620fcc8ce741584093bc650a61d3
