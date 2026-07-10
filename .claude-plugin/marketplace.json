@@ -59,6 +59,13 @@
       "description": "Generic tmux reference for sessions, windows, panes, screen capture, and input.",
       "strict": false,
       "category": "workflow"
+    },
+    {
+      "name": "review",
+      "source": "./skills/review",
+      "description": "Multi-persona code review with structured findings for diffs, PRs, and branches.",
+      "strict": false,
+      "category": "workflow"
     }
   ]
 }

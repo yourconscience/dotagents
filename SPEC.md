@@ -96,7 +96,7 @@ Acceptance:
 
 ## Constraints
 
-- All repo changes on feature branches, PRs into main; `/pr-triage` discipline applies. No worktrees.
+- All repo changes on feature branches, PRs into main; `/pr-triage` discipline applies. Worktrees follow the AGENTS.md global rule: dedicated worktree under `.worktrees/` by default; continuing in place is allowed when a feature branch with minimal changes already exists.
 - Commit messages: short single line, no co-author trailers.
 - Do not commit `tmp/` artifacts, audit outputs, or verification transcripts.
 - Quota awareness: heavy execution on Codex (OpenAI Pro); Claude only for humanizer pass and reviews.
