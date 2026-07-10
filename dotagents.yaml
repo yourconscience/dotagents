@@ -33,7 +33,6 @@ plugins:
       surfaces:
         - skills
       agents:
-        - claude-code
         - codex
         - hermes
         - droid
@@ -62,7 +61,6 @@ plugins:
       surfaces:
         - skills
       agents:
-        - claude-code
         - codex
         - hermes
         - droid
@@ -258,8 +256,14 @@ sources:
 #       skills:
 #           - tdd
 #           - diagnosing-bugs
-#           - domain-modeling
 #           - grill-with-docs
+external_skills:
+    - url: https://github.com/mattpocock/skills
+      branch: main
+      skill_dir: skills/engineering
+      skills:
+          - wayfinder
+          - domain-modeling
 hooks:
     - name: memory-session-start
       enabled: true
