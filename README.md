@@ -2,6 +2,8 @@
 
 Go CLI that keeps skills, MCP servers, hooks, and agent roles in one `~/.agents` repo and syncs them into Claude Code, Codex, Droid, Hermes, and Pi.
 
+**Landing page:** [yourconscience.github.io/dotagents](https://yourconscience.github.io/dotagents/) · **Releases:** [v0.1.0](https://github.com/yourconscience/dotagents/releases/latest)
+
 ![dotagents harness map](./docs/harness-map.png)
 
 ## Install

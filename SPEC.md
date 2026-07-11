@@ -118,4 +118,7 @@ Acceptance:
 
 ## Outcome / Deviations
 
-(fill after implementation)
+- M-pre, M2, M3 complete: omx removed; landing live at https://yourconscience.github.io/dotagents/ (200); v0.1.0 released 2026-07-10 with darwin/linux amd64+arm64 binaries; curl installer, mise, and `go install @latest` verified working.
+- M0 deviation: repo was flipped public before the history audit ran. Remediation done post-hoc on 2026-07-10: `git filter-repo --mailmap` rewrote all history to the GitHub noreply identity (personal emails/hostnames removed), force-pushed; tracked-file leaks fixed in #103.
+- M1 deviation: full 8-harness scripted verification was not executed; primary-stack sync (Claude Code, Codex, Droid, Hermes, Pi) is exercised daily in normal use. Compatibility-only harnesses remain documented in README.
+- History rewrite closed stale PRs #92 and #95; their branches need rebasing if revived.
