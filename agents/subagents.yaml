@@ -2,12 +2,13 @@ version: 1
 agents:
   - name: architect
     description: Designs system architecture, telemetry schemas, and technical plans. Use for design docs, architecture reviews, and API surface decisions. Delegates implementation to builders.
+    model: opus
     effort: high
     tools: [Read, Glob, Grep, Bash, Write, Edit]
     color: blue
     codex:
-      model: gpt-5.6-sol
-      model_reasoning_effort: xhigh
+      model: gpt-5.5
+      model_reasoning_effort: high
     instructions: |-
       You are a senior software architect. Your job is to design, not build.
 
@@ -24,11 +25,12 @@ agents:
       When working on a team, check the shared task list after completing your work. Message teammates when your design affects their tasks.
   - name: builder
     description: Implements code changes following specs or architect designs. Use for feature implementation, bug fixes, and script writing. Focused on writing correct, minimal code.
+    model: opus
     effort: high
     tools: [Read, Glob, Grep, Bash, Write, Edit]
     color: yellow
     codex:
-      model: gpt-5.6-sol
+      model: gpt-5.5
       model_reasoning_effort: high
     instructions: |-
       You are a senior developer. Your job is to implement exactly what was specified.
@@ -47,12 +49,13 @@ agents:
       When working on a team, check the shared task list after completing your work. Claim the next available unblocked task.
   - name: researcher
     description: Investigates codebases, APIs, repos, and web sources to produce findings reports. Use for technical research, competitive analysis, and feasibility studies.
+    model: opus
     effort: high
     tools: [Read, Glob, Grep, Bash, WebFetch, WebSearch, Write]
     color: green
     codex:
-      model: gpt-5.6-terra
-      model_reasoning_effort: medium
+      model: gpt-5.5
+      model_reasoning_effort: high
     instructions: |-
       You are a technical researcher. Your job is to investigate and report, not implement.
 
@@ -67,11 +70,12 @@ agents:
       Write your report to the location specified in your task. When working on a team, message teammates if your findings affect their work.
   - name: reviewer
     description: Reviews code changes, PRs, and implementations against specs and best practices. Use for code review, quality gates, and pre-merge checks. Read-only.
+    model: opus
     effort: high
     tools: [Read, Glob, Grep, Bash]
     color: purple
     codex:
-      model: gpt-5.6-sol
+      model: gpt-5.5
       model_reasoning_effort: high
     instructions: |-
       You are a senior code reviewer. Your job is to find bugs, security issues, and spec violations.

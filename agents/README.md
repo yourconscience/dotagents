@@ -11,11 +11,12 @@ version: 1
 agents:
   - name: reviewer
     description: Reviews code changes against specs and best practices.
+    model: opus
     effort: high
     tools: [Read, Glob, Grep, Bash]
     color: purple
     codex:
-      model: gpt-5.6-sol
+      model: gpt-5.5
       model_reasoning_effort: high
     instructions: |-
       You are a senior code reviewer. ...
@@ -25,6 +26,8 @@ Fields per agent:
 
 - `name`, `description`, `instructions` - required.
 - `model`, `effort`, `tools`, `color` - optional; used by the harness renders.
+  `model` is the Claude Code model; use Claude aliases such as `opus` (the
+  current Opus 4.6 family) rather than pinning a dated full model ID.
 - `codex` (`model`, `model_reasoning_effort`) and `droid` (`model`,
   `reasoning_effort`, `tools`) - optional per-harness overrides.
 - `instructions_file` - optional path relative to this directory whose contents
@@ -33,6 +36,21 @@ Fields per agent:
 
 After editing, run `dotagents render` to regenerate the committed `.md` renders
 and `dotagents sync` to push them to harnesses.
+
+## Provider routing
+
+The canonical roles support both subscription-backed providers without making
+one silently fall back to the other:
+
+- Claude Code receives the top-level `model` (currently `opus`, resolving to
+  Opus 4.6).
+- Codex receives `codex.model` (currently `gpt-5.5`) and its reasoning effort.
+- Droid receives `droid.model` when set; otherwise the renderer maps the
+  top-level Claude family aliases to the configured GPT-5.5 custom models.
+
+Keep experimental models such as GPT-5.6 Terra and Luna out of automatic
+fallback chains until they have been evaluated for quality and quota use. They
+can be selected explicitly for a bounded trial.
 
 ## Inline vs external prompts
 
