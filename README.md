@@ -1,6 +1,6 @@
 # dotagents
 
-Go CLI that keeps skills, MCP servers, hooks, and agent roles in one `~/.agents` repo and syncs them into Claude Code, Codex, Droid, Hermes, and Pi.
+Go CLI that keeps skills, MCP servers, hooks, and agent roles in one `~/.agents` repo and syncs them into Claude Code, Codex, Droid, Hermes, and Pi. External skills are commit-pinned in `dotagents.lock` and audited for risky patterns by `dotagents doctor`.
 
 **Landing page:** [yourconscience.github.io/dotagents](https://yourconscience.github.io/dotagents/) · **Releases:** [v0.1.0](https://github.com/yourconscience/dotagents/releases/latest)
 
@@ -39,16 +39,15 @@ Prebuilt binaries for macOS and Linux (amd64/arm64) on [Releases](https://github
 
 ## What it does
 
-| Harness | Skills | Roles | MCP | Hooks | Status |
-|---|---|---|---|---|---|
-| Claude Code | yes | yes | yes | yes | managed |
-| Codex | yes | yes | yes | yes | managed |
-| Factory Droid | yes | yes | yes | yes | managed |
-| Hermes | yes | -- | yes | yes | managed |
-| Pi/OMP | yes | -- | yes | -- | managed |
-| Amp | -- | -- | -- | -- | compat |
-| OpenCode | -- | -- | -- | -- | compat |
-| OpenClaw | -- | -- | -- | -- | compat |
+| Harness | Skills | Roles | MCP | Hooks |
+|---|---|---|---|---|
+| Claude Code | yes | yes | yes | yes |
+| Codex | yes | yes | yes | yes |
+| Factory Droid | yes | yes | yes | yes |
+| Hermes | yes | -- | yes | yes |
+| Pi/OMP | yes | -- | yes | -- |
+
+Amp, OpenCode, and OpenClaw are compatibility-only: they can read the repo's skills via standard conventions, but dotagents does not manage them.
 
 ## Skills
 
@@ -94,14 +93,15 @@ Private additions go in `dotagents.local.yaml` (gitignored).
 
 ## Landscape
 
-| | dotagents | [gstack](https://github.com/garrytan/gstack) | [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework) | [skillshare](https://github.com/runkids/skillshare) |
+| | dotagents | [rulesync](https://github.com/dyoshikawa/rulesync) | [ruler](https://github.com/intellectronica/ruler) | [openskills](https://github.com/numman-ali/openskills) |
 |---|---|---|---|---|
-| Skills sync | yes | -- | -- | yes |
-| MCP sync | yes | no | no | no |
-| Hooks sync | yes | no | yes | no |
-| Agent roles | yes | 23 built-in | 20 built-in | no |
-| Security audit | yes | no | no | yes |
-| Multi-harness | 5 managed + 3 compat | Claude Code | Claude Code | 60+ |
-| Install | plugin, curl, or `go install` | CC plugin | pipx | `go install` |
+| Source of truth | canonical git repo (`~/.agents`) | unified files → generated configs | `.ruler/` dir → applied configs | skills installed from repos |
+| Skills sync | yes | yes | yes | yes |
+| MCP sync | yes | yes | yes | no |
+| Hooks sync | yes | yes | no | no |
+| Subagent roles | yes (`subagents.yaml`) | yes | experimental | no |
+| Supply-chain pinning | `dotagents.lock` + `doctor` audit | no | no | no |
+| Harness coverage | 5 deep | 40+ broad | 35+ broad | Claude-family + majors |
+| Install | plugin, curl, or `go install` | npm, brew, binary | npm | npm |
 
-gstack and SuperClaude are content packs for Claude Code. skillshare syncs skills broadly but not MCP, hooks, or roles. dotagents is the full config layer across harnesses.
+rulesync and ruler generate per-tool configs from a project-local source and win on breadth. dotagents goes depth-first: your whole agent setup — settings, skills, MCP, hooks, roles — lives in one versioned repo, syncs into each harness's native surface, and external skills are commit-pinned and audited before they reach any agent.
