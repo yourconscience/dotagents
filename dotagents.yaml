@@ -2,7 +2,7 @@ version: 1
 agents:
     - name: claude-code
       enabled: true
-      delivery: plugin
+      delivery: sync
       detect: claude
       skill_root: ~/.claude/skills
       agent_root: ~/.claude/agents
