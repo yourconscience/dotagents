@@ -139,7 +139,40 @@ func auditExternalSkill(name string, src externalSkillSource, cacheRoot string) 
 	if !hasDir(scanDir) {
 		scanDir = cachePath
 	}
-	return auditLocalSkill(name, scanDir)
+	// The skills: allowlist is an explicit user choice of what gets installed;
+	// only allowlisted subdirectories are scanned, and unselected siblings are
+	// reported as skipped instead of failing the audit for content never used.
+	if len(src.Skills) == 0 {
+		return auditLocalSkill(name, scanDir)
+	}
+	var findings []auditFinding
+	for _, sub := range src.Skills {
+		subDir := filepath.Join(scanDir, sub)
+		if !hasDir(subDir) {
+			findings = append(findings, auditFinding{
+				auditInfo, name, filepath.Join("external", name, sub),
+				"allowlisted external skill not in cache; run dotagents sync",
+			})
+			continue
+		}
+		findings = append(findings, auditLocalSkill(name, subDir)...)
+	}
+	entries, err := os.ReadDir(scanDir)
+	if err == nil {
+		allowed := make(map[string]bool, len(src.Skills))
+		for _, s := range src.Skills {
+			allowed[s] = true
+		}
+		for _, e := range entries {
+			if e.IsDir() && !allowed[e.Name()] && !strings.HasPrefix(e.Name(), ".") {
+				findings = append(findings, auditFinding{
+					auditInfo, name, e.Name(),
+					"skipped: not in skills allowlist",
+				})
+			}
+		}
+	}
+	return findings
 }
 
 // auditLocalSkill scans one skill directory tree.
