@@ -123,8 +123,19 @@ func auditRepo(repoRoot string, cfg config) []auditFinding {
 // auditLocalSkill scans one skill directory tree.
 func auditLocalSkill(name, dir string) []auditFinding {
 	var files []string
+	var findings []auditFinding
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			// Surface IO/permission failures instead of silently doing a partial
+			// scan, but keep walking the rest of the tree.
+			rel := auditRel(dir, path)
+			findings = append(findings, auditFinding{
+				auditWarn, name, rel,
+				"unreadable during audit: " + err.Error(),
+			})
+			if d != nil && d.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if d.IsDir() {
@@ -148,12 +159,8 @@ func auditLocalSkill(name, dir string) []auditFinding {
 		}
 	}
 
-	var findings []auditFinding
 	for _, f := range files {
-		rel, err := filepath.Rel(dir, f)
-		if err != nil {
-			rel = filepath.Base(f)
-		}
+		rel := auditRel(dir, f)
 		switch {
 		case filepath.Base(f) == "SKILL.md":
 			findings = append(findings, auditSkillMarkdown(name, rel, f)...)
@@ -311,6 +318,18 @@ func stripFrontmatter(content string) string {
 		return content
 	}
 	return rest[loc[1]:]
+}
+
+// auditRel returns path relative to dir, falling back to the base name (or "."
+// when path is empty, e.g. a walk error at the root).
+func auditRel(dir, path string) string {
+	if path == "" {
+		return "."
+	}
+	if rel, err := filepath.Rel(dir, path); err == nil {
+		return rel
+	}
+	return filepath.Base(path)
 }
 
 func urlHost(raw string) string {
