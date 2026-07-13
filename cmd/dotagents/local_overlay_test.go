@@ -11,6 +11,7 @@ func TestLoadConfigWithLocalOverlay(t *testing.T) {
 	home := t.TempDir()
 
 	base := `version: 1
+context_note_tokens: 8000
 agents:
   - name: claude-code
     enabled: true
@@ -22,7 +23,8 @@ external_skills:
   - url: https://github.com/example/shared-skills
     branch: main
 `
-	local := `agents:
+	local := `context_note_tokens: 0
+agents:
   - name: codex
     enabled: false
     skill_root: ~/.codex/skills
@@ -66,6 +68,9 @@ external_skills:
 	}
 	if _, ok := byName["private-skills"]; !ok {
 		t.Fatal("local overlay should append private-skills")
+	}
+	if cfg.ContextNoteTokens == nil || *cfg.ContextNoteTokens != 0 {
+		t.Fatalf("local overlay should override context_note_tokens, got %v", cfg.ContextNoteTokens)
 	}
 }
 

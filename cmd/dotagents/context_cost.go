@@ -102,6 +102,24 @@ func harnessContextCosts(cfg config, repoRoot string, home string, selected []ag
 	return costs, nil
 }
 
+// contextSkillsForReport returns the skills actually exposed to a harness.
+// Plugin delivery omits native repo skills from ExpectedSkills because that map
+// drives symlink reconciliation, so rebuild the full harness view for reporting.
+func contextSkillsForReport(cfg config, repoRoot, home string, report agentReport) map[string]string {
+	if report.Delivery != deliveryPlugin {
+		return report.ExpectedSkills
+	}
+	base, err := expectedSkills(repoRoot, home, cfg)
+	if err != nil {
+		return report.ExpectedSkills
+	}
+	expected, err := expectedSkillsForAgent(base, home, cfg, report.Name)
+	if err != nil {
+		return report.ExpectedSkills
+	}
+	return expected
+}
+
 // contextNoteLines returns a soft advisory note for each harness whose estimated
 // skill-listing tokens exceed the threshold. A threshold <= 0 disables the note.
 // Notes are prefixed with "note:" and are purely informational: callers must not

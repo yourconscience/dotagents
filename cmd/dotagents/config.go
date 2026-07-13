@@ -94,6 +94,9 @@ func mergeConfig(base *config, overlay config) {
 	base.Hooks = mergeByKey(base.Hooks, overlay.Hooks, func(h hookConfig) string { return strings.TrimSpace(h.Name) })
 	base.Plugins = mergeByKey(base.Plugins, overlay.Plugins, func(p pluginConfig) string { return strings.TrimSpace(p.Name) })
 	base.Sources = mergeByKey(base.Sources, overlay.Sources, func(s sourceConfig) string { return strings.TrimSpace(s.Name) })
+	if overlay.ContextNoteTokens != nil {
+		base.ContextNoteTokens = overlay.ContextNoteTokens
+	}
 }
 
 func mergeByKey[T any](base []T, overlay []T, key func(T) string) []T {

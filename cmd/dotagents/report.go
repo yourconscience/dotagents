@@ -88,8 +88,9 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 			fmt.Println("  sync: drifted")
 		}
 		if mode == "status" {
-			listingBytes := skillListingBytes(report.ExpectedSkills)
-			fmt.Printf("  skill listing context: %d skills, %d bytes name+desc, %s\n", len(report.ExpectedSkills), listingBytes, formatTokenEstimate(estimateTokens(listingBytes)))
+			contextSkills := contextSkillsForReport(cfg, repoRoot, home, report)
+			listingBytes := skillListingBytes(contextSkills)
+			fmt.Printf("  skill listing context: %d skills, %d bytes name+desc, %s\n", len(contextSkills), listingBytes, formatTokenEstimate(estimateTokens(listingBytes)))
 		}
 		fmt.Printf("  managed (%d): %s\n", len(report.Managed), displayList(report.Managed))
 		if len(report.ManagedAgent)+len(report.MissingAgent)+len(report.DriftedAgent) > 0 {

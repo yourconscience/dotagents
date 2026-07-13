@@ -108,6 +108,25 @@ func TestSkillListingBytes(t *testing.T) {
 	}
 }
 
+func TestContextSkillsForPluginReportIncludesRepoSkills(t *testing.T) {
+	repoRoot := t.TempDir()
+	home := t.TempDir()
+	writeSkill(t, filepath.Join(repoRoot, "skills"), "shared", "shared", "native plugin skill")
+	if err := os.Symlink(repoRoot, filepath.Join(home, ".agents")); err != nil {
+		t.Fatal(err)
+	}
+	report := agentReport{
+		Name:           "claude-code",
+		Delivery:       deliveryPlugin,
+		ExpectedSkills: map[string]string{},
+	}
+
+	got := contextSkillsForReport(config{}, repoRoot, home, report)
+	if _, ok := got["shared"]; !ok || skillListingBytes(got) == 0 {
+		t.Fatalf("plugin context skills omitted native repo skill: got %v", got)
+	}
+}
+
 func TestContextNoteLines(t *testing.T) {
 	costs := []harnessContextCost{
 		{Name: "claude-code", Skills: 40, Bytes: 40000, Tokens: 10000},
