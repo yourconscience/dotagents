@@ -261,6 +261,9 @@ func auditSkillMarkdown(skill, rel, path string) []auditFinding {
 func auditScriptFile(skill, rel, path string) []auditFinding {
 	text, ok := readAuditFile(path)
 	if !ok {
+		if f := oversizedFinding(skill, rel, path); f != nil {
+			return []auditFinding{*f}
+		}
 		return nil
 	}
 	var findings []auditFinding
@@ -285,9 +288,26 @@ func auditScriptFile(skill, rel, path string) []auditFinding {
 func auditGoFile(skill, rel, path string) []auditFinding {
 	text, ok := readAuditFile(path)
 	if !ok {
+		if f := oversizedFinding(skill, rel, path); f != nil {
+			return []auditFinding{*f}
+		}
 		return nil
 	}
 	return credNetworkFindings(skill, rel, text)
+}
+
+// oversizedFinding reports a WARN for audit-relevant files that exceed the
+// size limit: silently skipping them would let a skill evade scanning by
+// padding a script past skillAuditMaxFileSize.
+func oversizedFinding(skill, rel, path string) *auditFinding {
+	info, err := os.Stat(path)
+	if err != nil || info.Size() <= skillAuditMaxFileSize {
+		return nil
+	}
+	return &auditFinding{
+		auditWarn, skill, rel,
+		"file exceeds audit size limit and was not scanned",
+	}
 }
 
 // credNetworkFindings reports a CRITICAL when a file both reads a credential
