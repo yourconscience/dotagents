@@ -38,7 +38,7 @@ const (
 )
 
 func runDoctor(opts runOptions) error {
-	repoRoot, home, cfg, _, err := loadContext(opts)
+	repoRoot, home, cfg, selected, err := loadContext(opts)
 	if err != nil {
 		return err
 	}
@@ -92,6 +92,17 @@ func runDoctor(opts runOptions) error {
 	}
 
 	fmt.Printf("\n%d passed, %d warning, %d failed\n", passed, warned, failed)
+
+	// Context advisory notes are informational only. They are printed after the
+	// summary and MUST NOT influence the exit decision below.
+	printContextNotes(cfg, repoRoot, home, selected)
+
+	return doctorExitError(failed, warned)
+}
+
+// doctorExitError derives the doctor exit result from check outcomes only. It
+// intentionally takes no note/advisory input so context notes cannot affect it.
+func doctorExitError(failed, warned int) error {
 	if failed > 0 {
 		return fmt.Errorf("%d check(s) failed", failed)
 	}
@@ -99,6 +110,28 @@ func runDoctor(opts runOptions) error {
 		return fmt.Errorf("%d warning(s)", warned)
 	}
 	return nil
+}
+
+// printContextNotes prints soft, clearly-labeled skill-listing context notes for
+// harnesses over the configured threshold. It never affects the exit code and
+// stays silent on any error (best-effort advisory).
+func printContextNotes(cfg config, repoRoot string, home string, selected []agentConfig) {
+	threshold := contextNoteThreshold(cfg)
+	if threshold <= 0 {
+		return
+	}
+	costs, err := harnessContextCosts(cfg, repoRoot, home, selected)
+	if err != nil {
+		return
+	}
+	notes := contextNoteLines(threshold, costs)
+	if len(notes) == 0 {
+		return
+	}
+	fmt.Println()
+	for _, n := range notes {
+		fmt.Println(n)
+	}
 }
 
 func checkAgentRoles(repoRoot string) checkResult {
