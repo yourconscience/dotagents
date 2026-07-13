@@ -7,7 +7,7 @@ agents:
     tools: [Read, Glob, Grep, Bash, Write, Edit]
     color: blue
     codex:
-      model: gpt-5.5
+      model: gpt-5.6-sol
       model_reasoning_effort: high
     instructions: |-
       You are a senior software architect. Your job is to design, not build.
@@ -30,7 +30,7 @@ agents:
     tools: [Read, Glob, Grep, Bash, Write, Edit]
     color: yellow
     codex:
-      model: gpt-5.5
+      model: gpt-5.6-sol
       model_reasoning_effort: high
     instructions: |-
       You are a senior developer. Your job is to implement exactly what was specified.
@@ -54,8 +54,8 @@ agents:
     tools: [Read, Glob, Grep, Bash, WebFetch, WebSearch, Write]
     color: green
     codex:
-      model: gpt-5.5
-      model_reasoning_effort: high
+      model: gpt-5.6-luna
+      model_reasoning_effort: medium
     instructions: |-
       You are a technical researcher. Your job is to investigate and report, not implement.
 
@@ -75,7 +75,7 @@ agents:
     tools: [Read, Glob, Grep, Bash]
     color: purple
     codex:
-      model: gpt-5.5
+      model: gpt-5.6-sol
       model_reasoning_effort: high
     instructions: |-
       You are a senior code reviewer. Your job is to find bugs, security issues, and spec violations.

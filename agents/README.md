@@ -16,7 +16,7 @@ agents:
     tools: [Read, Glob, Grep, Bash]
     color: purple
     codex:
-      model: gpt-5.5
+      model: gpt-5.6-sol
       model_reasoning_effort: high
     instructions: |-
       You are a senior code reviewer. ...
@@ -44,13 +44,15 @@ one silently fall back to the other:
 
 - Claude Code receives the top-level `model` (currently `opus`, resolving to
   Opus 4.6).
-- Codex receives `codex.model` (currently `gpt-5.5`) and its reasoning effort.
+- Codex receives `codex.model`: GPT-5.6 Sol for architecture, implementation,
+  and review; GPT-5.6 Luna for research. Each role also carries its explicit
+  reasoning effort.
 - Droid receives `droid.model` when set; otherwise the renderer maps the
   top-level Claude family aliases to the configured GPT-5.5 custom models.
 
-Keep experimental models such as GPT-5.6 Terra and Luna out of automatic
-fallback chains until they have been evaluated for quality and quota use. They
-can be selected explicitly for a bounded trial.
+GPT-5.6 Sol and Luna are explicit role routes, not automatic fallback-chain
+entries. This keeps model selection predictable and prevents silent provider
+fallbacks.
 
 ## Inline vs external prompts
 
