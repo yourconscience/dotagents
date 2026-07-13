@@ -71,7 +71,7 @@ var auditScriptExtensions = map[string]bool{
 }
 
 func runAudit(opts runOptions) error {
-	repoRoot, _, cfg, _, err := loadContext(opts)
+	repoRoot, home, cfg, _, err := loadContext(opts)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func runAudit(opts runOptions) error {
 	fmt.Println("dotagents audit")
 	fmt.Printf("repo: %s\n\n", repoRoot)
 
-	findings := auditRepo(repoRoot, cfg)
+	findings := auditRepo(repoRoot, home, cfg)
 	crit, _, _ := printAuditFindings(os.Stdout, findings)
 	if crit > 0 {
 		return fmt.Errorf("%d critical finding(s)", crit)
@@ -87,9 +87,10 @@ func runAudit(opts runOptions) error {
 	return nil
 }
 
-// auditRepo scans local skills and external-skill pinning, returning sorted
-// findings. It reads only the filesystem so it is directly testable.
-func auditRepo(repoRoot string, cfg config) []auditFinding {
+// auditRepo scans local skills, external-skill pinning, and the cached content
+// of configured external skills, returning sorted findings. It reads only the
+// filesystem so it is directly testable.
+func auditRepo(repoRoot, home string, cfg config) []auditFinding {
 	var findings []auditFinding
 
 	skillsDir := filepath.Join(repoRoot, "skills")
@@ -107,17 +108,38 @@ func auditRepo(repoRoot string, cfg config) []auditFinding {
 	}
 
 	lock, _ := readLockFile(repoRoot)
+	cacheRoot := externalCacheDir(home)
 	for _, src := range cfg.ExternalSkills {
+		name := repoName(src.URL)
 		if lockEntryFor(lock, src) == nil {
 			findings = append(findings, auditFinding{
-				auditWarn, repoName(src.URL), lockFileName,
+				auditWarn, name, lockFileName,
 				"external skill not pinned in " + lockFileName,
 			})
 		}
+		findings = append(findings, auditExternalSkill(name, src, cacheRoot)...)
 	}
 
 	sortAuditFindings(findings)
 	return findings
+}
+
+// auditExternalSkill content-scans a configured external skill's cached clone
+// with the same file-walk (and severities) used for local skills. A missing
+// cache is reported as INFO rather than silently skipped.
+func auditExternalSkill(name string, src externalSkillSource, cacheRoot string) []auditFinding {
+	cachePath := filepath.Join(cacheRoot, name)
+	if !hasDir(cachePath) {
+		return []auditFinding{{
+			auditInfo, name, filepath.Join("external", name),
+			"external skill not in cache; run dotagents sync to fetch and audit",
+		}}
+	}
+	scanDir := filepath.Join(cachePath, src.SkillDir)
+	if !hasDir(scanDir) {
+		scanDir = cachePath
+	}
+	return auditLocalSkill(name, scanDir)
 }
 
 // auditLocalSkill scans one skill directory tree.
