@@ -161,11 +161,14 @@ func auditLocalSkill(name, dir string) []auditFinding {
 
 	for _, f := range files {
 		rel := auditRel(dir, f)
+		ext := strings.ToLower(filepath.Ext(f))
 		switch {
 		case filepath.Base(f) == "SKILL.md":
 			findings = append(findings, auditSkillMarkdown(name, rel, f)...)
-		case auditScriptExtensions[strings.ToLower(filepath.Ext(f))]:
+		case auditScriptExtensions[ext]:
 			findings = append(findings, auditScriptFile(name, rel, f)...)
+		case ext == ".go":
+			findings = append(findings, auditGoFile(name, rel, f)...)
 		default:
 			if fb := auditBinaryFile(name, rel, f, hasBuildSource); fb != nil {
 				findings = append(findings, *fb)
@@ -181,8 +184,21 @@ func auditSkillMarkdown(skill, rel, path string) []auditFinding {
 	if err != nil {
 		return nil
 	}
-	body := stripFrontmatter(string(data))
+	content := string(data)
+	body := stripFrontmatter(content)
 	var findings []auditFinding
+
+	// Apply the shared risky-pattern set (prompt-injection, hidden-from-user,
+	// pipe/base64, credential paths) to instruction text, matching the doctor
+	// external-skill audit's WARN classification.
+	for _, pattern := range skillAuditPatterns {
+		if pattern.re.MatchString(content) {
+			findings = append(findings, auditFinding{
+				auditWarn, skill, rel,
+				"SKILL.md matches risky pattern: " + pattern.name,
+			})
+		}
+	}
 
 	for _, comment := range reHTMLComment.FindAllString(body, -1) {
 		if reImperative.MatchString(comment) {
@@ -221,15 +237,10 @@ func auditSkillMarkdown(skill, rel, path string) []auditFinding {
 
 // auditScriptFile inspects a bundled script for shell/exfil patterns.
 func auditScriptFile(skill, rel, path string) []auditFinding {
-	info, err := os.Stat(path)
-	if err != nil || info.Size() > skillAuditMaxFileSize {
+	text, ok := readAuditFile(path)
+	if !ok {
 		return nil
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil
-	}
-	text := string(data)
 	var findings []auditFinding
 
 	if rePipeToShell.MatchString(text) {
@@ -242,21 +253,52 @@ func auditScriptFile(skill, rel, path string) []auditFinding {
 			auditCritical, skill, rel, "base64-decoded payload piped into a shell",
 		})
 	}
+	findings = append(findings, credNetworkFindings(skill, rel, text)...)
+	return findings
+}
 
+// auditGoFile inspects a bundled Go helper for the credential+network patterns.
+// Go source is text (not caught by the binary check) and reNetworkCall already
+// matches net/http, so a credential-harvesting helper must be scanned too.
+func auditGoFile(skill, rel, path string) []auditFinding {
+	text, ok := readAuditFile(path)
+	if !ok {
+		return nil
+	}
+	return credNetworkFindings(skill, rel, text)
+}
+
+// credNetworkFindings reports a CRITICAL when a file both reads a credential
+// path and makes a network call, or an INFO when it only makes a network call.
+func credNetworkFindings(skill, rel, text string) []auditFinding {
 	cred := reScriptCredential.MatchString(text)
 	net := reNetworkCall.MatchString(text)
 	switch {
 	case cred && net:
-		findings = append(findings, auditFinding{
+		return []auditFinding{{
 			auditCritical, skill, rel,
-			"reads a credential path and makes a network call in the same script",
-		})
+			"reads a credential path and makes a network call in the same file",
+		}}
 	case net:
-		findings = append(findings, auditFinding{
-			auditInfo, skill, rel, "script makes a network call",
-		})
+		return []auditFinding{{
+			auditInfo, skill, rel, "file makes a network call",
+		}}
 	}
-	return findings
+	return nil
+}
+
+// readAuditFile returns file text, skipping files that are unreadable or larger
+// than skillAuditMaxFileSize.
+func readAuditFile(path string) (string, bool) {
+	info, err := os.Stat(path)
+	if err != nil || info.Size() > skillAuditMaxFileSize {
+		return "", false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	return string(data), true
 }
 
 // auditBinaryFile flags committed executable binaries that lack accompanying
