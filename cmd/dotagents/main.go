@@ -16,6 +16,10 @@ type config struct {
 	Plugins        []pluginConfig        `yaml:"plugins,omitempty"`
 	Hooks          []hookConfig          `yaml:"hooks,omitempty"`
 	Sources        []sourceConfig        `yaml:"sources,omitempty"`
+	// ContextNoteTokens is the estimated skill-listing token threshold above
+	// which `dotagents doctor` prints a soft context advisory note. Absent
+	// (nil) uses contextNoteTokensDefault; 0 (or negative) disables the note.
+	ContextNoteTokens *int `yaml:"context_note_tokens,omitempty"`
 }
 
 type pluginConfig struct {
