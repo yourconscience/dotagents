@@ -139,6 +139,11 @@ func auditExternalSkill(name string, src externalSkillSource, cacheRoot string) 
 	if !hasDir(scanDir) {
 		scanDir = cachePath
 	}
+	// A source whose skill_dir itself contains SKILL.md is a single-skill
+	// source. Its validated allowlist names the repository, not a child dir.
+	if hasFile(filepath.Join(scanDir, "SKILL.md")) {
+		return auditLocalSkill(name, scanDir)
+	}
 	// The skills: allowlist is an explicit user choice of what gets installed;
 	// only allowlisted subdirectories are scanned, and unselected siblings are
 	// reported as skipped instead of failing the audit for content never used.
@@ -220,7 +225,7 @@ func auditLocalSkill(name, dir string) []auditFinding {
 		switch {
 		case filepath.Base(f) == "SKILL.md":
 			findings = append(findings, auditSkillMarkdown(name, rel, f)...)
-		case auditScriptExtensions[ext]:
+		case auditScriptExtensions[ext] || isExecutableText(f):
 			findings = append(findings, auditScriptFile(name, rel, f)...)
 		case ext == ".go":
 			findings = append(findings, auditGoFile(name, rel, f)...)
@@ -406,6 +411,24 @@ func isExecutableBinary(path string) bool {
 	}
 	execBit := info.Mode()&0o111 != 0
 	return execBit && bytes.IndexByte(buf, 0) >= 0
+}
+
+// isExecutableText identifies extensionless Unix helper scripts without
+// treating executable binaries as text.
+func isExecutableText(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+		return false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	buf := make([]byte, 512)
+	n, _ := f.Read(buf)
+	buf = buf[:n]
+	return !hasExecutableMagic(buf) && bytes.IndexByte(buf, 0) < 0
 }
 
 func hasExecutableMagic(b []byte) bool {
