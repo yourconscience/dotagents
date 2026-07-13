@@ -172,6 +172,12 @@ func run(args []string) error {
 			return err
 		}
 		return runDoctor(opts)
+	case "audit":
+		opts, err := parseSubcommandFlags("audit", args[1:])
+		if err != nil {
+			return err
+		}
+		return runAudit(opts)
 	case "sources":
 		return runSources(args[1:])
 	case "external":
@@ -257,5 +263,6 @@ func printUsage() {
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
 	fmt.Println("  dotagents render                              Render committed plugin artifacts: Claude agents (agents/) and Codex plugin skills (plugins/dotagents/)")
 	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes, package age")
+	fmt.Println("  dotagents audit         [--agents ...]           Supply-chain scan of local skills for risky patterns")
 	fmt.Println("  dotagents dogfood       [--agents ...]           End-to-end self-test: sync + status + doctor")
 }
