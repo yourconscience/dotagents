@@ -1,6 +1,8 @@
 # dotagents
 
-Go CLI that keeps skills, MCP servers, hooks, and agent roles in one `~/.agents` repo and syncs them into Claude Code, Codex, Droid, Hermes, and Pi. External skills are commit-pinned in `dotagents.lock` and audited for risky patterns by `dotagents doctor`.
+Dotfiles for your AI agents. One `~/.agents` repo holds your skills, MCP servers, hooks, and subagent roles — dotagents syncs it into Claude Code, Codex, Droid, Hermes, and Pi. External skills are commit-pinned in `dotagents.lock` and audited for risky patterns.
+
+This is *your* agent setup, not a project's: it lives in your home directory, versions like dotfiles, and follows you across machines and harnesses. Project-level `AGENTS.md` files stay in their repos where they belong.
 
 **Landing page:** [yourconscience.github.io/dotagents](https://yourconscience.github.io/dotagents/) · **Releases:** [v0.1.0](https://github.com/yourconscience/dotagents/releases/latest)
 
@@ -104,4 +106,4 @@ Private additions go in `dotagents.local.yaml` (gitignored).
 | Harness coverage | 5 deep | 40+ broad | 35+ broad | Claude-family + majors |
 | Install | plugin, curl, or `go install` | npm, brew, binary | npm | npm |
 
-rulesync and ruler generate per-tool configs from a project-local source and win on breadth. dotagents goes depth-first: your whole agent setup — settings, skills, MCP, hooks, roles — lives in one versioned repo, syncs into each harness's native surface, and external skills are commit-pinned and audited before they reach any agent.
+rulesync and ruler are project-level: they generate per-tool config files inside a repo and win on tool breadth. dotagents is user-level: your whole agent setup — settings, skills, MCP, hooks, roles — lives in one versioned `~/.agents` repo that follows you across machines, syncs into each harness's native surface, and pins external skills to audited commits before they reach any agent. Sync less, deliberately: skills can be scoped per harness so each agent carries only what it needs.
