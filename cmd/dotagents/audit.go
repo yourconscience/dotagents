@@ -10,17 +10,25 @@ import (
 	"strings"
 )
 
+// Shared risky-pattern regexes, reused by the doctor external-skill audit and
+// the standalone `dotagents audit` command.
+var (
+	rePipeToShell     = regexp.MustCompile(`(?i)\b(curl|wget)\b[^|\n]*\|\s*(sudo\s+)?(ba|z)?sh\b`)
+	reBase64ToShell   = regexp.MustCompile(`(?i)\bbase64\b\s+(-d|-D|--decode)\b[^\n]*\|\s*(ba|z)?sh\b`)
+	reCredentialPaths = regexp.MustCompile(`(\$HOME|~)/\.(ssh|aws|gnupg|netrc)\b`)
+)
+
 // skillAuditPatterns flags supply-chain and prompt-injection risks in skill
 // content. Matches are warnings for human review, not verdicts.
 var skillAuditPatterns = []struct {
 	name string
 	re   *regexp.Regexp
 }{
-	{"pipe-to-shell", regexp.MustCompile(`(?i)\b(curl|wget)\b[^|\n]*\|\s*(sudo\s+)?(ba|z)?sh\b`)},
-	{"base64-to-shell", regexp.MustCompile(`(?i)\bbase64\b\s+(-d|-D|--decode)\b[^\n]*\|\s*(ba|z)?sh\b`)},
+	{"pipe-to-shell", rePipeToShell},
+	{"base64-to-shell", reBase64ToShell},
 	{"prompt-injection", regexp.MustCompile(`(?i)\b(ignore|disregard)\s+(all\s+)?(previous|prior|above)\s+(instructions|context|rules)\b`)},
 	{"hidden-from-user", regexp.MustCompile(`(?i)\bdo not (tell|inform|mention|reveal)( this)?( to)? the user\b`)},
-	{"credential-paths", regexp.MustCompile(`(\$HOME|~)/\.(ssh|aws|gnupg|netrc)\b`)},
+	{"credential-paths", reCredentialPaths},
 }
 
 var skillAuditExtensions = map[string]bool{
