@@ -17,6 +17,29 @@ func writeREADMEInventoryFixture(t *testing.T, repoRoot string) {
 	writeSyncTestFile(t, filepath.Join(repoRoot, "README.md"), []byte("# Before\n\n"+readmeSkillsBeginMarker+"\n0 skills ship with this repo:\n\n``\n"+readmeSkillsEndMarker+"\n\n# After\n"))
 }
 
+func TestRenderCommittedArtifactsRendersEmptyInventoryWithoutSkillsDirectory(t *testing.T) {
+	repoRoot := t.TempDir()
+	path := filepath.Join(repoRoot, "README.md")
+	writeSyncTestFile(t, path, []byte("# Fresh Repo\n\n"+readmeSkillsBeginMarker+"\nstale inventory\n"+readmeSkillsEndMarker+"\n\n# After\n"))
+
+	if err := renderCommittedArtifacts(repoRoot); err != nil {
+		t.Fatalf("render committed artifacts without skills/: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "# Fresh Repo\n\n" +
+		"<!-- BEGIN GENERATED SKILLS -->\n" +
+		"0 skills ship with this repo:\n\n" +
+		"``\n" +
+		"<!-- END GENERATED SKILLS -->\n\n" +
+		"# After\n"
+	if string(got) != want {
+		t.Fatalf("rendered README =\n%s\nwant =\n%s", got, want)
+	}
+}
+
 func TestRenderREADMESkillsIsExactIdempotentAndExcludesAliasAndCodexMetadata(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeREADMEInventoryFixture(t, repoRoot)

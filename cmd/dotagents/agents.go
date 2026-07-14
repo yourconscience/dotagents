@@ -259,7 +259,9 @@ func expectedPluginAgentFiles(repoRoot string) (map[string]string, error) {
 
 func expectedREADMESkillsBlock(repoRoot string) (string, int, error) {
 	entries, err := os.ReadDir(filepath.Join(repoRoot, "skills"))
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
+		entries = nil
+	} else if err != nil {
 		return "", 0, fmt.Errorf("read skills/: %w", err)
 	}
 
