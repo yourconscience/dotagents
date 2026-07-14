@@ -92,7 +92,15 @@ func pluginHasSurface(plugin pluginConfig, surface string) bool {
 }
 
 func discoverPluginSkills(plugins []pluginConfig, home string, agentName string) (map[string]string, error) {
-	result := make(map[string]string)
+	discovered, err := discoverPluginSkillSet(plugins, home, agentName)
+	if err != nil {
+		return nil, err
+	}
+	return discoveredSkillPaths(discovered), nil
+}
+
+func discoverPluginSkillSet(plugins []pluginConfig, home string, agentName string) (map[string]discoveredSkill, error) {
+	result := make(map[string]discoveredSkill)
 	for _, plugin := range plugins {
 		if !plugin.Enabled || !pluginTargetsAgent(plugin, agentName) || !pluginHasSurface(plugin, pluginSurfaceSkills) {
 			continue
@@ -105,11 +113,17 @@ func discoverPluginSkills(plugins []pluginConfig, home string, agentName string)
 		if err != nil {
 			return nil, err
 		}
+		incoming := make([]discoveredSkill, 0, len(skills))
 		for name, path := range skills {
-			if _, exists := result[name]; exists {
-				return nil, fmt.Errorf("plugin skill %q from %s collides with another plugin skill", name, plugin.Name)
-			}
-			result[name] = path
+			incoming = append(incoming, discoveredSkill{
+				Name:   name,
+				Path:   path,
+				Origin: fmt.Sprintf("installed plugin %q", plugin.Name),
+				Root:   skillBase,
+			})
+		}
+		if err := mergeDiscoveredSkills(result, incoming); err != nil {
+			return nil, err
 		}
 	}
 	return result, nil

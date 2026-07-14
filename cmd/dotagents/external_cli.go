@@ -9,18 +9,26 @@ func runExternal(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: dotagents external <list|update> [name ...]")
 	}
+	switch args[0] {
+	case "list":
+		repoRoot, home, cfg, _, err := loadContext(runOptions{})
+		if err != nil {
+			return err
+		}
+		return externalList(cfg, home, repoRoot)
+	case "update":
+		return runExternalUpdate(args[1:])
+	default:
+		return fmt.Errorf("unknown external subcommand %q; expected list or update", args[0])
+	}
+}
+
+func runExternalUpdate(names []string) error {
 	repoRoot, home, cfg, _, err := loadContext(runOptions{})
 	if err != nil {
 		return err
 	}
-	switch args[0] {
-	case "list":
-		return externalList(cfg, home, repoRoot)
-	case "update":
-		return updateExternalRepos(cfg.ExternalSkills, home, repoRoot, args[1:])
-	default:
-		return fmt.Errorf("unknown external subcommand %q; expected list or update", args[0])
-	}
+	return updateExternalRepos(cfg.ExternalSkills, home, repoRoot, names)
 }
 
 func externalList(cfg config, home string, repoRoot string) error {

@@ -12,8 +12,24 @@ import (
 )
 
 func runSetup(opts runOptions) error {
+	delivery := opts.Delivery
+	opts.Delivery = ""
+	switch delivery {
+	case deliveryPlugin:
+		if err := applyPluginDelivery(opts); err != nil {
+			return err
+		}
+	case deliverySync:
+		if err := applySyncDelivery(opts, false); err != nil {
+			return err
+		}
+	}
+
 	repoRoot, home, cfg, selected, err := loadContext(opts)
 	if err != nil {
+		return err
+	}
+	if err := rejectClaudeSyncPluginConflict(home, cfg); err != nil {
 		return err
 	}
 

@@ -224,3 +224,10 @@ func hasFile(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
 }
+
+func printStatusSummaries(repoRoot string, home string, cfg config) {
+	external := checkExternalSkillLock(repoRoot, cfg, home)
+	fmt.Printf("external lock: %s (%s)\n", external.status, external.detail)
+	memsearch := checkMemsearchIndex(home)
+	fmt.Printf("memsearch: %s (%s)\n", memsearch.status, memsearch.detail)
+}

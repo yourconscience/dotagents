@@ -22,6 +22,7 @@ const (
 	agentDroid               = "droid"
 	agentHermes              = "hermes"
 	agentPi                  = "pi"
+	agentOMP                 = "omp"
 	dotagentsSkillsPathValue = "~/.agents/skills"
 )
 
@@ -52,7 +53,6 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkSkillSpec(repoRoot))
 	results = append(results, checkAgentRoles(repoRoot))
 	results = append(results, checkPluginAgents(repoRoot))
-	results = append(results, checkCodexPlugin(repoRoot))
 	for _, name := range sortedHarnessNames() {
 		for _, check := range getHarnesses()[name].DoctorChecks {
 			results = append(results, check.Run(repoRoot, home, cfg))
@@ -60,14 +60,16 @@ func runDoctor(opts runOptions) error {
 	}
 	results = append(results, checkAgnix(repoRoot))
 	results = append(results, checkAgentsMDSize(repoRoot))
-	results = append(results, checkREADMESkillList(repoRoot))
+	results = append(results, checkREADMESkillInventory(repoRoot))
 	results = append(results, checkMemsearchIndex(home))
 	results = append(results, checkExternalPackageAge(repoRoot, cfg, opts.SkipPackageAge, timeNow()))
 	results = append(results, checkExternalSkillSources(cfg, home))
+	results = append(results, checkMaterializedExternalSkills(repoRoot, cfg, home))
 	results = append(results, checkExternalSkillLock(repoRoot, cfg, home))
 	results = append(results, checkExternalSkillAudit(cfg, home))
 	results = append(results, checkFirstPartyPlugins(cfg))
 	results = append(results, checkClaudeDelivery(repoRoot, home, cfg))
+	results = append(results, checkClaudeOrphanPluginCache(home))
 
 	fmt.Println("checks:")
 	labelWidth := 0
@@ -418,39 +420,25 @@ func checkAgentsMDSize(repoRoot string) checkResult {
 	return checkResult{"AGENTS.md size", checkStatusPass, fmt.Sprintf("%.1fKB / 8.0KB limit", sizeKB)}
 }
 
-func checkREADMESkillList(repoRoot string) checkResult {
-	readmePath := filepath.Join(repoRoot, "README.md")
-	data, err := os.ReadFile(readmePath)
+func checkREADMESkillInventory(repoRoot string) checkResult {
+	const remediation = "run: dotagents sync render"
+	expected, count, err := expectedREADMESkillsBlock(repoRoot)
 	if err != nil {
-		return checkResult{"README skill list", checkStatusFail, "README.md not found"}
+		return checkResult{"README skills", checkStatusFail, fmt.Sprintf("%s; %s", err, remediation)}
 	}
-	readmeContent := string(data)
-
-	skillsDir := filepath.Join(repoRoot, "skills")
-	entries, err := os.ReadDir(skillsDir)
+	data, err := os.ReadFile(filepath.Join(repoRoot, "README.md"))
 	if err != nil {
-		return checkResult{"README skill list", checkStatusFail, fmt.Sprintf("cannot read skills/: %s", err)}
+		return checkResult{"README skills", checkStatusFail, fmt.Sprintf("README.md not found; %s", remediation)}
 	}
-
-	var missing []string
-	total := 0
-	for _, entry := range entries {
-		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-		if !hasFile(filepath.Join(skillsDir, entry.Name(), "SKILL.md")) {
-			continue
-		}
-		total++
-		if !strings.Contains(readmeContent, "`"+entry.Name()+"`") {
-			missing = append(missing, entry.Name())
-		}
+	content := string(data)
+	start, end, err := locateREADMESkillsBlock(content)
+	if err != nil {
+		return checkResult{"README skills", checkStatusFail, fmt.Sprintf("%s; %s", err, remediation)}
 	}
-
-	if len(missing) > 0 {
-		return checkResult{"README skill list", checkStatusWarn, fmt.Sprintf("not listed: %s", strings.Join(missing, ", "))}
+	if content[start:end] != expected {
+		return checkResult{"README skills", checkStatusFail, "generated block is stale; " + remediation}
 	}
-	return checkResult{"README skill list", checkStatusPass, fmt.Sprintf("all %d skills listed", total)}
+	return checkResult{"README skills", checkStatusPass, fmt.Sprintf("exact inventory of %d skills", count)}
 }
 
 func checkMemsearchIndex(home string) checkResult {
@@ -540,41 +528,157 @@ func checkExternalSkillSources(cfg config, home string) checkResult {
 	if len(cfg.ExternalSkills) == 0 {
 		return checkResult{"external skills", checkStatusPass, "none configured"}
 	}
-	cacheRoot := externalCacheDir(home)
 	var issues []string
 	valid := 0
 	for _, src := range cfg.ExternalSkills {
-		name := repoName(src.URL)
-		cachePath := filepath.Join(cacheRoot, name)
-		if !hasDir(filepath.Join(cachePath, ".git")) {
-			issues = append(issues, fmt.Sprintf("%s not cloned", name))
-			continue
-		}
-		skillBase := filepath.Join(cachePath, src.SkillDir)
-		if !hasDir(skillBase) {
-			issues = append(issues, fmt.Sprintf("%s missing skill_dir %s", name, src.SkillDir))
-			continue
-		}
-		hasSkill := hasFile(filepath.Join(skillBase, "SKILL.md"))
-		if !hasSkill {
-			entries, err := os.ReadDir(skillBase)
-			if err == nil {
-				for _, e := range entries {
-					if e.IsDir() && hasFile(filepath.Join(skillBase, e.Name(), "SKILL.md")) {
-						hasSkill = true
-						break
-					}
-				}
-			}
-		}
-		if !hasSkill {
-			issues = append(issues, fmt.Sprintf("%s has no SKILL.md in %s", name, src.SkillDir))
+		if _, err := discoverExternalSourceSkills(src, home); err != nil {
+			issues = append(issues, fmt.Sprintf("%s: %v", repoName(src.URL), err))
 			continue
 		}
 		valid++
 	}
 	if len(issues) > 0 {
+		sort.Strings(issues)
 		return checkResult{"external skills", checkStatusWarn, strings.Join(issues, "; ")}
 	}
 	return checkResult{"external skills", checkStatusPass, fmt.Sprintf("%d sources valid", valid)}
+}
+
+func checkMaterializedExternalSkills(repoRoot string, cfg config, home string) checkResult {
+	lock, err := readLockFile(repoRoot)
+	if err != nil {
+		return checkResult{"materialized external skills", checkStatusFail, err.Error()}
+	}
+	var issues []string
+	checked := 0
+	currentNames := make(map[string]bool)
+	lockedNames := make(map[string]bool)
+	var materializedCacheRoots []string
+	for _, entry := range lock.ExternalSkills {
+		for _, name := range entry.Materialized.Values() {
+			lockedNames[name] = true
+		}
+		if entry.Materialized != "" {
+			materializedCacheRoots = append(materializedCacheRoots, filepath.Join(externalCacheDir(home), entry.Name))
+		}
+	}
+	for _, src := range cfg.ExternalSkills {
+		if !src.Materialize {
+			continue
+		}
+		materializedCacheRoots = append(materializedCacheRoots, filepath.Join(externalCacheDir(home), repoName(src.URL)))
+		pin := lockEntryFor(lock, src)
+		if pin == nil {
+			issues = append(issues, fmt.Sprintf("%s has no matching lock pin", repoName(src.URL)))
+			continue
+		}
+		skills, err := discoverExternalSourceSkills(src, home)
+		if err != nil {
+			issues = append(issues, fmt.Sprintf("%s: %v", repoName(src.URL), err))
+			continue
+		}
+		owners := make(map[string]bool)
+		for _, name := range pin.Materialized.Values() {
+			owners[name] = true
+		}
+		for _, skill := range skills {
+			currentNames[skill.Name] = true
+			checked++
+			if !owners[skill.Name] {
+				issues = append(issues, fmt.Sprintf("%s is not recorded as materialized in %s", skill.Name, lockFileName))
+			}
+			canonical := filepath.Join(repoRoot, "skills", skill.Name)
+			if _, err := os.Lstat(canonical); os.IsNotExist(err) {
+				issues = append(issues, fmt.Sprintf("%s canonical copy missing", skill.Name))
+			} else if err != nil {
+				issues = append(issues, fmt.Sprintf("%s canonical copy unreadable: %v", skill.Name, err))
+			} else if equal, err := externalSkillTreesEqual(skill.Path, canonical); err != nil {
+				issues = append(issues, fmt.Sprintf("%s drift check failed: %v", skill.Name, err))
+			} else if !equal {
+				issues = append(issues, fmt.Sprintf("%s canonical copy drifted from lock", skill.Name))
+			}
+		}
+	}
+	for name := range lockedNames {
+		if currentNames[name] {
+			continue
+		}
+		issues = append(issues, fmt.Sprintf("%s has stale materialized ownership in %s", name, lockFileName))
+		if _, err := os.Lstat(filepath.Join(repoRoot, "skills", name)); err == nil {
+			issues = append(issues, fmt.Sprintf("%s stale canonical copy is still delivered", name))
+		} else if err != nil && !os.IsNotExist(err) {
+			issues = append(issues, fmt.Sprintf("%s stale canonical copy unreadable: %v", name, err))
+		}
+	}
+	deliveryNames := make(map[string]bool, len(currentNames)+len(lockedNames))
+	for name := range currentNames {
+		deliveryNames[name] = true
+	}
+	for name := range lockedNames {
+		deliveryNames[name] = true
+	}
+	for _, agent := range cfg.Agents {
+		if agent.SkillRoot == "" {
+			continue
+		}
+		for name := range deliveryNames {
+			linkPath := filepath.Join(agent.SkillRoot, name)
+			info, err := os.Lstat(linkPath)
+			if err != nil || info.Mode()&os.ModeSymlink == 0 {
+				continue
+			}
+			rawTarget, err := os.Readlink(linkPath)
+			if err == nil && isExternalSkillLink(linkPath, rawTarget, home) {
+				issues = append(issues, fmt.Sprintf("%s/%s is delivered directly from %s", agent.Name, name, externalCacheDir(home)))
+			}
+		}
+	}
+	for _, dir := range hermesConfiguredExternalDirs(home) {
+		for _, root := range materializedCacheRoots {
+			if pathIsWithin(dir, root) {
+				issues = append(issues, fmt.Sprintf("hermes skills.external_dirs delivers materialized skills directly from %s", dir))
+				break
+			}
+		}
+	}
+	if len(issues) > 0 {
+		sort.Strings(issues)
+		return checkResult{"materialized external skills", checkStatusFail, strings.Join(issues, "; ")}
+	}
+	if checked == 0 {
+		return checkResult{"materialized external skills", checkStatusPass, "none configured"}
+	}
+	return checkResult{"materialized external skills", checkStatusPass, fmt.Sprintf("%d canonical copies match lock", checked)}
+}
+
+func hermesConfiguredExternalDirs(home string) []string {
+	data, err := os.ReadFile(filepath.Join(home, ".hermes", "config.yaml"))
+	if err != nil {
+		return nil
+	}
+	var raw struct {
+		Skills struct {
+			ExternalDirs []string `yaml:"external_dirs"`
+		} `yaml:"skills"`
+	}
+	if yaml.Unmarshal(data, &raw) != nil {
+		return nil
+	}
+	dirs := make([]string, 0, len(raw.Skills.ExternalDirs))
+	for _, dir := range raw.Skills.ExternalDirs {
+		dirs = append(dirs, expandPath(strings.TrimSpace(dir), home))
+	}
+	return dirs
+}
+
+func pathIsWithin(path string, root string) bool {
+	if path == root || strings.HasPrefix(path, root+string(os.PathSeparator)) {
+		return true
+	}
+	resolvedPath, pathErr := filepath.EvalSymlinks(path)
+	resolvedRoot, rootErr := filepath.EvalSymlinks(root)
+	if pathErr != nil || rootErr != nil {
+		return false
+	}
+	return resolvedPath == resolvedRoot || strings.HasPrefix(resolvedPath, resolvedRoot+string(os.PathSeparator))
 }

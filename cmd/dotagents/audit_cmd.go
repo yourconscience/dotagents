@@ -135,6 +135,23 @@ func auditExternalSkill(name string, src externalSkillSource, cacheRoot string) 
 			"external skill not in cache; run dotagents sync to fetch and audit",
 		}}
 	}
+	if len(src.SkillDirs) > 0 {
+		var findings []auditFinding
+		for _, relDir := range src.SkillDirs {
+			clean, err := cleanExternalSkillDir(relDir)
+			if err != nil {
+				findings = append(findings, auditFinding{auditWarn, name, relDir, err.Error()})
+				continue
+			}
+			skillDir := filepath.Join(cachePath, filepath.FromSlash(clean))
+			if !hasDir(skillDir) {
+				findings = append(findings, auditFinding{auditInfo, name, filepath.Join("external", name, clean), "selected external skill not in cache; run dotagents sync"})
+				continue
+			}
+			findings = append(findings, auditLocalSkill(filepath.Base(skillDir), skillDir)...)
+		}
+		return findings
+	}
 	scanDir := filepath.Join(cachePath, src.SkillDir)
 	if !hasDir(scanDir) {
 		scanDir = cachePath

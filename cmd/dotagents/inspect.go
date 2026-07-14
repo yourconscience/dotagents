@@ -20,62 +20,92 @@ const (
 )
 
 func expectedSkills(repoRoot string, home string, cfg config) (map[string]string, error) {
+	discovered := make(map[string]discoveredSkill)
+	local, err := discoverLocalSkills(repoRoot, home)
+	if err != nil {
+		return nil, err
+	}
+	if err := mergeDiscoveredSkills(discovered, local); err != nil {
+		return nil, err
+	}
+
+	directSources := make([]externalSkillSource, 0, len(cfg.ExternalSkills))
+	for _, src := range cfg.ExternalSkills {
+		if !src.Materialize {
+			directSources = append(directSources, src)
+		}
+	}
+	external, err := discoverExternalSkillSet(directSources, home)
+	if err != nil {
+		return nil, err
+	}
+	if err := mergeDiscoveredSkills(discovered, discoveredSkillValues(external)); err != nil {
+		return nil, err
+	}
+	return discoveredSkillPaths(discovered), nil
+}
+
+func discoverLocalSkills(repoRoot string, home string) ([]discoveredSkill, error) {
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			entries = nil
-		} else {
-			return nil, fmt.Errorf("read %s: %w", skillsDir, err)
+			return nil, nil
 		}
+		return nil, fmt.Errorf("read %s: %w", skillsDir, err)
 	}
 
-	expected := make(map[string]string)
 	agentsSkillRoot := filepath.Join(home, ".agents", "skills")
+	discovered := make([]discoveredSkill, 0, len(entries))
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
 		name := entry.Name()
-		if strings.HasPrefix(name, ".") {
-			continue
-		}
 		if !hasFile(filepath.Join(skillsDir, name, "SKILL.md")) {
 			continue
 		}
-		expected[name] = filepath.Join(agentsSkillRoot, name)
+		discovered = append(discovered, discoveredSkill{
+			Name:   name,
+			Path:   filepath.Join(agentsSkillRoot, name),
+			Origin: "local skills",
+			Root:   skillsDir,
+		})
 	}
-
-	external, err := discoverExternalSkills(cfg.ExternalSkills, home)
-	if err != nil {
-		return nil, err
-	}
-	for name, path := range external {
-		if _, exists := expected[name]; exists {
-			return nil, fmt.Errorf("external skill %q collides with local skill", name)
-		}
-		expected[name] = path
-	}
-
-	return expected, nil
+	return discovered, nil
 }
 
 func expectedSkillsForAgent(base map[string]string, home string, cfg config, agentName string) (map[string]string, error) {
-	expected := make(map[string]string, len(base))
-	for name, path := range base {
-		expected[name] = path
+	discovered := make(map[string]discoveredSkill, len(base))
+	if err := mergeDiscoveredSkills(discovered, classifyExpectedSkills(base, home, cfg)); err != nil {
+		return nil, err
 	}
-	pluginSkills, err := discoverPluginSkills(cfg.Plugins, home, agentName)
+	pluginSkills, err := discoverPluginSkillSet(cfg.Plugins, home, agentName)
 	if err != nil {
 		return nil, err
 	}
-	for name, path := range pluginSkills {
-		if _, exists := expected[name]; exists {
-			return nil, fmt.Errorf("plugin skill %q collides with existing skill", name)
-		}
-		expected[name] = path
+	if err := mergeDiscoveredSkills(discovered, discoveredSkillValues(pluginSkills)); err != nil {
+		return nil, err
 	}
-	return expected, nil
+	return discoveredSkillPaths(discovered), nil
+}
+
+func classifyExpectedSkills(expected map[string]string, home string, cfg config) []discoveredSkill {
+	localRoot := filepath.Join(home, ".agents", "skills")
+	discovered := make([]discoveredSkill, 0, len(expected))
+	for name, path := range expected {
+		skill := discoveredSkill{Name: name, Path: path, Origin: "local skills", Root: localRoot}
+		for _, src := range cfg.ExternalSkills {
+			root := filepath.Join(externalCacheDir(home), repoName(src.URL), src.SkillDir)
+			if path == root || strings.HasPrefix(path, root+string(os.PathSeparator)) {
+				skill.Origin = fmt.Sprintf("external Git %q", src.URL)
+				skill.Root = root
+				break
+			}
+		}
+		discovered = append(discovered, skill)
+	}
+	return discovered
 }
 
 func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {

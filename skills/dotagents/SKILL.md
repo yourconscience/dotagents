@@ -1,37 +1,56 @@
 ---
 name: dotagents
-description: Inspect and sync the repo-owned agent skill links for the dotagents repo across primary coding agents. Use when the user asks for dotagents status, dotagents sync, dotagents setup, or wants to reconcile ~/.agents with Claude/Codex/Hermes/Droid/Pi skill roots; Amp/OpenClaw/OpenCode-style harnesses are compatibility-only unless explicitly configured.
+description: Inspect and sync the repo-owned agent surfaces across Claude Code, Codex, Hermes, Droid, Pi, and OMP. Use for dotagents setup, status, sync, doctor, skill, MCP, or cron workflows; Amp/OpenClaw/OpenCode-style harnesses are compatibility-only unless explicitly configured.
 ---
 
 # dotagents
 
-Use the root CLI tool. This skill is specific to the `~/Workspace/dotagents` repo and its managed symlink surface.
+Use the root CLI from the repository checkout.
 
 ## Commands
 
-From the repo root:
+From the repo root, use the canonical public grammar:
 
 ```bash
-go install ./cmd/dotagents                  # install to Go bin dir
-dotagents setup                             # first-time machine setup
-dotagents status                            # show sync state
-dotagents sync                              # sync skill symlinks
-dotagents pull                              # git pull + sync (for cron)
-dotagents cron --interval 30m               # install auto-pull crontab
-dotagents cron --remove                     # remove crontab entry
-dotagents mcp list                          # list canonical managed MCPs
-dotagents mcp add local --command uvx --arg pkg@latest
-dotagents mcp import claude-code local
-dotagents mcp remove local
+go install ./cmd/dotagents
+dotagents setup [--delivery plugin|sync] [--agents ...]
+dotagents status [--agents ...]
+dotagents sync [--pull] [--agents ...]
+dotagents doctor [--e2e] [--agents ...]
+dotagents skill new <name> [--description ...]
+dotagents skill update [name ...]
+dotagents skill promote <name-or-path> [--dry-run]
+dotagents mcp <list|add|import|remove> [options]
+dotagents cron [--interval 30m|--deps|--remove]
 ```
+
+Run `dotagents help --all` for maintenance commands and explicitly labeled compatibility aliases. Do not use those aliases in new commands or documentation.
 
 Ensure the Go install directory is on `PATH`. If `go env GOBIN` is non-empty, add that directory; otherwise add `$(go env GOPATH)/bin`.
 
-Limit a run to specific agents:
+Limit supported commands to specific agents with `--agents`, for example:
 
 ```bash
 dotagents sync --agents=claude-code,hermes
 ```
+
+## Native plugin installation
+
+Claude Code uses in-session marketplace commands:
+
+```text
+/plugin marketplace add yourconscience/dotagents
+/plugin install dotagents@yourconscience
+```
+
+Codex uses its CLI marketplace commands:
+
+```bash
+codex plugin marketplace add yourconscience/dotagents
+codex plugin add dotagents@yourconscience
+```
+
+Claude Code plugin delivery is selected for managed machines with `dotagents setup --delivery plugin`; switch back with `dotagents setup --delivery sync`. The Codex marketplace package is zero-copy: `.agents/plugins/marketplace.json` selects `./skills`, and `skills/.codex-plugin/plugin.json` exposes that canonical tree with `"skills": "./"`. No rendered mirror or plugin render step is required.
 
 ## Subcommands
 
@@ -42,7 +61,16 @@ First-time setup on a new machine. Does three things:
 2. Patches detected primary agent configs to load shared dotagents config where needed (Hermes: adds `skills.external_dirs` in `config.yaml`).
 3. Runs `sync` for managed skills, managed MCP entries, and supported hook entries.
 
+Use `--delivery plugin` or `--delivery sync` to select Claude Code delivery without creating a dual-delivery state.
+
 Amp compatibility note: Amp support remains in the CLI for explicit local configs, migration, and cleanup, but Amp is no longer a canonical `dotagents.yaml` target. Do not add Amp to managed plugin/MCP/skill targets unless the user explicitly asks for that one-off integration.
+
+Pi and OMP are distinct targets:
+
+- Pi detects the `pi` binary and supports skills only at the configured `~/.pi/agent/skills` root. It has no managed MCP, hooks, or native role surface.
+- OMP detects the `omp` binary and supports skills at `~/.omp/agent/skills`, native roles at `~/.omp/agent/agents`, and managed MCP entries in `~/.omp/agent/mcp.json`. It has no managed hook surface.
+
+An OMP installation may also expose a `pi` alias. Because detection checks binary names, both targets can then appear detected; keep their roots and capabilities distinct rather than treating the alias as shared identity.
 
 Important Hermes note: Hermes should consume dotagents skills primarily via `skills.external_dirs: ["~/.agents/skills"]`, not by mirroring repo skills into `~/.hermes/skills`. Hermes already ships a bundled categorized skill tree under `~/.hermes/skills`, so symlinking repo skills there can collide with bundled category directories. Example: a repo skill named `research` conflicts with Hermes' builtin `research/` category. Prefer Hermes-native bundled skills when an equivalent already exists there. Example: use Hermes' builtin `google-workspace` skill instead of trying to override it from dotagents. Treat `external_dirs` as the canonical Hermes integration path.
 
@@ -56,9 +84,11 @@ Reports sync state for each detected agent. Agents whose binary is not on PATH s
 
 Creates, updates, or removes skill symlinks in each detected primary agent's skill root for agents that use managed mirrors. Non-repo skills are reported as `external` and left untouched. Hermes is special-cased: `sync` verifies its config-driven shared-skill integration and does not mirror repo skills into `~/.hermes/skills`.
 
-For external skills (declared under `external_skills` in `dotagents.yaml`), `sync` clones or updates the remote git repos into `~/.agents/external/<repo-name>/`, discovers skills under the configured `skill_dir`, and symlinks them into agent skill roots alongside local skills.
+For external Git skills declared under `external_skills`, `sync` reuses one checkout per repository under `~/.agents/external/<repo-name>/` and records the exact commit in `dotagents.lock`. Entries may keep the backward-compatible direct-cache delivery (`skill_dir` plus optional `skills`) or use `skill_dirs` with `materialize: true` to copy selected trees into canonical `skills/<basename>`. Materialized copies are the only delivered paths for those entries; `sync` repairs drift from the lock and `skill update` advances the pin before refreshing copies. `doctor` fails on drift or direct-cache delivery of a materialized skill and scans the external source for risky patterns.
 
-For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target the configured primary agents with MCP support (`claude-code`, `codex`, `hermes`, `droid`, `pi`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
+Enabled native-plugin skill surfaces are discovered from installed plugin directories and projected to configured skill-capable harnesses. They remain owned by the plugin installation and are not represented as pinned or audited external Git repositories in `dotagents.lock`.
+
+For MCPs, `sync` patches only the managed server entries declared in `dotagents.yaml` and leaves unrelated MCP servers alone. Use `dotagents mcp add` or `dotagents mcp import` to update canonical `dotagents.yaml`, then run `dotagents sync` to distribute those MCPs to supported agents. If `--agents` is omitted, new/imported MCPs target the configured primary agents with MCP support (`claude-code`, `codex`, `hermes`, `droid`, `omp`). `import` redacts native env values into `${KEY}` references (preserving existing `${SOME_VAR}` references); fill those values through environment variables or local native config as appropriate. `list` shows env key ***** only; it does not print env values. `remove` deletes only the canonical entry and does not remove native agent config entries.
 
 
 For hooks, `sync` patches only managed hook entries declared in `dotagents.yaml` for agents with verified hook config support. It manages Claude Code hooks in `~/.claude/settings.json`, Codex hooks in `~/.codex/hooks.json` plus `[features].hooks = true`, Factory Droid hooks in `~/.factory/settings.json`, and Hermes hooks in `~/.hermes/config.yaml`. It reports unsupported hook targets without failing. Hook approval is not automated; first-use approval and reapproval after script changes remain host-local user actions.
@@ -68,27 +98,27 @@ For repo-owned local MCP servers, prefer `mcp/<server-name>/` plus a canonical `
 ```bash
 dotagents mcp list
 dotagents mcp add local --command uvx --arg pkg@latest --env KEY=value
-dotagents mcp import claude-code local --agents=codex,hermes,droid,pi
+dotagents mcp import claude-code local --agents=codex,hermes,droid,omp
 dotagents sync
 dotagents mcp remove local
 ```
 
-### pull
+### sync --pull
 
-Runs `git pull --ff-only` in the repo root, then `sync`. Designed to be called from cron for auto-sync on remote machines.
+Runs `git pull --ff-only` in the repo root before reconciling all managed surfaces.
 
 ### cron
 
 Installs or removes a crontab entry that runs `pull` on a schedule. Default interval is 30m. Options: 5m, 15m, 30m, 1h, 6h, 12h, daily.
 
-### promote
+### skill promote
 
 Promotes a Hermes skill to dotagents shared skills. Copies the skill, creates a branch, commits, pushes, and opens a PR.
 
 ```bash
-dotagents promote SKILL_NAME          # by name (searches ~/.hermes/skills/)
-dotagents promote <category>/<name>   # with category prefix
-dotagents promote <name> --dry-run    # copy only, skip git/PR
+dotagents skill promote SKILL_NAME          # by name (searches ~/.hermes/skills/)
+dotagents skill promote <category>/<name>   # with category prefix
+dotagents skill promote <name> --dry-run    # copy only, skip git/PR
 ```
 
 The skill is searched in `~/.hermes/skills/` by name (including inside category subdirectories). The promote command:
@@ -101,12 +131,12 @@ Requires `gh` CLI authenticated with push access to the repo.
 
 For the full promotion workflow (evaluation, pr-triage, merge), use the `skill-promote` Hermes skill.
 
-### dogfood
+### doctor --e2e
 
-End-to-end self-test: runs sync, then status, then doctor. Fails on any drift, conflict, or doctor warning. Use after making changes to skills or config to verify the full pipeline.
+Runs sync, status, and doctor end to end. It fails on any drift, conflict, or doctor warning and is the canonical full-pipeline verification mode.
 
 ```bash
-dotagents dogfood
+dotagents doctor --e2e
 ```
 
 ## What it manages
@@ -121,6 +151,7 @@ dotagents dogfood
   - Claude Code: `~/.claude/agents/<name>.md`
   - Codex: `~/.codex/agents/<name>.toml`
   - Factory Droid: `~/.factory/droids/<name>.md`
+  - OMP: `~/.omp/agent/agents/<name>.md`
 - Stops on conflicts when a native agent file with the same name already exists and was not generated by dotagents.
 - Reports non-repo skills already present in agent skill roots as `external` and leaves them untouched.
 - Stops on conflicts when a managed skill path exists as a real file or directory instead of a symlink.
@@ -185,7 +216,7 @@ Per-agent targets:
 - Codex: `~/.codex/config.toml` -> `[mcp_servers.<name>]`
 - Hermes: `~/.hermes/config.yaml` -> `mcp_servers.<name>`
 - Factory Droid: `~/.factory/mcp.json` -> `mcpServers.<name>`
-- Pi: `~/.omp/agent/mcp.json` -> `mcpServers.<name>`
+- OMP: `~/.omp/agent/mcp.json` -> `mcpServers.<name>`
 
 Do not symlink whole agent config files. Use targeted patches only. Droid MCP config is patched in-place at `~/.factory/mcp.json`; it is not symlinked.
 

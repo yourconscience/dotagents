@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -47,6 +49,10 @@ type SetupFunc func(home string, cfg config) (bool, error)
 // Harness is the central descriptor for a coding agent integration.
 // All feature dispatch reads capability fields instead of switching on agent names.
 type Harness struct {
+	// Detect validates an executable after the generic PATH lookup.
+	// nil means the executable's presence is sufficient.
+	Detect func(executable string) bool
+
 	// Skills integration mode.
 	Skills SkillsKind
 	// InspectSkills is called instead of the generic symlink inspector
@@ -221,18 +227,27 @@ func initHarnesses() {
 			TrailerExample: "Co-Authored-By: hermes[bot] <hermes[bot]@users.noreply.github.com>",
 		},
 
-		"pi": {
+		agentPi: {
+			Detect:         detectVanillaPi,
+			Skills:         SkillsSymlink,
+			PluginSurfaces: map[string]bool{pluginSurfaceMCP: false},
+			TrailerExample: "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
+		},
+
+		agentOMP: {
 			Skills: SkillsSymlink,
 			MCP: mcpTargetPtr(mcpTarget{
-				agentName:  "pi",
+				agentName:  agentOMP,
 				configPath: func(home string) string { return filepath.Join(home, ".omp", "agent", "mcp.json") },
 				inspect:    inspectJSONMCPServer,
 				patch:      patchJSONMCPServer,
 				read:       readJSONMCPServer,
 				rootKey:    "mcpServers",
 			}),
-			PluginSurfaces: map[string]bool{},
-			TrailerExample: "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
+			Roles: &RolesCapability{Extension: ".md", Render: renderOMPAgentRole},
+			PluginSurfaces: map[string]bool{
+				pluginSurfaceAgents: true,
+			},
 		},
 	}
 }
@@ -291,4 +306,9 @@ func sortedHarnessNames() []string {
 	names := allHarnessNames()
 	sort.Strings(names)
 	return names
+}
+
+func detectVanillaPi(executable string) bool {
+	version, _ := exec.Command(executable, "--version").CombinedOutput()
+	return !bytes.HasPrefix(bytes.TrimSpace(version), []byte("omp/"))
 }

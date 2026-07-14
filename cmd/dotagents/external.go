@@ -1,10 +1,14 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -22,20 +26,19 @@ func repoName(url string) string {
 	return strings.TrimSpace(u)
 }
 
-// syncExternalRepos clones or updates external skill sources. Sources pinned in
-// dotagents.lock are checked out at their locked commit; unpinned sources track
-// the latest origin/<branch> and get recorded into the lock afterwards.
+// syncExternalRepos checks out every source at its lock pin, records pins for
+// newly configured sources, and refreshes materialized copies before harness
+// reconciliation can observe them.
 func syncExternalRepos(sources []externalSkillSource, home string, repoRoot string) error {
-	if len(sources) == 0 {
-		return nil
-	}
 	lock, err := readLockFile(repoRoot)
 	if err != nil {
 		return err
 	}
 	cacheRoot := externalCacheDir(home)
-	if err := os.MkdirAll(cacheRoot, 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", cacheRoot, err)
+	if len(sources) > 0 {
+		if err := os.MkdirAll(cacheRoot, 0o755); err != nil {
+			return fmt.Errorf("create %s: %w", cacheRoot, err)
+		}
 	}
 	for _, src := range sources {
 		name := repoName(src.URL)
@@ -45,10 +48,8 @@ func syncExternalRepos(sources []externalSkillSource, home string, repoRoot stri
 			if err := setURL.Run(); err != nil {
 				return fmt.Errorf("update remote URL for %s: %w", name, err)
 			}
-		} else {
-			if err := gitClone(src.URL, src.Branch, cachePath); err != nil {
-				return fmt.Errorf("clone external %s: %w", name, err)
-			}
+		} else if err := gitClone(src.URL, src.Branch, cachePath); err != nil {
+			return fmt.Errorf("clone external %s: %w", name, err)
 		}
 		if pin := lockEntryFor(lock, src); pin != nil {
 			if err := gitCheckoutCommit(cachePath, pin.Commit, src.Branch); err != nil {
@@ -58,11 +59,21 @@ func syncExternalRepos(sources []externalSkillSource, home string, repoRoot stri
 			return fmt.Errorf("update external %s: %w", name, err)
 		}
 	}
-	return writeLockIfChanged(sources, home, repoRoot, lock)
+	plan, err := planMaterializedSkills(sources, home, repoRoot, lock, true)
+	if err != nil {
+		return err
+	}
+	if err := writeLockIfChanged(sources, home, repoRoot, lock); err != nil {
+		return err
+	}
+	if err := applyMaterializedSkills(plan); err != nil {
+		return restoreMaterializationLock(repoRoot, lock, err)
+	}
+	return nil
 }
 
-// updateExternalRepos moves the named sources (or all when names is empty) to
-// the latest origin/<branch> and rewrites their lock entries.
+// updateExternalRepos advances the named source pins (or all when names is
+// empty), writes the lock, then immediately refreshes their canonical copies.
 func updateExternalRepos(sources []externalSkillSource, home string, repoRoot string, names []string) error {
 	selected, err := selectExternalSources(sources, names)
 	if err != nil {
@@ -88,7 +99,17 @@ func updateExternalRepos(sources []externalSkillSource, home string, repoRoot st
 		}
 		fmt.Printf("updated %s -> %s\n", name, externalSkillCommit(cachePath))
 	}
-	return writeLockIfChanged(sources, home, repoRoot, lock)
+	plan, err := planMaterializedSkills(selected, home, repoRoot, lock, false)
+	if err != nil {
+		return err
+	}
+	if err := writeLockAfterUpdate(sources, home, repoRoot, lock, selected); err != nil {
+		return err
+	}
+	if err := applyMaterializedSkills(plan); err != nil {
+		return restoreMaterializationLock(repoRoot, lock, err)
+	}
+	return nil
 }
 
 func selectExternalSources(sources []externalSkillSource, names []string) ([]externalSkillSource, error) {
@@ -125,6 +146,41 @@ func writeLockIfChanged(sources []externalSkillSource, home string, repoRoot str
 	}
 	lock.ExternalSkills = entries
 	return writeLockFile(repoRoot, lock)
+}
+
+func writeLockAfterUpdate(sources []externalSkillSource, home string, repoRoot string, lock lockFile, selected []externalSkillSource) error {
+	selectedNames := make(map[string]bool, len(selected))
+	for _, src := range selected {
+		selectedNames[repoName(src.URL)] = true
+	}
+	entries := rebuildLockEntries(sources, home, lock)
+	for i := range entries {
+		if selectedNames[entries[i].Name] {
+			continue
+		}
+		for _, src := range sources {
+			if repoName(src.URL) != entries[i].Name {
+				continue
+			}
+			if pin := lockEntryFor(lock, src); pin != nil {
+				entries[i].Commit = pin.Commit
+				entries[i].Materialized = pin.Materialized
+			}
+			break
+		}
+	}
+	if lockEntriesEqual(lock.ExternalSkills, entries) {
+		return nil
+	}
+	lock.ExternalSkills = entries
+	return writeLockFile(repoRoot, lock)
+}
+
+func restoreMaterializationLock(repoRoot string, previous lockFile, materializeErr error) error {
+	if err := writeLockFile(repoRoot, previous); err != nil {
+		return fmt.Errorf("%v; restore previous %s: %w", materializeErr, lockFileName, err)
+	}
+	return materializeErr
 }
 
 func gitClone(url string, branch string, dest string) error {
@@ -192,66 +248,135 @@ func gitIsShallow(repoPath string) bool {
 }
 
 func discoverExternalSkills(sources []externalSkillSource, home string) (map[string]string, error) {
-	result := make(map[string]string)
-	cacheRoot := externalCacheDir(home)
+	discovered, err := discoverExternalSkillSet(sources, home)
+	if err != nil {
+		return nil, err
+	}
+	return discoveredSkillPaths(discovered), nil
+}
+
+func discoverExternalSkillSet(sources []externalSkillSource, home string) (map[string]discoveredSkill, error) {
+	result := make(map[string]discoveredSkill)
 	for _, src := range sources {
-		name := repoName(src.URL)
-		cachePath := filepath.Join(cacheRoot, name)
-		skillBase := filepath.Join(cachePath, src.SkillDir)
-
-		if !hasDir(filepath.Join(cachePath, ".git")) {
-			return nil, fmt.Errorf("external source %s not cloned; run dotagents sync", src.URL)
+		discovered, err := discoverExternalSourceSkills(src, home)
+		if err != nil {
+			return nil, err
 		}
-		if !hasDir(skillBase) {
-			return nil, fmt.Errorf("skill_dir %q not found in cloned external source %s", src.SkillDir, src.URL)
-		}
-
-		countBefore := len(result)
-		allowed := skillAllowlist(src)
-
-		if hasFile(filepath.Join(skillBase, "SKILL.md")) {
-			if allowed != nil && !allowed[name] {
-				return nil, fmt.Errorf("external source %s: skills allowlist does not match single skill %q", src.URL, name)
-			}
-			if _, exists := result[name]; exists {
-				return nil, fmt.Errorf("external skill %q from %s collides with a skill already discovered from another source", name, src.URL)
-			}
-			result[name] = skillBase
-		} else {
-			entries, err := os.ReadDir(skillBase)
-			if err != nil {
-				return nil, fmt.Errorf("read %s: %w", skillBase, err)
-			}
-			found := make(map[string]bool)
-			for _, entry := range entries {
-				if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-					continue
-				}
-				skillPath := filepath.Join(skillBase, entry.Name())
-				if !hasFile(filepath.Join(skillPath, "SKILL.md")) {
-					continue
-				}
-				if allowed != nil && !allowed[entry.Name()] {
-					continue
-				}
-				if _, exists := result[entry.Name()]; exists {
-					return nil, fmt.Errorf("external skill %q from %s collides with a skill already discovered from another source", entry.Name(), src.URL)
-				}
-				result[entry.Name()] = skillPath
-				found[entry.Name()] = true
-			}
-			for skill := range allowed {
-				if !found[skill] {
-					return nil, fmt.Errorf("external source %s: allowlisted skill %q not found in %q", src.URL, skill, src.SkillDir)
-				}
-			}
-		}
-
-		if len(result) == countBefore {
-			return nil, fmt.Errorf("external source %s: no skills found in %q", src.URL, src.SkillDir)
+		if err := mergeDiscoveredSkills(result, discovered); err != nil {
+			return nil, err
 		}
 	}
 	return result, nil
+}
+
+func discoverExternalSourceSkills(src externalSkillSource, home string) ([]discoveredSkill, error) {
+	name := repoName(src.URL)
+	cachePath := filepath.Join(externalCacheDir(home), name)
+	if !hasDir(filepath.Join(cachePath, ".git")) {
+		return nil, fmt.Errorf("external source %s not cloned; run dotagents sync", src.URL)
+	}
+	resolvedCache, err := filepath.EvalSymlinks(cachePath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve external source %s: %w", src.URL, err)
+	}
+
+	origin := fmt.Sprintf("external Git %q", src.URL)
+	allowed := skillAllowlist(src)
+	discovered := make(map[string]discoveredSkill)
+	found := make(map[string]bool)
+	for _, relDir := range externalSkillDirs(src) {
+		clean, err := cleanExternalSkillDir(relDir)
+		if err != nil {
+			return nil, fmt.Errorf("external source %s: %w", src.URL, err)
+		}
+		skillBase := filepath.Join(cachePath, filepath.FromSlash(clean))
+		if !hasDir(skillBase) {
+			return nil, fmt.Errorf("skill directory %q not found in cloned external source %s", clean, src.URL)
+		}
+		resolvedBase, err := filepath.EvalSymlinks(skillBase)
+		if err != nil {
+			return nil, fmt.Errorf("resolve skill directory %q in external source %s: %w", clean, src.URL, err)
+		}
+		if resolvedBase != resolvedCache && !strings.HasPrefix(resolvedBase, resolvedCache+string(os.PathSeparator)) {
+			return nil, fmt.Errorf("skill directory %q escapes the external repository through a symlink", clean)
+		}
+		candidates, err := discoverSkillsAtExternalRoot(src, name, skillBase, origin)
+		if err != nil {
+			return nil, err
+		}
+		for _, skill := range candidates {
+			if allowed != nil && !allowed[skill.Name] {
+				continue
+			}
+			if existing, exists := discovered[skill.Name]; exists {
+				return nil, fmt.Errorf("external source %s has duplicate skill basename %q in %s and %s", src.URL, skill.Name, existing.Path, skill.Path)
+			}
+			discovered[skill.Name] = skill
+			found[skill.Name] = true
+		}
+	}
+	for skill := range allowed {
+		if !found[skill] {
+			return nil, fmt.Errorf("external source %s: allowlisted skill %q not found in configured skill directories", src.URL, skill)
+		}
+	}
+	if len(discovered) == 0 {
+		return nil, fmt.Errorf("external source %s: no skills found in configured skill directories", src.URL)
+	}
+	return discoveredSkillValues(discovered), nil
+}
+
+func discoverSkillsAtExternalRoot(src externalSkillSource, repo string, skillBase string, origin string) ([]discoveredSkill, error) {
+	if hasFile(filepath.Join(skillBase, "SKILL.md")) {
+		name := filepath.Base(skillBase)
+		// Preserve the legacy single-skill convention, where skill_dir names the
+		// repository's skill and therefore uses the repository basename.
+		if len(src.SkillDirs) == 0 {
+			name = repo
+		}
+		return []discoveredSkill{{Name: name, Path: skillBase, Origin: origin, Root: skillBase}}, nil
+	}
+	entries, err := os.ReadDir(skillBase)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", skillBase, err)
+	}
+	result := make([]discoveredSkill, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		skillPath := filepath.Join(skillBase, entry.Name())
+		if !hasFile(filepath.Join(skillPath, "SKILL.md")) {
+			continue
+		}
+		result = append(result, discoveredSkill{Name: entry.Name(), Path: skillPath, Origin: origin, Root: skillBase})
+	}
+	return result, nil
+}
+
+func externalSkillDirs(src externalSkillSource) []string {
+	if len(src.SkillDirs) > 0 {
+		return src.SkillDirs
+	}
+	if strings.TrimSpace(src.SkillDir) == "" {
+		return []string{"skills"}
+	}
+	return []string{src.SkillDir}
+}
+
+func cleanExternalSkillDir(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", fmt.Errorf("skill directory cannot be empty")
+	}
+	if filepath.IsAbs(raw) {
+		return "", fmt.Errorf("skill directory %q must be relative", raw)
+	}
+	clean := filepath.Clean(filepath.FromSlash(raw))
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("skill directory %q escapes the external repository", raw)
+	}
+	return filepath.ToSlash(clean), nil
 }
 
 // skillAllowlist returns the configured skill name filter, or nil when the
@@ -273,6 +398,335 @@ func skillAllowlist(src externalSkillSource) map[string]bool {
 	return allowed
 }
 
+type materializedSkill struct {
+	Name       string
+	SourceName string
+	SourcePath string
+	TargetPath string
+	Remove     bool
+}
+
+func planMaterializedSkills(sources []externalSkillSource, home string, repoRoot string, lock lockFile, reconcileRemovedSources bool) ([]materializedSkill, error) {
+	var plan []materializedSkill
+	seen := make(map[string]materializedSkill)
+	sourceScope := make(map[string]bool, len(sources))
+	lockedOwners := make(map[string]externalLockEntry)
+	for _, entry := range lock.ExternalSkills {
+		for _, name := range entry.Materialized.Values() {
+			if owner, exists := lockedOwners[name]; exists {
+				return nil, fmt.Errorf("%s assigns materialized skill %q to both %s and %s", lockFileName, name, owner.Name, entry.Name)
+			}
+			lockedOwners[name] = entry
+		}
+	}
+	for _, src := range sources {
+		sourceScope[repoName(src.URL)] = true
+		if !src.Materialize {
+			continue
+		}
+		skills, err := discoverExternalSourceSkills(src, home)
+		if err != nil {
+			return nil, err
+		}
+		for _, skill := range skills {
+			if skill.Name == "" || skill.Name == "." || skill.Name == ".." || filepath.Base(skill.Name) != skill.Name {
+				return nil, fmt.Errorf("external source %s produced unsafe materialized skill name %q", src.URL, skill.Name)
+			}
+			item := materializedSkill{
+				Name:       skill.Name,
+				SourceName: repoName(src.URL),
+				SourcePath: skill.Path,
+				TargetPath: filepath.Join(repoRoot, "skills", skill.Name),
+			}
+			if existing, ok := seen[item.Name]; ok {
+				return nil, fmt.Errorf("materialized skill basename %q is duplicated by %s and %s", item.Name, existing.SourcePath, item.SourcePath)
+			}
+			seen[item.Name] = item
+			if owner, owned := lockedOwners[item.Name]; !owned {
+				if _, err := os.Lstat(item.TargetPath); err == nil {
+					return nil, fmt.Errorf("materialized skill %q collides with unrelated canonical skill %s", item.Name, item.TargetPath)
+				} else if !os.IsNotExist(err) {
+					return nil, fmt.Errorf("stat materialized target %s: %w", item.TargetPath, err)
+				}
+			} else if owner.URL != src.URL || owner.Branch != src.Branch {
+				return nil, fmt.Errorf("materialized skill %q is owned by %s at %s#%s, not %s#%s", item.Name, owner.Name, owner.URL, owner.Branch, src.URL, src.Branch)
+			}
+			plan = append(plan, item)
+		}
+	}
+	stale := make(map[string]bool)
+	for _, entry := range lock.ExternalSkills {
+		if !reconcileRemovedSources && !sourceScope[entry.Name] {
+			continue
+		}
+		for _, name := range entry.Materialized.Values() {
+			if _, current := seen[name]; current || stale[name] {
+				continue
+			}
+			if name == "" || name == "." || name == ".." || filepath.Base(name) != name {
+				return nil, fmt.Errorf("%s contains unsafe materialized skill ownership %q", lockFileName, name)
+			}
+			stale[name] = true
+			plan = append(plan, materializedSkill{
+				Name:       name,
+				SourceName: entry.Name,
+				TargetPath: filepath.Join(repoRoot, "skills", name),
+				Remove:     true,
+			})
+		}
+	}
+	sort.Slice(plan, func(i, j int) bool { return plan[i].Name < plan[j].Name })
+	return plan, nil
+}
+
+type stagedMaterialization struct {
+	Skill     materializedSkill
+	StagePath string
+	Backup    string
+	HadTarget bool
+	Installed bool
+}
+
+func applyMaterializedSkills(plan []materializedSkill) error {
+	changes := make([]stagedMaterialization, len(plan))
+	for i, skill := range plan {
+		changes[i].Skill = skill
+		if skill.Remove {
+			continue
+		}
+		parent := filepath.Dir(skill.TargetPath)
+		if err := os.MkdirAll(parent, 0o755); err != nil {
+			cleanupMaterializationStages(changes)
+			return fmt.Errorf("create %s: %w", parent, err)
+		}
+		stage, err := os.MkdirTemp(parent, ".dotagents-materialize-"+skill.Name+"-")
+		if err != nil {
+			cleanupMaterializationStages(changes)
+			return fmt.Errorf("stage materialized skill %s: %w", skill.Name, err)
+		}
+		changes[i].StagePath = stage
+		if err := copyTreeExact(skill.SourcePath, stage); err != nil {
+			cleanupMaterializationStages(changes)
+			return fmt.Errorf("stage materialized skill %s: %w", skill.Name, err)
+		}
+	}
+	defer cleanupMaterializationStages(changes)
+	for i := range changes {
+		change := &changes[i]
+		if _, err := os.Lstat(change.Skill.TargetPath); err == nil {
+			placeholder, err := os.MkdirTemp(filepath.Dir(change.Skill.TargetPath), ".dotagents-backup-"+change.Skill.Name+"-")
+			if err != nil {
+				rollbackMaterializedChanges(changes, i-1)
+				return fmt.Errorf("prepare backup for materialized skill %s: %w", change.Skill.Name, err)
+			}
+			change.Backup = placeholder
+			if err := os.Remove(placeholder); err != nil {
+				rollbackMaterializedChanges(changes, i-1)
+				return fmt.Errorf("prepare backup for materialized skill %s: %w", change.Skill.Name, err)
+			}
+			if err := os.Rename(change.Skill.TargetPath, change.Backup); err != nil {
+				rollbackMaterializedChanges(changes, i-1)
+				return fmt.Errorf("backup materialized skill %s: %w", change.Skill.Name, err)
+			}
+			change.HadTarget = true
+		} else if !os.IsNotExist(err) {
+			rollbackMaterializedChanges(changes, i-1)
+			return fmt.Errorf("stat materialized skill %s: %w", change.Skill.Name, err)
+		}
+		if change.Skill.Remove {
+			continue
+		}
+		if err := os.Rename(change.StagePath, change.Skill.TargetPath); err != nil {
+			rollbackMaterializedChanges(changes, i)
+			return fmt.Errorf("install materialized skill %s: %w", change.Skill.Name, err)
+		}
+		change.StagePath = ""
+		change.Installed = true
+	}
+	for i := range changes {
+		change := &changes[i]
+		if change.Backup != "" {
+			_ = os.RemoveAll(change.Backup)
+			change.Backup = ""
+		}
+		if change.Skill.Remove {
+			fmt.Printf("removed stale materialized skill %s\n", change.Skill.Name)
+		} else {
+			fmt.Printf("materialized %s -> %s\n", change.Skill.SourcePath, change.Skill.TargetPath)
+		}
+	}
+	return nil
+}
+
+func rollbackMaterializedChanges(changes []stagedMaterialization, last int) {
+	for i := last; i >= 0; i-- {
+		change := &changes[i]
+		if change.Installed {
+			_ = os.RemoveAll(change.Skill.TargetPath)
+			change.Installed = false
+		}
+		if change.HadTarget {
+			_ = os.Rename(change.Backup, change.Skill.TargetPath)
+			change.Backup = ""
+			change.HadTarget = false
+		}
+	}
+}
+
+func cleanupMaterializationStages(changes []stagedMaterialization) {
+	for _, change := range changes {
+		if change.StagePath != "" {
+			_ = os.RemoveAll(change.StagePath)
+		}
+		if change.Backup != "" {
+			_ = os.RemoveAll(change.Backup)
+		}
+	}
+}
+
+func copyTreeExact(source string, target string) error {
+	type copiedDir struct {
+		Path string
+		Mode fs.FileMode
+	}
+	var directories []copiedDir
+	err := filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		destination := target
+		if rel != "." {
+			destination = filepath.Join(target, rel)
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		switch {
+		case info.IsDir():
+			if err := os.MkdirAll(destination, 0o700); err != nil {
+				return err
+			}
+			directories = append(directories, copiedDir{Path: destination, Mode: info.Mode().Perm()})
+			return nil
+		case info.Mode()&os.ModeSymlink != 0:
+			link, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(link, destination)
+		case info.Mode().IsRegular():
+			return copyExternalFile(path, destination, info.Mode().Perm())
+		default:
+			return fmt.Errorf("unsupported file type in external skill: %s", path)
+		}
+	})
+	if err != nil {
+		return err
+	}
+	for i := len(directories) - 1; i >= 0; i-- {
+		if err := os.Chmod(directories[i].Path, directories[i].Mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyExternalFile(source string, target string, mode fs.FileMode) error {
+	in, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, in)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return os.Chmod(target, mode)
+}
+
+type externalTreeEntry struct {
+	Mode   fs.FileMode
+	Size   int64
+	Link   string
+	Digest [sha256.Size]byte
+}
+
+func externalSkillTreesEqual(left string, right string) (bool, error) {
+	leftTree, err := externalTree(left)
+	if err != nil {
+		return false, err
+	}
+	rightTree, err := externalTree(right)
+	if err != nil {
+		return false, err
+	}
+	if len(leftTree) != len(rightTree) {
+		return false, nil
+	}
+	for path, expected := range leftTree {
+		if actual, ok := rightTree[path]; !ok || actual != expected {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func externalTree(root string) (map[string]externalTreeEntry, error) {
+	tree := make(map[string]externalTreeEntry)
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		item := externalTreeEntry{Mode: info.Mode()}
+		if info.Mode()&os.ModeSymlink != 0 {
+			item.Link, err = os.Readlink(path)
+			if err != nil {
+				return err
+			}
+		} else if info.Mode().IsRegular() {
+			item.Size = info.Size()
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			hash := sha256.New()
+			_, hashErr := io.Copy(hash, file)
+			closeErr := file.Close()
+			if hashErr != nil {
+				return hashErr
+			}
+			if closeErr != nil {
+				return closeErr
+			}
+			copy(item.Digest[:], hash.Sum(nil))
+		}
+		tree[filepath.ToSlash(rel)] = item
+		return nil
+	})
+	return tree, err
+}
+
 func externalSkillCommit(cachePath string) string {
 	out, err := exec.Command("git", "-C", cachePath, "rev-parse", "--short", "HEAD").Output()
 	if err != nil {
@@ -291,5 +745,9 @@ func isExternalSkillLink(linkPath string, rawTarget string, home string) bool {
 	if err != nil {
 		return false
 	}
-	return resolved == extRoot || strings.HasPrefix(resolved, extRoot+string(os.PathSeparator))
+	resolvedRoot, err := filepath.EvalSymlinks(extRoot)
+	if err != nil {
+		return false
+	}
+	return resolved == resolvedRoot || strings.HasPrefix(resolved, resolvedRoot+string(os.PathSeparator))
 }

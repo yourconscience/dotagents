@@ -5,11 +5,13 @@ Each source entry covers: what it is, how we access it, auth requirements, which
 
 ## Runtime status
 
+`dotagents doctor` is the canonical health check and includes source availability. The source-specific output below remains a compatibility interface for skills that need method selection:
+
 ```bash
-dotagents sources             # table: what's available now
-dotagents sources --compact   # one-liner for skill prompts
-dotagents sources --json      # structured output
-dotagents sources x.com       # single source detail with auth/setup info
+dotagents sources             # compatibility: availability table
+dotagents sources --compact   # compatibility: one-line skill input
+dotagents sources --json      # compatibility: structured output
+dotagents sources x.com       # compatibility: one source with setup details
 ```
 
 Configure in `dotagents.yaml` under `sources:`. Per-machine overrides in `dotagents.local.yaml`.
@@ -17,7 +19,7 @@ Configure in `dotagents.yaml` under `sources:`. Per-machine overrides in `dotage
 ## Design goals
 
 1. One place to check "can I get data from X?" before writing a new skill or wiring a new MCP.
-2. Each source has a canonical access method with a priority. `dotagents sources` picks the best available.
+2. Each source has a canonical access method with a priority. The compatibility `dotagents sources` interface reports the best available method.
 3. Auth credentials live in known locations; never duplicated across tools or pasted into chat.
 4. Read-only by default. Write/mutate actions require explicit opt-in per source.
 5. Configurable per machine: set `preferred: x-api-v2` in `dotagents.local.yaml` to override method selection.

@@ -1,0 +1,23 @@
+{
+  "name": "dotagents",
+  "description": "Cross-agent skill library from the dotagents repo: cmux, tg, jobs, repo-eval, spawn, spec, grill-me, and more.",
+  "author": {
+    "name": "Kirill Korikov",
+    "url": "https://github.com/yourconscience"
+  },
+  "homepage": "https://github.com/yourconscience/dotagents",
+  "repository": "https://github.com/yourconscience/dotagents",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "workflow"
+  ],
+  "skills": "./",
+  "interface": {
+    "displayName": "dotagents",
+    "shortDescription": "Cross-agent skill library for coding-agent workflows.",
+    "longDescription": "Packages every skill from the dotagents repo for Codex. Skill CLIs that live in the dotagents checkout (~/.agents) require the dotagents CLI install; SKILL.md files note their own requirements.",
+    "developerName": "yourconscience",
+    "category": "Productivity"
+  }
+}

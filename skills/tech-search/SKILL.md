@@ -31,9 +31,11 @@ The guiding rule: broad web finds the map; source-specific searches verify the t
 
 ## Sources
 
-Before searching, run `dotagents sources --compact` to discover available methods. Use the best available method for each source; fall back to the next if it fails at runtime.
+The detailed source registry is a compatibility interface; `dotagents doctor` is the canonical overall health check but does not provide source-specific method output.
 
-Search sources in parallel when practical, but do not force every source. Skipped sources are fine when they are irrelevant, unauthenticated, or low-signal. If a source shows as disabled in `dotagents sources`, do not attempt it.
+Before searching, run the compatibility command `dotagents sources --compact` to discover available methods. Use the best available method for each source; fall back to the next if it fails at runtime.
+
+Search sources in parallel when practical, but do not force every source. Skipped sources are fine when they are irrelevant, unauthenticated, or low-signal. If the compatibility `dotagents sources` output marks a source disabled, do not attempt it.
 
 Reference: `references/reddit-discord-cli-eval.md` records the repo evaluation behind the `rdt-cli` and `discord-cli` recommendations.
 
@@ -88,7 +90,7 @@ Read threads at `https://news.ycombinator.com/item?id=<objectID>` and cite the H
 
 ### 4. Reddit
 
-Use the method shown by `dotagents sources reddit`.
+Use the method shown by the compatibility command `dotagents sources reddit`.
 
 **Target subreddits:** r/ExperiencedDevs, r/ClaudeAI, r/ClaudeCode, r/LocalLLaMA, r/MachineLearning, r/devops, r/commandline, r/neovim, r/Python, r/mcp, r/cybersecurity
 
@@ -109,7 +111,7 @@ On VPS/headless hosts, `rdt search` may return Reddit `forbidden` without browse
 
 ### 5. X.com
 
-Use the method shown by `dotagents sources x.com`. Treat X as commentary unless the author is primary to the topic.
+Use the method shown by the compatibility command `dotagents sources x.com`. Treat X as commentary unless the author is primary to the topic.
 
 **Power users:** @karpathy, @fchollet, @hardmaru, @thorstenball, @thdxr, @steipete, @banteg
 
@@ -123,7 +125,7 @@ x-cli search "<topic> (recommended OR \"game changer\")" --type top --count 10 -
 
 ### 6. Discord
 
-Discord is disabled by default (ToS risk). If `dotagents sources` shows it disabled, skip entirely. When enabled, search only for topics relevant to known communities (ML, LLMs, Claude, agents, evals, fine-tuning). Skip for generic/unrelated topics.
+Discord is disabled by default (ToS risk). If the compatibility `dotagents sources` output marks it disabled, skip entirely. When enabled, search only for topics relevant to known communities (ML, LLMs, Claude, agents, evals, fine-tuning). Skip for generic/unrelated topics.
 
 **discord-cli** (when enabled and available): can sync accessible Discord channels into local SQLite, then search/export with structured YAML/JSON. Do not ask the user to paste raw Discord tokens into chat logs.
 
