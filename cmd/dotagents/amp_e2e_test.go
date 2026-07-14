@@ -31,11 +31,24 @@ mcp_servers:
 	}
 }
 
+func installFakeDotagentsOnPath(t *testing.T, home string) {
+	t.Helper()
+	fakeBin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(fakeBin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(fakeBin, "dotagents"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", fakeBin)
+}
+
 func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	installFakeDotagentsOnPath(t, home)
 	configPath := filepath.Join(repoRoot, "dotagents.yaml")
 	writeAmpE2EConfig(t, configPath)
 
@@ -89,6 +102,7 @@ func TestAmpSetupE2EPreservesExistingSettings(t *testing.T) {
 	repoRoot := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	installFakeDotagentsOnPath(t, home)
 	configPath := filepath.Join(repoRoot, "dotagents.yaml")
 	writeAmpE2EConfig(t, configPath)
 	settingsPath := filepath.Join(home, ".config", "amp", "settings.json")
