@@ -94,3 +94,11 @@ description: Use when preparing for interviews.
 		t.Fatalf("nested category skill was treated as direct mirror: %+v", names)
 	}
 }
+
+func TestCheckAgnixMissingBinaryWarns(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	res := checkAgnix(t.TempDir())
+	if res.status != checkStatusWarn {
+		t.Fatalf("agnix missing-binary status = %q, want %q (%+v)", res.status, checkStatusWarn, res)
+	}
+}
