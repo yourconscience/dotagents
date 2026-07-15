@@ -99,7 +99,7 @@ file, audited for risky patterns (exfil, shell abuse) before any agent sees
 them. As far as I can tell nobody else pins agent skills at all.
 
 2. It's user-level, not project-level. rulesync and ruler generate per-tool
-config inside a repo and cover 35–40 tools; dotagents instead covers 5–6
+config inside a repo and cover ~30–35 tools; dotagents instead covers 5–6
 harnesses deeply (including plugin delivery and mutual-exclusion guards so
 you can't double-install) and your setup follows you across machines.
 

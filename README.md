@@ -122,7 +122,7 @@ Private additions go in `dotagents.local.yaml` (gitignored).
 | Hooks sync | yes | yes | no | no |
 | Subagent roles | yes (`subagents.yaml`) | yes | experimental | no |
 | Supply-chain pinning | `dotagents.lock` + `doctor` audit | no | no | no |
-| Harness coverage | 6 deep | 40+ broad | 35+ broad | Claude-family + majors |
+| Harness coverage | 6 deep | 35 broad | 31 broad | Claude-family + majors |
 | Install | plugin, curl, or `go install` | npm, brew, binary | npm | npm |
 
 rulesync and ruler are project-level: they generate per-tool config files inside a repo and win on tool breadth. dotagents is user-level: one versioned `~/.agents` repo follows you across machines and syncs each harness's supported skills, MCP, hooks, and roles into its native surface. External Git skill libraries are pinned to audited commits before delivery; installed native-plugin skill surfaces are projected from the local installation instead. Skills can be scoped per harness so each agent carries only what it needs.
