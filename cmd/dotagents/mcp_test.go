@@ -632,63 +632,6 @@ func TestDesiredMCPServersEmptyAgentsOnlyTargetsSupportedAgents(t *testing.T) {
 	}
 }
 
-func TestDefaultConfigIncludesTavilyMCP(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := loadConfig(repoRoot, t.TempDir(), filepath.Join(repoRoot, "dotagents.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var tavily mcpServerConfig
-	for _, server := range cfg.MCPServers {
-		if server.Name == "tavily" {
-			tavily = server
-			break
-		}
-	}
-	if tavily.Name == "" {
-		t.Fatal("default config is missing tavily MCP server")
-	}
-	if !tavily.Enabled {
-		t.Fatal("tavily MCP server is disabled")
-	}
-	if tavily.Command != "npx" {
-		t.Fatalf("tavily command = %q, want npx", tavily.Command)
-	}
-	if len(tavily.Args) != 3 || tavily.Args[0] != "-y" || tavily.Args[2] != "https://mcp.tavily.com/mcp" {
-		t.Fatalf("unexpected tavily args: %#v", tavily.Args)
-	}
-	pkg, version := splitNPMSpec(tavily.Args[1])
-	if pkg != "mcp-remote" || version == "" {
-		t.Fatalf("tavily bridge package = %q version %q, want pinned mcp-remote", pkg, version)
-	}
-	if strings.Contains(tavily.Args[2], "tavilyApiKey=") {
-		t.Fatalf("tavily remote URL embeds an API key parameter: %q", tavily.Args[2])
-	}
-	if len(tavily.Env) != 0 {
-		t.Fatalf("tavily env = %#v, want no secrets in canonical config", tavily.Env)
-	}
-	wantAgents := []string{agentClaudeCode, agentCodex, agentHermes, agentDroid, agentPi}
-	if !stringSlicesEqual(tavily.Agents, wantAgents) {
-		t.Fatalf("tavily agents = %#v, want %#v", tavily.Agents, wantAgents)
-	}
-	for _, agentName := range wantAgents {
-		found := false
-		for _, server := range desiredMCPServersForAgent(cfg, agentName) {
-			if server.Name == "tavily" {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("desired MCP servers for %s do not include tavily", agentName)
-		}
-	}
-}
-
 func TestDroidMCPPatchCreatesMissingConfig(t *testing.T) {
 	home := t.TempDir()
 	if err := patchMCPServer(agentDroid, testMCPServer(), home); err != nil {

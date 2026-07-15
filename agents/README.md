@@ -1,7 +1,7 @@
 # Agent roles
 
 `subagents.yaml` is the single source of truth for agent roles. The `.md` files
-next to it are generated Claude-format renders (`dotagents render`); do not
+next to it are generated Claude plugin role files (`dotagents sync`); do not
 edit them directly.
 
 ## Format
@@ -34,8 +34,8 @@ Fields per agent:
   become the prompt. Exactly one of `instructions` or `instructions_file` must
   be set.
 
-After editing, run `dotagents render` to regenerate the committed `.md` renders
-and `dotagents sync` to push them to harnesses.
+After editing, run `dotagents sync` to regenerate the committed `.md` role
+files and deliver native formats to each supported harness.
 
 ## Provider routing
 

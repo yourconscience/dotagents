@@ -19,10 +19,40 @@ type lockFile struct {
 }
 
 type externalLockEntry struct {
-	Name   string `yaml:"name"`
-	URL    string `yaml:"url"`
-	Branch string `yaml:"branch"`
-	Commit string `yaml:"commit"`
+	Name         string                 `yaml:"name"`
+	URL          string                 `yaml:"url"`
+	Branch       string                 `yaml:"branch"`
+	Commit       string                 `yaml:"commit"`
+	Materialized materializedSkillNames `yaml:"materialized,omitempty"`
+}
+
+// materializedSkillNames stores a sorted set in a comparable string so lock
+// entries remain comparable, while preserving the readable YAML sequence.
+type materializedSkillNames string
+
+func newMaterializedSkillNames(names []string) materializedSkillNames {
+	return materializedSkillNames(strings.Join(names, "\x00"))
+}
+
+func (names materializedSkillNames) Values() []string {
+	if names == "" {
+		return nil
+	}
+	return strings.Split(string(names), "\x00")
+}
+
+func (names materializedSkillNames) MarshalYAML() (interface{}, error) {
+	return names.Values(), nil
+}
+
+func (names *materializedSkillNames) UnmarshalYAML(node *yaml.Node) error {
+	var values []string
+	if err := node.Decode(&values); err != nil {
+		return fmt.Errorf("decode materialized skill ownership: %w", err)
+	}
+	sort.Strings(values)
+	*names = newMaterializedSkillNames(values)
+	return nil
 }
 
 func lockFilePath(repoRoot string) string {
@@ -54,7 +84,7 @@ func writeLockFile(repoRoot string, lock lockFile) error {
 	if err != nil {
 		return fmt.Errorf("yaml encode lock: %w", err)
 	}
-	header := []byte("# Managed by dotagents sync / dotagents external update. Pins external skill sources.\n")
+	header := []byte("# Managed by dotagents sync / dotagents skill update. Pins commits and materialized skill ownership.\n")
 	return os.WriteFile(lockFilePath(repoRoot), append(header, data...), 0o644)
 }
 
@@ -87,19 +117,32 @@ func rebuildLockEntries(sources []externalSkillSource, home string, lock lockFil
 	for _, src := range sources {
 		name := repoName(src.URL)
 		commit := externalSkillCommitFull(filepath.Join(cacheRoot, name))
-		if commit == "" {
-			if pin := lockEntryFor(lock, src); pin != nil {
-				commit = pin.Commit
-			}
+		pin := lockEntryFor(lock, src)
+		if commit == "" && pin != nil {
+			commit = pin.Commit
 		}
 		if commit == "" {
 			continue
 		}
+		var materialized materializedSkillNames
+		if src.Materialize {
+			if skills, err := discoverExternalSourceSkills(src, home); err == nil {
+				var names []string
+				for _, skill := range skills {
+					names = append(names, skill.Name)
+				}
+				sort.Strings(names)
+				materialized = newMaterializedSkillNames(names)
+			} else if pin != nil {
+				materialized = pin.Materialized
+			}
+		}
 		entries = append(entries, externalLockEntry{
-			Name:   name,
-			URL:    src.URL,
-			Branch: src.Branch,
-			Commit: commit,
+			Name:         name,
+			URL:          src.URL,
+			Branch:       src.Branch,
+			Commit:       commit,
+			Materialized: materialized,
 		})
 	}
 	// Keep the lock file order-stable so reordering config sources does not

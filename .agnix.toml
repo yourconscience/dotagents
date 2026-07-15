@@ -14,6 +14,10 @@ exclude = [
     # agnix wrongly demands a YAML list and cannot parse them. dotagents doctor's
     # "plugin agents" check validates these instead.
     "agents/*.md",
+    # Codex requires the package-root `skills: "./"` declaration for this
+    # zero-copy package. agnix rejects bare root paths; codex_layout_test.go
+    # validates the marketplace and manifest contract instead.
+    "skills/.codex-plugin/plugin.json",
 ]
 
 [rules]

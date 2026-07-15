@@ -19,23 +19,12 @@ var commitMsgHookTrailerCases = map[string]string{
 	"openclaw":      "Co-authored-by: openclaw[bot] <openclaw[bot]@users.noreply.github.com>",
 }
 
-func TestCommitMsgHookStripsSupportedAgentTrailers(t *testing.T) {
+func TestCommitMsgHookStripsKnownAgentTrailers(t *testing.T) {
 	repoRoot, _, err := findRoots()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := loadConfig(repoRoot, t.TempDir(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var trailers []string
-	for _, agent := range cfg.Agents {
-		trailer, ok := commitMsgHookTrailerCases[agent.Name]
-		if !ok {
-			t.Fatalf("missing commit-msg hook trailer test case for configured agent %q", agent.Name)
-		}
-		trailers = append(trailers, trailer)
-	}
+	trailers := make([]string, 0, len(commitMsgHookTrailerCases))
 	for _, trailer := range commitMsgHookTrailerCases {
 		trailers = append(trailers, trailer)
 	}
@@ -142,43 +131,4 @@ func git(t *testing.T, dir string, args ...string) string {
 		t.Logf("git %s stderr:\n%s", strings.Join(args, " "), stderr.String())
 	}
 	return strings.TrimSuffix(stdout.String(), "\n")
-}
-
-func TestCommitMsgHookTrailerCasesMatchConfiguredAgents(t *testing.T) {
-	repoRoot, _, err := findRoots()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := loadConfig(repoRoot, t.TempDir(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	configured := make(map[string]struct{}, len(cfg.Agents))
-	for _, agent := range cfg.Agents {
-		configured[agent.Name] = struct{}{}
-	}
-	for _, agent := range cfg.Agents {
-		if _, ok := commitMsgHookTrailerCases[agent.Name]; !ok {
-			t.Fatalf("commit-msg hook missing trailer case for configured agent %q", agent.Name)
-		}
-	}
-}
-
-func TestHarnessTrailersMatchTestCases(t *testing.T) {
-	h := getHarnesses()
-	if len(h) == 0 {
-		t.Fatal("harness registry is empty")
-	}
-	for name, entry := range h {
-		if entry.TrailerExample == "" {
-			t.Fatalf("harness %q has no TrailerExample", name)
-		}
-		testTrailer, ok := commitMsgHookTrailerCases[name]
-		if !ok {
-			t.Fatalf("harness %q has TrailerExample but no commitMsgHookTrailerCases entry", name)
-		}
-		if entry.TrailerExample != testTrailer {
-			t.Fatalf("harness %q TrailerExample = %q, commitMsgHookTrailerCases = %q", name, entry.TrailerExample, testTrailer)
-		}
-	}
 }

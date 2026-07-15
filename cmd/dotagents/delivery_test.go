@@ -7,20 +7,6 @@ import (
 	"testing"
 )
 
-func TestAgentDeliveryDefaultsToSync(t *testing.T) {
-	cfg := config{Agents: []agentConfig{{
-		Name:      agentClaudeCode,
-		Enabled:   true,
-		SkillRoot: filepath.Join(t.TempDir(), "skills"),
-	}}}
-	if err := validateConfig(&cfg, t.TempDir(), false); err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Agents[0].Delivery != deliverySync {
-		t.Fatalf("delivery = %q, want %q", cfg.Agents[0].Delivery, deliverySync)
-	}
-}
-
 func TestAgentDeliveryRejectsPluginForNonClaude(t *testing.T) {
 	cfg := config{Agents: []agentConfig{{
 		Name:      agentCodex,
@@ -196,8 +182,9 @@ func TestClaudeDeliveryCheckPluginAbsentFailsPluginMode(t *testing.T) {
 	if result.status != checkStatusFail {
 		t.Fatalf("status = %s (%s), want fail", result.status, result.detail)
 	}
-	if !strings.Contains(result.detail, "dotagents plugin add") {
-		t.Fatalf("detail = %q, want plugin add hint", result.detail)
+	const want = "delivery=plugin but dotagents@yourconscience is not installed; run: dotagents setup --delivery plugin"
+	if result.detail != want {
+		t.Fatalf("detail = %q, want %q", result.detail, want)
 	}
 }
 
@@ -236,7 +223,7 @@ func TestClaudeDeliveryCheckFailsPluginModeWithManagedArtifacts(t *testing.T) {
 	}
 }
 
-func TestClaudeDeliveryCheckWarnsWhenPluginInstalledInSyncMode(t *testing.T) {
+func TestClaudeDeliveryCheckFailsWhenPluginInstalledInSyncMode(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 	cfg := config{Agents: []agentConfig{{
@@ -254,7 +241,123 @@ func TestClaudeDeliveryCheckWarnsWhenPluginInstalledInSyncMode(t *testing.T) {
 }`))
 
 	result := checkClaudeDelivery(repoRoot, home, cfg)
+	if result.status != checkStatusFail {
+		t.Fatalf("status = %s (%s), want fail", result.status, result.detail)
+	}
+	const want = "delivery=sync but dotagents@yourconscience is installed; run: dotagents setup --delivery sync, or: dotagents setup --delivery plugin"
+	if result.detail != want {
+		t.Fatalf("detail = %q, want %q", result.detail, want)
+	}
+}
+
+func TestClaudeDeliveryConflictFailsSetupStatusAndSync(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+
+	writeSyncTestFile(t, filepath.Join(repoRoot, "dotagents.yaml"), []byte(`version: 1
+agents:
+  - name: claude-code
+    enabled: true
+    delivery: sync
+    skill_root: ~/.claude/skills
+    agent_root: ~/.claude/agents
+  - name: codex
+    enabled: true
+    skill_root: ~/.codex/skills
+    agent_root: ~/.codex/agents
+`))
+	writeSyncTestFile(t, filepath.Join(home, ".claude", "plugins", "installed_plugins.json"), []byte(`{
+  "version": 2,
+  "plugins": {
+    "dotagents@yourconscience": [{"scope": "user"}]
+  }
+}`))
+
+	const want = "claude delivery conflict: delivery=sync but dotagents@yourconscience is installed; run: dotagents setup --delivery sync, or: dotagents setup --delivery plugin"
+	for _, command := range []string{"setup", "status", "sync"} {
+		t.Run(command, func(t *testing.T) {
+			err := run([]string{command, "--agents=codex"})
+			if err == nil || err.Error() != want {
+				t.Fatalf("dotagents %s error = %v, want %q", command, err, want)
+			}
+		})
+	}
+}
+
+func TestClaudeOrphanPluginCacheIgnoresSiblingMarketplaceCache(t *testing.T) {
+	home := t.TempDir()
+	siblingFile := filepath.Join(home, ".claude", "plugins", "cache", claudeDotagentsMarketplace, "tech-search", "1.0.0", "plugin.json")
+	writeSyncTestFile(t, siblingFile, []byte("tech-search cache\n"))
+
+	result := checkClaudeOrphanPluginCache(home)
+	if result.status != checkStatusPass {
+		t.Fatalf("sibling marketplace cache produced %s (%s), want pass", result.status, result.detail)
+	}
+}
+
+func TestClaudeOrphanPluginCacheWarnsForDotagentsVersion(t *testing.T) {
+	home := t.TempDir()
+	cachePath := claudeDotagentsPluginCachePath(home)
+	writeSyncTestFile(t, filepath.Join(cachePath, "1.0.0", "plugin.json"), []byte("dotagents cache\n"))
+
+	result := checkClaudeOrphanPluginCache(home)
 	if result.status != checkStatusWarn {
-		t.Fatalf("status = %s (%s), want warn", result.status, result.detail)
+		t.Fatalf("orphan dotagents cache produced %s (%s), want warn", result.status, result.detail)
+	}
+	want := cachePath + " exists but dotagents is absent from installed_plugins.json; run: dotagents setup --delivery sync"
+	if result.detail != want {
+		t.Fatalf("detail = %q, want %q", result.detail, want)
+	}
+}
+
+func TestSetupSyncDeliveryRemovesOnlyDotagentsClaudeCacheAndClearsWarning(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	fakeBin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fakeBin, "dotagents"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", fakeBin)
+
+	configPath := filepath.Join(repoRoot, "dotagents.yaml")
+	writeSyncTestFile(t, configPath, []byte(`version: 1
+agents:
+  - name: claude-code
+    enabled: true
+    delivery: plugin
+    skill_root: ~/.claude/skills
+    agent_root: ~/.claude/agents
+`))
+	dotagentsCache := claudeDotagentsPluginCachePath(home)
+	writeSyncTestFile(t, filepath.Join(dotagentsCache, "1.0.0", "plugin.json"), []byte("dotagents cache\n"))
+	siblingFile := filepath.Join(home, ".claude", "plugins", "cache", claudeDotagentsMarketplace, "tech-search", "2.0.0", "plugin.json")
+	const siblingContent = "tech-search cache\n"
+	writeSyncTestFile(t, siblingFile, []byte(siblingContent))
+
+	before := checkClaudeOrphanPluginCache(home)
+	if before.status != checkStatusWarn {
+		t.Fatalf("precondition: orphan dotagents cache produced %s (%s), want warn", before.status, before.detail)
+	}
+	if err := run([]string{"setup", "--delivery=sync", "--config", configPath}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Lstat(dotagentsCache); !os.IsNotExist(err) {
+		t.Fatalf("dotagents cache still exists after sync delivery, stat err = %v", err)
+	}
+	siblingData, err := os.ReadFile(siblingFile)
+	if err != nil {
+		t.Fatalf("sibling marketplace cache was removed: %v", err)
+	}
+	if string(siblingData) != siblingContent {
+		t.Fatalf("sibling marketplace cache = %q, want %q", siblingData, siblingContent)
+	}
+	after := checkClaudeOrphanPluginCache(home)
+	if after.status != checkStatusPass {
+		t.Fatalf("sync-delivery remediation left %s (%s), want pass", after.status, after.detail)
 	}
 }

@@ -14,6 +14,9 @@ func runStatus(opts runOptions) error {
 	if err != nil {
 		return err
 	}
+	if err := rejectClaudeSyncPluginConflict(home, cfg); err != nil {
+		return err
+	}
 
 	repoReport, err := inspectRepoLink(repoRoot, home)
 	if err != nil {
@@ -30,6 +33,7 @@ func runStatus(opts runOptions) error {
 	}
 
 	printReport("status", repoRoot, repoReport, reports, home, cfg)
+	printStatusSummaries(repoRoot, home, cfg)
 	claudeDelivery := checkClaudeDelivery(repoRoot, home, cfg)
 	fmt.Printf("claude delivery: %s (%s)\n\n", claudeDelivery.status, claudeDelivery.detail)
 	if claudeDelivery.status == checkStatusFail {
@@ -52,6 +56,9 @@ func runSync(opts runOptions) error {
 	if err != nil {
 		return err
 	}
+	if err := rejectClaudeSyncPluginConflict(home, cfg); err != nil {
+		return err
+	}
 
 	repoReport, err := inspectRepoLink(repoRoot, home)
 	if err != nil {
@@ -66,6 +73,9 @@ func runSync(opts runOptions) error {
 	}
 
 	if err := syncExternalRepos(cfg.ExternalSkills, home, repoRoot); err != nil {
+		return err
+	}
+	if err := renderCommittedArtifacts(repoRoot); err != nil {
 		return err
 	}
 

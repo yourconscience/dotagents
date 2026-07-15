@@ -29,7 +29,6 @@ skills/jobs/portals-scan
 skills/jobs/tools/portals-scan/portals-scan
 skills/remote-access/tools/remote-access-bridge/remote-access-bridge
 skills/pr-triage/tools/pr-triage/pr-triage
-plugins/dotagents/skills/pr-triage/tools/pr-triage/pr-triage
 skills/x-sim/tools/x-sim/x-sim
 skills/handoff/bin/
 research/

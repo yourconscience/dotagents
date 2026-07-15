@@ -31,10 +31,25 @@ mcp_servers:
 	}
 }
 
+func installFakeDotagentsOnPath(t *testing.T, home string) {
+	t.Helper()
+	fakeBin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(fakeBin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(fakeBin, "dotagents"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", fakeBin)
+}
+
 func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	home := t.TempDir()
+	repoRoot := t.TempDir()
 	t.Setenv("HOME", home)
-	configPath := filepath.Join(t.TempDir(), "dotagents.yaml")
+	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	installFakeDotagentsOnPath(t, home)
+	configPath := filepath.Join(repoRoot, "dotagents.yaml")
 	writeAmpE2EConfig(t, configPath)
 
 	if err := run([]string{"setup", "--agents=amp", "--config", configPath}); err != nil {
@@ -45,12 +60,12 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repoRoot, _, err := findRoots()
+	resolvedRepoRoot, _, err := findRoots()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filepath.Clean(repoLink) != filepath.Clean(repoRoot) {
-		t.Fatalf("~/.agents target = %q, want %q", repoLink, repoRoot)
+	if filepath.Clean(repoLink) != filepath.Clean(resolvedRepoRoot) {
+		t.Fatalf("~/.agents target = %q, want %q", repoLink, resolvedRepoRoot)
 	}
 
 	settingsPath := filepath.Join(home, ".config", "amp", "settings.json")
@@ -84,8 +99,11 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 
 func TestAmpSetupE2EPreservesExistingSettings(t *testing.T) {
 	home := t.TempDir()
+	repoRoot := t.TempDir()
 	t.Setenv("HOME", home)
-	configPath := filepath.Join(t.TempDir(), "dotagents.yaml")
+	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	installFakeDotagentsOnPath(t, home)
+	configPath := filepath.Join(repoRoot, "dotagents.yaml")
 	writeAmpE2EConfig(t, configPath)
 	settingsPath := filepath.Join(home, ".config", "amp", "settings.json")
 	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {

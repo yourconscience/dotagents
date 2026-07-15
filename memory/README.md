@@ -15,7 +15,7 @@ library code.
 
 ```bash
 uv tool install memsearch==0.4.2
-dotagents memsearch setup --vault ~/Workspace/knowledge
+dotagents setup memsearch --vault "$HOME/knowledge"
 ```
 
 This creates the vault directories, initializes the vault as a git repo if
@@ -69,6 +69,6 @@ machines (Mac and VPS via the knowledge-sync tool).
 ## Hook registration
 
 Agent config patching and migration should live in the dotagents CLI, not in
-copy-pasted README snippets. Use `dotagents memsearch setup` for local
+copy-pasted README snippets. Use `dotagents setup memsearch` for local
 configuration and keep manual hook details in the dedicated troubleshooting
 reference under `skills/dotagents/references/`.

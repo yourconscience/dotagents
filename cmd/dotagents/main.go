@@ -34,10 +34,12 @@ type pluginConfig struct {
 }
 
 type externalSkillSource struct {
-	URL      string   `yaml:"url"`
-	SkillDir string   `yaml:"skill_dir"`
-	Branch   string   `yaml:"branch"`
-	Skills   []string `yaml:"skills,omitempty"`
+	URL         string   `yaml:"url"`
+	SkillDir    string   `yaml:"skill_dir,omitempty"`
+	SkillDirs   []string `yaml:"skill_dirs,omitempty"`
+	Branch      string   `yaml:"branch"`
+	Skills      []string `yaml:"skills,omitempty"`
+	Materialize bool     `yaml:"materialize,omitempty"`
 }
 
 type agentConfig struct {
@@ -100,13 +102,22 @@ func isDetected(agent agentConfig) bool {
 	if agent.Detect == "" {
 		return true
 	}
-	_, err := exec.LookPath(agent.Detect)
-	return err == nil
+	executable, err := exec.LookPath(agent.Detect)
+	if err != nil {
+		return false
+	}
+	if harness := harnessFor(agent.Name); harness != nil && harness.Detect != nil {
+		return harness.Detect(executable)
+	}
+	return true
 }
 
 type runOptions struct {
 	ConfigPath     string
 	Agents         string
+	Delivery       string
+	Pull           bool
+	E2E            bool
 	SkipPackageAge bool
 }
 
@@ -124,83 +135,262 @@ func run(args []string) error {
 	}
 
 	switch args[0] {
-	case "status":
-		opts, err := parseSubcommandFlags("status", args[1:])
-		if err != nil {
-			return err
-		}
-		return runStatus(opts)
-	case "sync":
-		opts, err := parseSubcommandFlags("sync", args[1:])
-		if err != nil {
-			return err
-		}
-		return runSync(opts)
 	case "setup":
-		opts, err := parseSubcommandFlags("setup", args[1:])
-		if err != nil {
-			return err
-		}
-		return runSetup(opts)
-	case "pull":
-		opts, err := parseSubcommandFlags("pull", args[1:])
-		if err != nil {
-			return err
-		}
-		return runPull(opts)
+		return runSetupCommand(args[1:])
+	case "status":
+		return runStatusCommand(args[1:])
+	case "sync":
+		return runSyncCommand(args[1:])
+	case "doctor":
+		return runDoctorCommand(args[1:])
+	case "skill":
+		return runSkillCommand(args[1:])
+	case "mcp":
+		return runMCP(args[1:])
 	case "cron":
 		opts, err := parseCronFlags(args[1:])
 		if err != nil {
 			return err
 		}
 		return runCron(opts)
+	case "pull":
+		printRenameNotice("pull", "sync --pull")
+		opts, err := parseSubcommandFlags("pull", args[1:])
+		if err != nil {
+			return err
+		}
+		return runPull(opts)
 	case "deps":
-		return runDeps(args[1:])
+		return runDeprecatedDeps(args[1:])
 	case "memsearch":
-		return runMemsearch(args[1:])
-	case "mcp":
-		return runMCP(args[1:])
+		return runDeprecatedMemsearch(args[1:])
 	case "plugin":
+		printRenameNotice("plugin add/remove", "setup --delivery plugin/sync")
 		return runPlugin(args[1:])
 	case "skillify":
-		return runSkillify(args[1:])
+		printRenameNotice("skillify", "skill new")
+		return runSkillCommand(append([]string{"new"}, args[1:]...))
 	case "render":
+		printRenameNotice("render", "sync")
 		opts, err := parseSubcommandFlags("render", args[1:])
 		if err != nil {
 			return err
 		}
 		return runRender(opts)
-	case "doctor":
-		opts, err := parseSubcommandFlags("doctor", args[1:])
-		if err != nil {
-			return err
-		}
-		return runDoctor(opts)
 	case "audit":
+		printRenameNotice("audit", "doctor")
 		opts, err := parseSubcommandFlags("audit", args[1:])
 		if err != nil {
 			return err
 		}
 		return runAudit(opts)
 	case "sources":
+		printRenameNotice("sources", "doctor")
 		return runSources(args[1:])
 	case "external":
+		if len(args) > 1 && args[1] == "list" {
+			printRenameNotice("external list", "status")
+		} else if len(args) > 1 && args[1] == "update" {
+			printRenameNotice("external update", "skill update")
+		} else {
+			printRenameNotice("external", "status or skill update")
+		}
 		return runExternal(args[1:])
 	case "promote":
-		return runPromote(args[1:])
+		printRenameNotice("promote", "skill promote")
+		return runSkillCommand(append([]string{"promote"}, args[1:]...))
 	case "dogfood":
+		printRenameNotice("dogfood", "doctor --e2e")
 		opts, err := parseSubcommandFlags("dogfood", args[1:])
 		if err != nil {
 			return err
 		}
 		return runDogfood(opts)
-	case "-h", "--help", "help":
+	case "help":
+		if len(args) == 1 {
+			printUsage()
+			return nil
+		}
+		if len(args) == 2 && args[1] == "--all" {
+			printAllUsage()
+			return nil
+		}
+		return errors.New("usage: dotagents help [--all]")
+	case "-h", "--help":
+		if len(args) != 1 {
+			return errors.New("usage: dotagents help [--all]")
+		}
 		printUsage()
 		return nil
 	default:
 		printUsage()
 		return fmt.Errorf("unknown subcommand %q", args[0])
 	}
+}
+
+func runSetupCommand(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "memsearch":
+			return runMemsearch(append([]string{"setup"}, args[1:]...))
+		case "plugin":
+			printRenameNotice("setup plugin add/remove", "setup --delivery plugin/sync")
+			return runPlugin(args[1:])
+		}
+	}
+	opts, err := parseSetupFlags(args)
+	if err != nil {
+		return err
+	}
+	return runSetup(opts)
+}
+
+func runStatusCommand(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "memsearch":
+			printRenameNotice("status memsearch", "status")
+			return runMemsearch(append([]string{"status"}, args[1:]...))
+		case "sources":
+			printRenameNotice("status sources", "doctor")
+			return runSources(args[1:])
+		}
+	}
+	opts, err := parseSubcommandFlags("status", args)
+	if err != nil {
+		return err
+	}
+	return runStatus(opts)
+}
+
+func runSyncCommand(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "pull":
+			printRenameNotice("sync pull", "sync --pull")
+			opts, err := parseSubcommandFlags("sync pull", args[1:])
+			if err != nil {
+				return err
+			}
+			return runPull(opts)
+		case "deps":
+			opts, err := parseDepsFlags("sync deps", args[1:])
+			if err != nil {
+				return err
+			}
+			return runDepsUpdate(opts)
+		case "render":
+			printRenameNotice("sync render", "sync")
+			opts, err := parseSubcommandFlags("sync render", args[1:])
+			if err != nil {
+				return err
+			}
+			return runRender(opts)
+		}
+	}
+	opts, err := parseSyncFlags(args)
+	if err != nil {
+		return err
+	}
+	if opts.Pull {
+		opts.Pull = false
+		return runPull(opts)
+	}
+	return runSync(opts)
+}
+
+func runDoctorCommand(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "audit":
+			opts, err := parseSubcommandFlags("doctor audit", args[1:])
+			if err != nil {
+				return err
+			}
+			return runAudit(opts)
+		case "deps":
+			opts, err := parseDepsFlags("doctor deps", args[1:])
+			if err != nil {
+				return err
+			}
+			return runDepsCheck(opts)
+		case "dogfood":
+			printRenameNotice("doctor dogfood", "doctor --e2e")
+			opts, err := parseSubcommandFlags("doctor dogfood", args[1:])
+			if err != nil {
+				return err
+			}
+			return runDogfood(opts)
+		}
+	}
+	opts, err := parseDoctorFlags(args)
+	if err != nil {
+		return err
+	}
+	if opts.E2E {
+		opts.E2E = false
+		return runDogfood(opts)
+	}
+	return runDoctor(opts)
+}
+
+func runSkillCommand(args []string) error {
+	if len(args) == 0 {
+		return errors.New("skill requires subcommand: new, update, promote")
+	}
+	switch args[0] {
+	case "new":
+		return runSkillify(args[1:])
+	case "update":
+		return runExternalUpdate(args[1:])
+	case "promote":
+		return runPromote(args[1:])
+	case "external":
+		if len(args) > 1 && args[1] == "list" {
+			printRenameNotice("skill external list", "status")
+		} else if len(args) > 1 && args[1] == "update" {
+			printRenameNotice("skill external update", "skill update")
+		} else {
+			printRenameNotice("skill external", "status or skill update")
+		}
+		return runExternal(args[1:])
+	default:
+		return fmt.Errorf("unknown skill subcommand %q", args[0])
+	}
+}
+
+func runDeprecatedDeps(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "check":
+			printRenameNotice("deps check", "doctor deps")
+			return runDoctorCommand(append([]string{"deps"}, args[1:]...))
+		case "update":
+			printRenameNotice("deps update", "sync deps")
+			return runSyncCommand(append([]string{"deps"}, args[1:]...))
+		}
+	}
+	printRenameNotice("deps", "doctor deps or sync deps")
+	return runDeps(args)
+}
+
+func runDeprecatedMemsearch(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "setup":
+			printRenameNotice("memsearch setup", "setup memsearch")
+			return runSetupCommand(append([]string{"memsearch"}, args[1:]...))
+		case "status":
+			printRenameNotice("memsearch status", "status memsearch")
+			return runStatusCommand(append([]string{"memsearch"}, args[1:]...))
+		}
+	}
+	printRenameNotice("memsearch", "setup memsearch or status memsearch")
+	return runMemsearch(args)
+}
+
+func printRenameNotice(oldCommand string, newCommand string) {
+	fmt.Fprintf(os.Stderr, "dotagents: %q was renamed to %q\n", oldCommand, newCommand)
 }
 
 func parseSubcommandFlags(name string, args []string) (runOptions, error) {
@@ -219,6 +409,58 @@ func parseSubcommandFlags(name string, args []string) (runOptions, error) {
 		return runOptions{}, fmt.Errorf("%s does not accept positional arguments", name)
 	}
 
+	return opts, nil
+}
+
+func parseSetupFlags(args []string) (runOptions, error) {
+	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	var opts runOptions
+	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
+	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names to use for this run")
+	fs.StringVar(&opts.Delivery, "delivery", "", "Claude Code delivery: plugin or sync")
+	if err := fs.Parse(args); err != nil {
+		return runOptions{}, err
+	}
+	if fs.NArg() != 0 {
+		return runOptions{}, errors.New("setup does not accept positional arguments")
+	}
+	if opts.Delivery != "" && opts.Delivery != deliveryPlugin && opts.Delivery != deliverySync {
+		return runOptions{}, fmt.Errorf("setup --delivery must be %q or %q", deliveryPlugin, deliverySync)
+	}
+	return opts, nil
+}
+
+func parseSyncFlags(args []string) (runOptions, error) {
+	fs := flag.NewFlagSet("sync", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	var opts runOptions
+	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
+	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names to use for this run")
+	fs.BoolVar(&opts.Pull, "pull", false, "Pull the repo before syncing")
+	if err := fs.Parse(args); err != nil {
+		return runOptions{}, err
+	}
+	if fs.NArg() != 0 {
+		return runOptions{}, errors.New("sync does not accept positional arguments")
+	}
+	return opts, nil
+}
+
+func parseDoctorFlags(args []string) (runOptions, error) {
+	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	var opts runOptions
+	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
+	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names to use for this run")
+	fs.BoolVar(&opts.E2E, "e2e", false, "Run sync, status, and doctor end to end")
+	fs.BoolVar(&opts.SkipPackageAge, "skip-package-age", false, "Skip external package publish-age checks")
+	if err := fs.Parse(args); err != nil {
+		return runOptions{}, err
+	}
+	if fs.NArg() != 0 {
+		return runOptions{}, errors.New("doctor does not accept positional arguments")
+	}
 	return opts, nil
 }
 
@@ -242,31 +484,43 @@ func parseCronFlags(args []string) (cronOptions, error) {
 func printUsage() {
 	fmt.Println("dotagents - manage shared skills and MCP config across coding agents")
 	fmt.Println()
-	fmt.Println("Usage:")
-	fmt.Println("  dotagents setup     [--agents ...]           First-time setup: symlink, patch configs, sync")
-	fmt.Println("  dotagents status    [--agents ...]           Show skill/MCP sync state for detected agents")
-	fmt.Println("  dotagents sync      [--agents ...]           Sync managed skills and MCP config to detected agents")
-	fmt.Println("  dotagents pull      [--agents ...]           Git pull + sync (for cron use)")
-	fmt.Println("  dotagents cron      [--interval 30m]         Install a crontab entry for auto-pull")
-	fmt.Println("  dotagents cron      --deps --interval weekly Install weekly dependency maintenance")
-	fmt.Println("  dotagents cron      --remove                 Remove the crontab entry")
-	fmt.Println("  dotagents deps check [--skip-package-age]    Check external package publish age")
-	fmt.Println("  dotagents deps update                        Update repo dependencies, then check age")
-	fmt.Println("  dotagents memsearch setup [--vault ...]      Bootstrap knowledge vault + memsearch config")
-	fmt.Println("  dotagents memsearch status                   Show memsearch configuration")
-	fmt.Println("  dotagents mcp list                           List canonical managed MCP servers")
-	fmt.Println("  dotagents mcp add <name> --command <cmd>     Add/update canonical managed MCP")
-	fmt.Println("  dotagents mcp import <agent> <name>          Import native MCP into canonical config")
-	fmt.Println("  dotagents mcp remove <name>                  Remove canonical managed MCP")
-	fmt.Println("  dotagents sources   [--json|--compact] [name] Show external data source availability")
-	fmt.Println("  dotagents external list                      Show external skill sources and lock state")
-	fmt.Println("  dotagents external update [name ...]         Move external sources to latest and rewrite the lock")
-	fmt.Println("  dotagents plugin add                         Install Claude Code plugin delivery for claude-code")
-	fmt.Println("  dotagents plugin remove                      Remove Claude Code plugin delivery and restore sync")
-	fmt.Println("  dotagents skillify <name> [--description \"...\"]  Scaffold a new skill from template")
-	fmt.Println("  dotagents promote <name-or-path> [--dry-run]   Promote a Hermes skill to dotagents + PR")
-	fmt.Println("  dotagents render                              Render committed plugin artifacts: Claude agents (agents/) and Codex plugin skills (plugins/dotagents/)")
-	fmt.Println("  dotagents doctor        [--agents ...]           Health audit: frontmatter, collisions, sizes, package age")
-	fmt.Println("  dotagents audit         [--agents ...]           Supply-chain scan of local skills for risky patterns")
-	fmt.Println("  dotagents dogfood       [--agents ...]           End-to-end self-test: sync + status + doctor")
+	fmt.Println("Commands:")
+	fmt.Println("  setup    Set up this machine and choose plugin or sync delivery")
+	fmt.Println("  status   Show harness, external lock, and memsearch state")
+	fmt.Println("  sync     Regenerate committed artifacts and reconcile harnesses")
+	fmt.Println("  doctor   Check sources, dependencies, delivery, and local health")
+	fmt.Println()
+	fmt.Println("Command groups:")
+	fmt.Println("  skill    Create, update, and promote skills")
+	fmt.Println("  mcp      Manage MCP servers")
+	fmt.Println()
+	fmt.Println("Run \"dotagents help --all\" for flags, maintenance commands, and compatibility aliases.")
+}
+
+func printAllUsage() {
+	printUsage()
+	fmt.Println()
+	fmt.Println("Canonical forms:")
+	fmt.Println("  dotagents setup [--delivery plugin|sync] [--agents ...]")
+	fmt.Println("  dotagents status [--agents ...]")
+	fmt.Println("  dotagents sync [--pull] [--agents ...]")
+	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
+	fmt.Println("  dotagents skill new <name> [--description ...]")
+	fmt.Println("  dotagents skill update [name ...]")
+	fmt.Println("  dotagents skill promote <name-or-path> [--dry-run]")
+	fmt.Println("  dotagents mcp <list|add|import|remove> [options]")
+	fmt.Println()
+	fmt.Println("Maintenance and compatibility aliases:")
+	fmt.Println("  dotagents cron [--interval 30m|--deps|--remove]")
+	fmt.Println("  dotagents deps <check|update> [options]")
+	fmt.Println("  dotagents memsearch <setup|status> [options]")
+	fmt.Println("  dotagents pull [options]")
+	fmt.Println("  dotagents plugin <add|remove> [options]")
+	fmt.Println("  dotagents render [options]")
+	fmt.Println("  dotagents audit [options]")
+	fmt.Println("  dotagents sources [options]")
+	fmt.Println("  dotagents external <list|update> [name ...]")
+	fmt.Println("  dotagents skillify <name> [options]")
+	fmt.Println("  dotagents promote <name-or-path> [--dry-run]")
+	fmt.Println("  dotagents dogfood [options]")
 }

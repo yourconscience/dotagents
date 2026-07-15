@@ -165,19 +165,44 @@ func validateConfig(cfg *config, home string, expand bool) error {
 
 	seenExt := make(map[string]struct{})
 	for i := range cfg.ExternalSkills {
-		cfg.ExternalSkills[i].URL = strings.TrimSpace(cfg.ExternalSkills[i].URL)
-		if cfg.ExternalSkills[i].URL == "" {
+		src := &cfg.ExternalSkills[i]
+		src.URL = strings.TrimSpace(src.URL)
+		if src.URL == "" {
 			return errors.New("config external_skills entry has empty url")
 		}
-		if cfg.ExternalSkills[i].Branch == "" {
-			cfg.ExternalSkills[i].Branch = "main"
+		src.Branch = strings.TrimSpace(src.Branch)
+		if src.Branch == "" {
+			src.Branch = "main"
 		}
-		if cfg.ExternalSkills[i].SkillDir == "" {
-			cfg.ExternalSkills[i].SkillDir = "skills"
+		src.SkillDir = strings.TrimSpace(src.SkillDir)
+		if src.SkillDir != "" && len(src.SkillDirs) > 0 {
+			return fmt.Errorf("config external_skills repo %q cannot set both skill_dir and skill_dirs", repoName(src.URL))
 		}
-		name := repoName(cfg.ExternalSkills[i].URL)
-		if name == "" {
-			return fmt.Errorf("config external_skills: cannot derive repo name from %q", cfg.ExternalSkills[i].URL)
+		if src.SkillDir == "" && len(src.SkillDirs) == 0 {
+			src.SkillDir = "skills"
+		}
+		seenDirs := make(map[string]struct{})
+		if src.SkillDir != "" {
+			clean, err := cleanExternalSkillDir(src.SkillDir)
+			if err != nil {
+				return fmt.Errorf("config external_skills repo %q: %w", repoName(src.URL), err)
+			}
+			src.SkillDir = clean
+		}
+		for j := range src.SkillDirs {
+			clean, err := cleanExternalSkillDir(src.SkillDirs[j])
+			if err != nil {
+				return fmt.Errorf("config external_skills repo %q: %w", repoName(src.URL), err)
+			}
+			if _, exists := seenDirs[clean]; exists {
+				return fmt.Errorf("config external_skills repo %q has duplicate skill_dirs path %q", repoName(src.URL), clean)
+			}
+			seenDirs[clean] = struct{}{}
+			src.SkillDirs[j] = clean
+		}
+		name := repoName(src.URL)
+		if name == "" || name == "." || name == ".." {
+			return fmt.Errorf("config external_skills: cannot derive safe repo name from %q", src.URL)
 		}
 		if _, ok := seenExt[name]; ok {
 			return fmt.Errorf("config external_skills repo %q is duplicated", name)

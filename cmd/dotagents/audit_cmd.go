@@ -135,6 +135,46 @@ func auditExternalSkill(name string, src externalSkillSource, cacheRoot string) 
 			"external skill not in cache; run dotagents sync to fetch and audit",
 		}}
 	}
+	if len(src.SkillDirs) > 0 {
+		var findings []auditFinding
+		allowed := skillAllowlist(src)
+		found := make(map[string]bool)
+		for _, relDir := range src.SkillDirs {
+			clean, err := cleanExternalSkillDir(relDir)
+			if err != nil {
+				findings = append(findings, auditFinding{auditWarn, name, relDir, err.Error()})
+				continue
+			}
+			skillDir := filepath.Join(cachePath, filepath.FromSlash(clean))
+			if !hasDir(skillDir) {
+				findings = append(findings, auditFinding{auditInfo, name, filepath.Join("external", name, clean), "selected external skill directory not in cache; run dotagents sync"})
+				continue
+			}
+			candidates, err := discoverSkillsAtExternalRoot(src, name, skillDir, "")
+			if err != nil {
+				findings = append(findings, auditFinding{auditWarn, name, filepath.Join("external", name, clean), err.Error()})
+				continue
+			}
+			for _, skill := range candidates {
+				findingPath := filepath.Join("external", name, clean)
+				if skill.Path != skillDir {
+					findingPath = filepath.Join(findingPath, skill.Name)
+				}
+				if allowed != nil && !allowed[skill.Name] {
+					findings = append(findings, auditFinding{auditInfo, name, findingPath, "unselected external skill skipped"})
+					continue
+				}
+				found[skill.Name] = true
+				findings = append(findings, auditLocalSkill(name, skill.Path)...)
+			}
+		}
+		for skill := range allowed {
+			if !found[skill] {
+				findings = append(findings, auditFinding{auditInfo, name, filepath.Join("external", name, skill), "allowlisted external skill not in configured skill directories; run dotagents sync"})
+			}
+		}
+		return findings
+	}
 	scanDir := filepath.Join(cachePath, src.SkillDir)
 	if !hasDir(scanDir) {
 		scanDir = cachePath

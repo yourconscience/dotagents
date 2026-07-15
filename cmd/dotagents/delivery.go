@@ -20,6 +20,10 @@ const (
 	claudeDotagentsMarketplaceSource = "yourconscience/dotagents"
 )
 
+func claudeDotagentsPluginCachePath(home string) string {
+	return filepath.Join(home, ".claude", "plugins", "cache", claudeDotagentsMarketplace, "dotagents")
+}
+
 func inspectPluginDeliveryAgent(agent agentConfig, repoRoot string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
 	report := agentReport{
 		Name:      agent.Name,
@@ -223,7 +227,7 @@ func checkClaudeDelivery(repoRoot string, home string, cfg config) checkResult {
 	switch normalizeDeliveryMode(agent.Delivery) {
 	case deliveryPlugin:
 		if !installed {
-			return checkResult{"claude delivery", checkStatusFail, "delivery=plugin but dotagents@yourconscience is not installed; run: dotagents plugin add"}
+			return checkResult{"claude delivery", checkStatusFail, "delivery=plugin but dotagents@yourconscience is not installed; run: dotagents setup --delivery plugin"}
 		}
 		if len(artifacts) > 0 {
 			return checkResult{"claude delivery", checkStatusFail, fmt.Sprintf("delivery=plugin but managed sync artifacts remain: %s; run: dotagents sync --agents=claude-code", strings.Join(artifacts, ", "))}
@@ -231,10 +235,43 @@ func checkClaudeDelivery(repoRoot string, home string, cfg config) checkResult {
 		return checkResult{"claude delivery", checkStatusPass, "delivery=plugin and dotagents@yourconscience installed"}
 	default:
 		if installed {
-			return checkResult{"claude delivery", checkStatusWarn, "delivery=sync but dotagents@yourconscience is installed; run: dotagents plugin remove or set delivery: plugin"}
+			return checkResult{"claude delivery", checkStatusFail, "delivery=sync but dotagents@yourconscience is installed; run: dotagents setup --delivery sync, or: dotagents setup --delivery plugin"}
 		}
 		return checkResult{"claude delivery", checkStatusPass, "delivery=sync and Claude plugin absent"}
 	}
+}
+func checkClaudeOrphanPluginCache(home string) checkResult {
+	installed, err := claudeDotagentsPluginInstalled(home)
+	if err != nil {
+		return checkResult{"claude plugin cache", checkStatusFail, err.Error()}
+	}
+	cachePath := claudeDotagentsPluginCachePath(home)
+	_, err = os.Lstat(cachePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return checkResult{"claude plugin cache", checkStatusPass, "no orphaned dotagents marketplace cache"}
+	}
+	if err != nil {
+		return checkResult{"claude plugin cache", checkStatusFail, fmt.Sprintf("inspect %s: %v", cachePath, err)}
+	}
+	if installed {
+		return checkResult{"claude plugin cache", checkStatusPass, "cache belongs to installed dotagents plugin"}
+	}
+	return checkResult{"claude plugin cache", checkStatusWarn, fmt.Sprintf("%s exists but dotagents is absent from installed_plugins.json; run: dotagents setup --delivery sync", cachePath)}
+}
+
+func rejectClaudeSyncPluginConflict(home string, cfg config) error {
+	agent, ok := claudeAgentConfig(cfg)
+	if !ok || normalizeDeliveryMode(agent.Delivery) == deliveryPlugin {
+		return nil
+	}
+	installed, err := claudeDotagentsPluginInstalled(home)
+	if err != nil {
+		return err
+	}
+	if !installed {
+		return nil
+	}
+	return errors.New("claude delivery conflict: delivery=sync but dotagents@yourconscience is installed; run: dotagents setup --delivery sync, or: dotagents setup --delivery plugin")
 }
 
 func claudeAgentConfig(cfg config) (agentConfig, bool) {
@@ -291,6 +328,10 @@ func runPluginAdd(args []string) error {
 	if err != nil {
 		return err
 	}
+	return applyPluginDelivery(opts)
+}
+
+func applyPluginDelivery(opts runOptions) error {
 	repoRoot, home, cfg, _, err := loadContext(opts)
 	if err != nil {
 		return err
@@ -345,30 +386,43 @@ func runPluginRemove(args []string) error {
 	if err != nil {
 		return err
 	}
+	return applySyncDelivery(opts, true)
+}
+
+func applySyncDelivery(opts runOptions, restore bool) error {
 	repoRoot, home, _, _, err := loadContext(opts)
 	if err != nil {
 		return err
-	}
-	if _, err := exec.LookPath("claude"); err != nil {
-		return errors.New("claude CLI not found on PATH; cannot uninstall Claude Code plugin delivery")
 	}
 	installed, err := claudeDotagentsPluginInstalled(home)
 	if err != nil {
 		return err
 	}
-	if installed {
-		if err := runClaudePluginCommand(true, "plugin", "uninstall", claudeDotagentsPluginID); err != nil {
+	_, claudeErr := exec.LookPath("claude")
+	if installed && claudeErr != nil {
+		return errors.New("claude CLI not found on PATH; cannot uninstall Claude Code plugin delivery")
+	}
+	if claudeErr == nil {
+		if installed {
+			if err := runClaudePluginCommand(true, "plugin", "uninstall", claudeDotagentsPluginID); err != nil {
+				return err
+			}
+		}
+		if err := runClaudePluginCommand(true, "plugin", "marketplace", "remove", claudeDotagentsMarketplace); err != nil {
 			return err
 		}
 	}
-	if err := runClaudePluginCommand(true, "plugin", "marketplace", "remove", claudeDotagentsMarketplace); err != nil {
-		return err
+	cachePath := claudeDotagentsPluginCachePath(home)
+	if err := os.RemoveAll(cachePath); err != nil {
+		return fmt.Errorf("remove stale Claude plugin cache %s: %w", cachePath, err)
 	}
 	if err := setClaudeDeliveryMode(opts.ConfigPath, deliverySync); err != nil {
 		return err
 	}
-	if err := runSync(runOptions{ConfigPath: opts.ConfigPath, Agents: agentClaudeCode}); err != nil {
-		return err
+	if restore {
+		if err := runSync(runOptions{ConfigPath: opts.ConfigPath, Agents: agentClaudeCode}); err != nil {
+			return err
+		}
 	}
 	fmt.Printf("Claude Code delivery set to sync in %s\n", editableConfigPathForMessage(repoRoot, home, opts.ConfigPath))
 	return nil
@@ -378,14 +432,17 @@ func runClaudePluginCommand(allowAlreadyOrMissing bool, args ...string) error {
 	cmd := exec.Command("claude", args...)
 	out, err := cmd.CombinedOutput()
 	text := strings.TrimSpace(string(out))
-	if text != "" {
-		fmt.Println(text)
-	}
 	if err == nil {
+		if text != "" {
+			fmt.Println(text)
+		}
 		return nil
 	}
 	if allowAlreadyOrMissing && isIdempotentClaudePluginError(text) {
 		return nil
+	}
+	if text != "" {
+		fmt.Println(text)
 	}
 	return fmt.Errorf("claude %s failed: %w", strings.Join(args, " "), err)
 }
