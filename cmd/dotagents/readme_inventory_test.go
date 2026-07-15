@@ -40,6 +40,45 @@ func TestRenderCommittedArtifactsRendersEmptyInventoryWithoutSkillsDirectory(t *
 	}
 }
 
+func TestRenderCommittedArtifactsLeavesUnmarkedREADMEUnchanged(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeREADMEInventoryFixture(t, repoRoot)
+	path := filepath.Join(repoRoot, "README.md")
+	original := []byte("# Ordinary README\n\nThis content is maintained by hand.\n")
+	writeSyncTestFile(t, path, original)
+
+	if err := renderCommittedArtifacts(repoRoot); err != nil {
+		t.Fatalf("render committed artifacts with unmarked README: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("render changed unmarked README:\ngot:\n%s\nwant:\n%s", got, original)
+	}
+}
+
+func TestRenderCommittedArtifactsRejectsPartialREADMEMarker(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeREADMEInventoryFixture(t, repoRoot)
+	path := filepath.Join(repoRoot, "README.md")
+	original := []byte("# README\n\n" + readmeSkillsBeginMarker + "\nstale inventory\n")
+	writeSyncTestFile(t, path, original)
+
+	err := renderCommittedArtifacts(repoRoot)
+	if err == nil || err.Error() != "README skills markers must each appear exactly once" {
+		t.Fatalf("partial marker error = %v", err)
+	}
+	got, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("renderer changed README after partial marker error:\ngot:\n%s\nwant:\n%s", got, original)
+	}
+}
+
 func TestRenderREADMESkillsIsExactIdempotentAndExcludesAliasAndCodexMetadata(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeREADMEInventoryFixture(t, repoRoot)

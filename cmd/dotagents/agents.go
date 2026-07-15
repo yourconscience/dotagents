@@ -319,6 +319,9 @@ func renderREADMESkills(repoRoot string) error {
 		return err
 	}
 	content := string(data)
+	if !strings.Contains(content, readmeSkillsBeginMarker) && !strings.Contains(content, readmeSkillsEndMarker) {
+		return nil
+	}
 	start, end, err := locateREADMESkillsBlock(content)
 	if err != nil {
 		return err
