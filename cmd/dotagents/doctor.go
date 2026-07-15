@@ -363,7 +363,7 @@ type agnixReport struct {
 
 func checkAgnix(repoRoot string) checkResult {
 	if _, err := exec.LookPath("agnix"); err != nil {
-		return checkResult{"agnix", checkStatusFail, "agnix not installed; run npm install -g agnix"}
+		return checkResult{"agnix", checkStatusWarn, "agnix not installed (optional lint); enable with: npm install -g agnix"}
 	}
 	out, err := runAgnix(repoRoot)
 	report, parseErr := parseAgnixReport(out)
