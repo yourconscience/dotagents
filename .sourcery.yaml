@@ -1,0 +1,15 @@
+# Canonical copies managed from pinned external repositories. Review upstream;
+# dotagents doctor verifies that these directories still match their lock pin.
+ignore:
+  - .git
+  - venv
+  - .venv
+  - env
+  - .env
+  - .tox
+  - node_modules
+  - vendor
+  - skills/domain-modeling/
+  - skills/grill-me/
+  - skills/grilling/
+  - skills/wayfinder/

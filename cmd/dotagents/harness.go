@@ -309,6 +309,7 @@ func sortedHarnessNames() []string {
 }
 
 func detectVanillaPi(executable string) bool {
-	version, _ := exec.Command(executable, "--version").CombinedOutput()
+	// executable is the absolute path returned by exec.LookPath in isDetected.
+	version, _ := exec.Command(executable, "--version").CombinedOutput() // nosemgrep: go.lang.security.audit.dangerous-exec-command
 	return !bytes.HasPrefix(bytes.TrimSpace(version), []byte("omp/"))
 }
