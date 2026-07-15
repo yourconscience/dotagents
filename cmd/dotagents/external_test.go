@@ -280,7 +280,7 @@ external_skills:
 		t.Fatalf("external source count = %d, want one unified source", len(cfg.ExternalSkills))
 	}
 	src := cfg.ExternalSkills[0]
-	plan, err := planMaterializedSkills(cfg.ExternalSkills, home, repoRoot, lockFile{}, true)
+	plan, err := planMaterializedSkills(cfg.ExternalSkills, home, repoRoot, lockFile{}, true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +342,7 @@ func TestMaterializedRefreshReplacesTheExactOwnedTree(t *testing.T) {
 		Name: "catalog", URL: src.URL, Branch: src.Branch, Commit: "deadbeef",
 		Materialized: newMaterializedSkillNames([]string{"alpha"}),
 	}}}
-	plan, err := planMaterializedSkills([]externalSkillSource{src}, home, repoRoot, lock, true)
+	plan, err := planMaterializedSkills([]externalSkillSource{src}, home, repoRoot, lock, true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +399,7 @@ func TestMaterializedRefreshRejectsDifferentSourceIdentity(t *testing.T) {
 				Materialized: newMaterializedSkillNames([]string{"alpha"}),
 			}}}
 
-			_, err := planMaterializedSkills([]externalSkillSource{src}, home, repoRoot, lock, true)
+			_, err := planMaterializedSkills([]externalSkillSource{src}, home, repoRoot, lock, true, nil)
 			if err == nil {
 				t.Fatal("different source identity was allowed to replace the existing materialized skill")
 			}
@@ -426,7 +426,7 @@ func TestMaterializedLockRejectsDuplicateSkillOwnership(t *testing.T) {
 		},
 	}}
 
-	_, err := planMaterializedSkills(nil, t.TempDir(), repoRoot, lock, true)
+	_, err := planMaterializedSkills(nil, t.TempDir(), repoRoot, lock, true, nil)
 	if err == nil {
 		t.Fatal("duplicate materialized skill ownership in the lock was accepted")
 	}
@@ -449,7 +449,7 @@ func TestSelectedMaterializedUpdateRemovesOnlyItsStaleOwnedSkills(t *testing.T) 
 		{Name: "catalog-b", URL: "https://github.com/example/catalog-b", Branch: "main", Commit: "bbbb", Materialized: newMaterializedSkillNames([]string{"stale-b"})},
 	}}
 
-	plan, err := planMaterializedSkills([]externalSkillSource{src}, home, repoRoot, lock, false)
+	plan, err := planMaterializedSkills([]externalSkillSource{src}, home, repoRoot, lock, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,7 +476,7 @@ func TestMaterializationConflictPreservesUnrelatedCanonicalSkill(t *testing.T) {
 	writeSyncTestFile(t, canonicalFile, []byte("unrelated sentinel\n"))
 	src := externalSkillSource{URL: "https://github.com/example/catalog", SkillDir: "skills", Branch: "main", Materialize: true}
 
-	_, err := planMaterializedSkills([]externalSkillSource{src}, home, repoRoot, lockFile{}, true)
+	_, err := planMaterializedSkills([]externalSkillSource{src}, home, repoRoot, lockFile{}, true, nil)
 	if err == nil || !strings.Contains(err.Error(), "collides with unrelated canonical skill") || !strings.Contains(err.Error(), filepath.Dir(canonicalFile)) {
 		t.Fatalf("materialization conflict error = %v", err)
 	}
@@ -546,5 +546,74 @@ func TestDoctorRejectsDirectCacheDeliveryForMaterializedSkill(t *testing.T) {
 	result = checkMaterializedExternalSkills(repoRoot, cfg, home)
 	if result.status != checkStatusPass {
 		t.Fatalf("doctor rejected canonical materialized delivery = %s (%s)", result.status, result.detail)
+	}
+}
+
+func TestSyncKeepsCommittedCopiesWhenUpstreamUnavailable(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	src := externalSkillSource{
+		URL:         "file:///nonexistent/catalog",
+		Branch:      "main",
+		Materialize: true,
+	}
+	skillDir := filepath.Join(repoRoot, "skills", "alpha")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := "---\nname: alpha\n---\nalpha v1\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lock := lockFile{Version: 1, ExternalSkills: []externalLockEntry{{
+		Name:         "catalog",
+		URL:          src.URL,
+		Branch:       src.Branch,
+		Commit:       "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+		Materialized: newMaterializedSkillNames([]string{"alpha"}),
+	}}}
+	if err := writeLockFile(repoRoot, lock); err != nil {
+		t.Fatal(err)
+	}
+	if err := syncExternalRepos([]externalSkillSource{src}, home, repoRoot); err != nil {
+		t.Fatalf("sync with unavailable upstream = %v, want committed copies kept", err)
+	}
+	data, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != content {
+		t.Fatalf("committed copy changed: %q", data)
+	}
+	after, err := readLockFile(repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.ExternalSkills) != 1 || after.ExternalSkills[0].Commit != lock.ExternalSkills[0].Commit {
+		t.Fatalf("lock pin changed: %+v", after.ExternalSkills)
+	}
+}
+
+func TestSyncFailsWhenUpstreamUnavailableAndCopiesMissing(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	src := externalSkillSource{
+		URL:         "file:///nonexistent/catalog",
+		Branch:      "main",
+		Materialize: true,
+	}
+	lock := lockFile{Version: 1, ExternalSkills: []externalLockEntry{{
+		Name:         "catalog",
+		URL:          src.URL,
+		Branch:       src.Branch,
+		Commit:       "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+		Materialized: newMaterializedSkillNames([]string{"alpha"}),
+	}}}
+	if err := writeLockFile(repoRoot, lock); err != nil {
+		t.Fatal(err)
+	}
+	err := syncExternalRepos([]externalSkillSource{src}, home, repoRoot)
+	if err == nil || !strings.Contains(err.Error(), "clone external catalog") {
+		t.Fatalf("sync error = %v, want clone failure", err)
 	}
 }

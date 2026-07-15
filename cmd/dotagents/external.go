@@ -40,26 +40,20 @@ func syncExternalRepos(sources []externalSkillSource, home string, repoRoot stri
 			return fmt.Errorf("create %s: %w", cacheRoot, err)
 		}
 	}
+	unavailable := make(map[string]bool)
 	for _, src := range sources {
 		name := repoName(src.URL)
 		cachePath := filepath.Join(cacheRoot, name)
-		if hasDir(filepath.Join(cachePath, ".git")) {
-			setURL := exec.Command("git", "-C", cachePath, "remote", "set-url", "origin", src.URL)
-			if err := setURL.Run(); err != nil {
-				return fmt.Errorf("update remote URL for %s: %w", name, err)
+		if err := refreshExternalCache(src, cachePath, lock); err != nil {
+			if committedMaterializationCurrent(src, lock, repoRoot) {
+				fmt.Fprintf(os.Stderr, "warning: external %s unavailable (%v); keeping committed skill copies\n", name, err)
+				unavailable[name] = true
+				continue
 			}
-		} else if err := gitClone(src.URL, src.Branch, cachePath); err != nil {
-			return fmt.Errorf("clone external %s: %w", name, err)
-		}
-		if pin := lockEntryFor(lock, src); pin != nil {
-			if err := gitCheckoutCommit(cachePath, pin.Commit, src.Branch); err != nil {
-				return fmt.Errorf("pin external %s to %s: %w", name, pin.Commit, err)
-			}
-		} else if err := gitFetchReset(cachePath, src.Branch); err != nil {
-			return fmt.Errorf("update external %s: %w", name, err)
+			return err
 		}
 	}
-	plan, err := planMaterializedSkills(sources, home, repoRoot, lock, true)
+	plan, err := planMaterializedSkills(sources, home, repoRoot, lock, true, unavailable)
 	if err != nil {
 		return err
 	}
@@ -70,6 +64,50 @@ func syncExternalRepos(sources []externalSkillSource, home string, repoRoot stri
 		return restoreMaterializationLock(repoRoot, lock, err)
 	}
 	return nil
+}
+
+// refreshExternalCache brings the local cache for src to its lock pin (or the
+// branch head when unpinned), cloning it first when absent.
+func refreshExternalCache(src externalSkillSource, cachePath string, lock lockFile) error {
+	name := repoName(src.URL)
+	if hasDir(filepath.Join(cachePath, ".git")) {
+		setURL := exec.Command("git", "-C", cachePath, "remote", "set-url", "origin", src.URL)
+		if err := setURL.Run(); err != nil {
+			return fmt.Errorf("update remote URL for %s: %w", name, err)
+		}
+	} else if err := gitClone(src.URL, src.Branch, cachePath); err != nil {
+		return fmt.Errorf("clone external %s: %w", name, err)
+	}
+	if pin := lockEntryFor(lock, src); pin != nil {
+		if err := gitCheckoutCommit(cachePath, pin.Commit, src.Branch); err != nil {
+			return fmt.Errorf("pin external %s to %s: %w", name, pin.Commit, err)
+		}
+	} else if err := gitFetchReset(cachePath, src.Branch); err != nil {
+		return fmt.Errorf("update external %s: %w", name, err)
+	}
+	return nil
+}
+
+// committedMaterializationCurrent reports whether every lock-owned
+// materialized skill of src already exists in the repo, so sync can keep the
+// committed copies when the upstream cache cannot be refreshed.
+func committedMaterializationCurrent(src externalSkillSource, lock lockFile, repoRoot string) bool {
+	if !src.Materialize {
+		return false
+	}
+	pin := lockEntryFor(lock, src)
+	if pin == nil || len(pin.Materialized.Values()) == 0 {
+		return false
+	}
+	for _, name := range pin.Materialized.Values() {
+		if name == "" || filepath.Base(name) != name {
+			return false
+		}
+		if !hasDir(filepath.Join(repoRoot, "skills", name)) {
+			return false
+		}
+	}
+	return true
 }
 
 // updateExternalRepos advances the named source pins (or all when names is
@@ -99,7 +137,7 @@ func updateExternalRepos(sources []externalSkillSource, home string, repoRoot st
 		}
 		fmt.Printf("updated %s -> %s\n", name, externalSkillCommit(cachePath))
 	}
-	plan, err := planMaterializedSkills(selected, home, repoRoot, lock, false)
+	plan, err := planMaterializedSkills(selected, home, repoRoot, lock, false, nil)
 	if err != nil {
 		return err
 	}
@@ -406,7 +444,10 @@ type materializedSkill struct {
 	Remove     bool
 }
 
-func planMaterializedSkills(sources []externalSkillSource, home string, repoRoot string, lock lockFile, reconcileRemovedSources bool) ([]materializedSkill, error) {
+// keep lists source names whose lock-owned materialized copies must stay
+// untouched (neither refreshed nor removed), e.g. when the upstream cache is
+// unavailable but the committed copies already match the lock.
+func planMaterializedSkills(sources []externalSkillSource, home string, repoRoot string, lock lockFile, reconcileRemovedSources bool, keep map[string]bool) ([]materializedSkill, error) {
 	var plan []materializedSkill
 	seen := make(map[string]materializedSkill)
 	sourceScope := make(map[string]bool, len(sources))
@@ -421,7 +462,7 @@ func planMaterializedSkills(sources []externalSkillSource, home string, repoRoot
 	}
 	for _, src := range sources {
 		sourceScope[repoName(src.URL)] = true
-		if !src.Materialize {
+		if !src.Materialize || keep[repoName(src.URL)] {
 			continue
 		}
 		skills, err := discoverExternalSourceSkills(src, home)
@@ -457,6 +498,9 @@ func planMaterializedSkills(sources []externalSkillSource, home string, repoRoot
 	stale := make(map[string]bool)
 	for _, entry := range lock.ExternalSkills {
 		if !reconcileRemovedSources && !sourceScope[entry.Name] {
+			continue
+		}
+		if keep[entry.Name] {
 			continue
 		}
 		for _, name := range entry.Materialized.Values() {
