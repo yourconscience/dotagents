@@ -68,8 +68,8 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	if err := json.Unmarshal(settingsData, &settings); err != nil {
 		t.Fatal(err)
 	}
-	if settings["amp.skills.path"] != dotagentsSkillsPathValue {
-		t.Fatalf("amp.skills.path = %#v", settings["amp.skills.path"])
+	if settings["amp.skills.path"] != filepath.Join(repoRoot, "skills") {
+		t.Fatalf("amp.skills.path = %#v, want custom canonical root", settings["amp.skills.path"])
 	}
 	servers, ok := asMap(settings["amp.mcpServers"])
 	if !ok {

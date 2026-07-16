@@ -47,7 +47,7 @@ func expectedSkills(repoRoot string, home string, cfg config) (map[string]string
 	return discoveredSkillPaths(discovered), nil
 }
 
-func discoverLocalSkills(repoRoot string, home string) ([]discoveredSkill, error) {
+func discoverLocalSkills(repoRoot string, _ string) ([]discoveredSkill, error) {
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
@@ -57,7 +57,7 @@ func discoverLocalSkills(repoRoot string, home string) ([]discoveredSkill, error
 		return nil, fmt.Errorf("read %s: %w", skillsDir, err)
 	}
 
-	agentsSkillRoot := filepath.Join(home, ".agents", "skills")
+	agentsSkillRoot := filepath.Join(repoRoot, "skills")
 	discovered := make([]discoveredSkill, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
@@ -157,9 +157,10 @@ func sameResolvedPath(a, b string) bool {
 
 func inspectAgents(selected []agentConfig, expected map[string]string, repoRoot string, home string, cfg config) ([]agentReport, error) {
 	reports := make([]agentReport, 0, len(selected))
+	agentsSkillRoot := filepath.Join(repoRoot, "skills")
 	for _, agent := range selected {
 		if !isDetected(agent) {
-			report, err := inspectAgent(agent, expected, repoRoot, filepath.Join(home, ".agents", "skills"), cfg, home)
+			report, err := inspectAgent(agent, expected, repoRoot, agentsSkillRoot, cfg, home)
 			if err != nil {
 				return nil, err
 			}
@@ -170,7 +171,7 @@ func inspectAgents(selected []agentConfig, expected map[string]string, repoRoot 
 		if err != nil {
 			return nil, err
 		}
-		report, err := inspectAgent(agent, agentExpected, repoRoot, filepath.Join(home, ".agents", "skills"), cfg, home)
+		report, err := inspectAgent(agent, agentExpected, repoRoot, agentsSkillRoot, cfg, home)
 		if err != nil {
 			return nil, err
 		}
@@ -423,7 +424,7 @@ func inspectRootInstructions(report *agentReport, ri *RootInstructionsCapability
 	return nil
 }
 
-func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, home string) (agentReport, error) {
+func inspectAmpAgent(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
 	report := agentReport{
 		Name:           agent.Name,
 		SkillRoot:      agent.SkillRoot,
@@ -435,11 +436,12 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 		return report, nil
 	}
 
-	if ok, err := ampHasSkillsPath(home); err != nil {
+	if ok, err := ampHasSkillsPath(home, agentsSkillRoot); err != nil {
 		return agentReport{}, err
 	} else if !ok {
-		report.Missing = append(report.Missing, "config amp.skills.path -> ~/.agents/skills")
-		report.Adds = append(report.Adds, "config amp.skills.path -> ~/.agents/skills")
+		message := "config amp.skills.path -> " + hermesExternalDirValue(home, agentsSkillRoot)
+		report.Missing = append(report.Missing, message)
+		report.Adds = append(report.Adds, message)
 	}
 	report.Managed = append(report.Managed, sortedKeys(expected)...)
 	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
@@ -454,7 +456,7 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 	return report, nil
 }
 
-func ampHasSkillsPath(home string) (bool, error) {
+func ampHasSkillsPath(home string, target string) (bool, error) {
 	configPath := ampSettingsPath(home)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -469,7 +471,7 @@ func ampHasSkillsPath(home string) (bool, error) {
 		return false, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 	path, _ := raw["amp.skills.path"].(string)
-	return ampSkillsPathConfigured(path, home), nil
+	return ampSkillsPathConfigured(path, home, target), nil
 }
 
 func inspectHermesAgent(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {

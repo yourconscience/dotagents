@@ -41,7 +41,7 @@ func TestPatchHermesConfigAddsDotagentsSkillDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	patched, err := patchHermesConfig(home, config{})
+	patched, err := patchHermesConfig(home, filepath.Join(home, ".agents"), config{})
 	if err != nil {
 		t.Fatal(err)
 	}

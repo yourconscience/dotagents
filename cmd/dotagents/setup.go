@@ -48,7 +48,7 @@ func runSetup(opts runOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := importNativeContent(repoRoot, &cfg, detected, skills, roles, mcps, streams); err != nil {
+	if err := importNativeContent(repoRoot, &cfg, skills, roles, mcps, streams); err != nil {
 		return err
 	}
 	if err := ensureStarterAssets(repoRoot, configPath); err != nil {
@@ -62,13 +62,13 @@ func runSetup(opts runOptions) error {
 	}
 
 	for _, agent := range detected {
-		patched, err := patchAgentConfig(agent, home, cfg)
+		patched, err := patchAgentConfig(agent, home, repoRoot, cfg)
 		if err != nil {
 			fmt.Fprintf(streams.out, "%s: config patch failed: %v\n", agent.Name, err)
 			continue
 		}
 		if patched {
-			fmt.Fprintf(streams.out, "%s: config patched (added ~/.agents/skills)\n", agent.Name)
+			fmt.Fprintf(streams.out, "%s: config patched (added %s)\n", agent.Name, filepath.Join(repoRoot, "skills"))
 		} else {
 			fmt.Fprintf(streams.out, "%s: config already set\n", agent.Name)
 		}
@@ -91,15 +91,15 @@ func runSetup(opts runOptions) error {
 	return runSync(syncOpts)
 }
 
-func patchAgentConfig(agent agentConfig, home string, cfg config) (bool, error) {
+func patchAgentConfig(agent agentConfig, home string, repoRoot string, cfg config) (bool, error) {
 	h := harnessFor(agent.Name)
 	if h != nil && h.Setup != nil {
-		return h.Setup(home, cfg)
+		return h.Setup(home, repoRoot, cfg)
 	}
 	return false, nil
 }
 
-func patchAmpConfig(home string) (bool, error) {
+func patchAmpConfig(home string, repoRoot string) (bool, error) {
 	configPath := ampSettingsPath(home)
 	data, err := os.ReadFile(configPath)
 	raw := map[string]interface{}{}
@@ -111,11 +111,12 @@ func patchAmpConfig(home string) (bool, error) {
 		return false, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 
+	target := filepath.Join(repoRoot, "skills")
 	current, _ := raw["amp.skills.path"].(string)
-	if ampSkillsPathConfigured(current, home) {
+	if ampSkillsPathConfigured(current, home, target) {
 		return false, nil
 	}
-	raw["amp.skills.path"] = appendAmpSkillsPath(current)
+	raw["amp.skills.path"] = appendAmpSkillsPath(current, hermesExternalDirValue(home, target))
 
 	out, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
@@ -171,8 +172,7 @@ func defaultAmpSettingsPath(configDir string) string {
 	return jsoncPath
 }
 
-func ampSkillsPathConfigured(raw string, home string) bool {
-	target := filepath.Join(home, ".agents", "skills")
+func ampSkillsPathConfigured(raw string, home string, target string) bool {
 	for _, part := range strings.Split(raw, ":") {
 		if expandPath(strings.TrimSpace(part), home) == target {
 			return true
@@ -181,14 +181,14 @@ func ampSkillsPathConfigured(raw string, home string) bool {
 	return false
 }
 
-func appendAmpSkillsPath(raw string) string {
+func appendAmpSkillsPath(raw string, target string) string {
 	if strings.TrimSpace(raw) == "" {
-		return dotagentsSkillsPathValue
+		return target
 	}
-	return strings.TrimRight(raw, ":") + ":" + dotagentsSkillsPathValue
+	return strings.TrimRight(raw, ":") + ":" + target
 }
 
-func patchHermesConfig(home string, _ config) (bool, error) {
+func patchHermesConfig(home string, repoRoot string, _ config) (bool, error) {
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -210,7 +210,7 @@ func patchHermesConfig(home string, _ config) (bool, error) {
 		return false, fmt.Errorf("skills key in %s is not a map", configPath)
 	}
 
-	targets := []string{filepath.Join(home, ".agents", "skills")}
+	targets := []string{filepath.Join(repoRoot, "skills")}
 
 	targetSet := make(map[string]bool, len(targets))
 	for _, target := range targets {

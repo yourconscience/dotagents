@@ -88,7 +88,7 @@ func runSync(opts runOptions) error {
 		printReport("sync", repoRoot, repoReport, reports, home, cfg)
 		return fmt.Errorf("sync aborted due to conflicts: %s", strings.Join(conflicts, "; "))
 	}
-	if err := applyAgentSync(reports, cfg, home); err != nil {
+	if err := applyAgentSync(reports, cfg, repoRoot, home); err != nil {
 		return err
 	}
 	if err := applyAgentRoleSync(reports, selected, repoRoot); err != nil {
@@ -164,7 +164,7 @@ func applyRepoLink(report repoLinkReport) error {
 	}
 }
 
-func applyAgentSync(reports []agentReport, cfg config, home string) error {
+func applyAgentSync(reports []agentReport, cfg config, repoRoot string, home string) error {
 	for _, report := range reports {
 		if !report.Detected {
 			continue
@@ -174,7 +174,7 @@ func applyAgentSync(reports []agentReport, cfg config, home string) error {
 		}
 		h := harnessFor(report.Name)
 		if h != nil && h.Skills == SkillsConfigDriven {
-			if err := applyConfigDrivenSkillDrift(report, h, cfg, home); err != nil {
+			if err := applyConfigDrivenSkillDrift(report, h, cfg, repoRoot, home); err != nil {
 				return err
 			}
 			continue
@@ -225,11 +225,11 @@ func linkExpectedSkills(report agentReport) error {
 	return nil
 }
 
-func applyConfigDrivenSkillDrift(report agentReport, h *Harness, cfg config, home string) error {
+func applyConfigDrivenSkillDrift(report agentReport, h *Harness, cfg config, repoRoot string, home string) error {
 	if h.Setup == nil || (len(report.Adds) == 0 && len(report.Updates) == 0 && len(report.Removes) == 0) {
 		return nil
 	}
-	if _, err := h.Setup(home, cfg); err != nil {
+	if _, err := h.Setup(home, repoRoot, cfg); err != nil {
 		return fmt.Errorf("%s config-driven skill sync: %w", report.Name, err)
 	}
 

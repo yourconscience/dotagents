@@ -204,7 +204,7 @@ func TestNativeImportSkillCopyRoleConversionMCPRedactionConflictAndPreservesNati
 		t.Fatalf("scan counts skills=%d roles=%d mcps=%d", len(skills), len(roles), len(mcps))
 	}
 	streams := setupIO{in: strings.NewReader("y\nr\ny\ny\n"), out: &bytes.Buffer{}}
-	if err := importNativeContent(root, &cfg, detected, skills, roles, mcps, streams); err != nil {
+	if err := importNativeContent(root, &cfg, skills, roles, mcps, streams); err != nil {
 		t.Fatal(err)
 	}
 	importedSkill, err := os.ReadFile(filepath.Join(root, "skills", "shared", "SKILL.md"))
@@ -223,6 +223,9 @@ func TestNativeImportSkillCopyRoleConversionMCPRedactionConflictAndPreservesNati
 	}
 	if len(cfg.MCPServers) != 1 || cfg.MCPServers[0].Env["TOKEN"] != "${TOKEN}" || cfg.MCPServers[0].Env["REF"] != "${REF}" {
 		t.Fatalf("imported MCP not redacted/preserved: %#v", cfg.MCPServers)
+	}
+	if !stringSlicesEqual(cfg.MCPServers[0].Agents, []string{agentClaudeCode}) {
+		t.Fatalf("imported MCP agents = %#v, want source agent only", cfg.MCPServers[0].Agents)
 	}
 	for path, want := range map[string][]byte{codexRolePath: codexRoleBytes, claudeMCPPath: claudeMCPBytes} {
 		got, err := os.ReadFile(path)
@@ -439,6 +442,11 @@ agents:
 	if !strings.Contains(text, wantStart) || !strings.Contains(text, wantEnd) || strings.Contains(text, "~/.agents/memory/hooks") {
 		t.Fatalf("native custom-root hooks not rendered from canonical root:\n%s", text)
 	}
+	linkPath := filepath.Join(home, ".claude", "skills", "dotagents")
+	if !sameResolvedPath(linkPath, filepath.Join(root, "skills", "dotagents")) {
+		rawTarget, _ := os.Readlink(linkPath)
+		t.Fatalf("custom-root skill link %s -> %q, want %s", linkPath, rawTarget, filepath.Join(root, "skills", "dotagents"))
+	}
 }
 
 func TestImportPromptsTreatEOFAsNo(t *testing.T) {
@@ -447,7 +455,7 @@ func TestImportPromptsTreatEOFAsNo(t *testing.T) {
 	writeSyncTestFile(t, filepath.Join(src, "SKILL.md"), []byte("native skill\n"))
 	cfg := config{Version: 1}
 	skills := []nativeSkillCandidate{{nativeImportCandidate: nativeImportCandidate{Name: "native", Origin: agentClaudeCode, Path: src}}}
-	if err := importNativeContent(root, &cfg, nil, skills, nil, nil, setupIO{in: strings.NewReader(""), out: &bytes.Buffer{}}); err != nil {
+	if err := importNativeContent(root, &cfg, skills, nil, nil, setupIO{in: strings.NewReader(""), out: &bytes.Buffer{}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Lstat(filepath.Join(root, "skills", "native")); !os.IsNotExist(err) {
@@ -495,7 +503,7 @@ func TestImportedStarterNameWinsOnFreshSetupOrdering(t *testing.T) {
 		},
 	}
 	skills := []nativeSkillCandidate{{nativeImportCandidate: nativeImportCandidate{Name: "dotagents", Origin: agentClaudeCode, Path: skillSrc}}}
-	if err := importNativeContent(root, &config{Version: 1}, nil, skills, []nativeRoleCandidate{role}, nil, setupIO{in: strings.NewReader("y\ny\n"), out: &bytes.Buffer{}}); err != nil {
+	if err := importNativeContent(root, &config{Version: 1}, skills, []nativeRoleCandidate{role}, nil, setupIO{in: strings.NewReader("y\ny\n"), out: &bytes.Buffer{}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := ensureStarterAssets(root, filepath.Join(root, "dotagents.yaml")); err != nil {

@@ -714,7 +714,7 @@ func readSetupLine(r io.Reader) (string, bool) {
 	}
 }
 
-func importNativeContent(root string, cfg *config, detected []agentConfig, skills []nativeSkillCandidate, roles []nativeRoleCandidate, mcps []nativeMCPCandidate, streams setupIO) error {
+func importNativeContent(root string, cfg *config, skills []nativeSkillCandidate, roles []nativeRoleCandidate, mcps []nativeMCPCandidate, streams setupIO) error {
 	if len(skills) > 0 && promptYesNo(streams, fmt.Sprintf("Import %d skills into %s?", len(skills), filepath.Join(root, "skills"))) {
 		chosen := resolveSkillConflicts(skills, streams)
 		for _, skill := range chosen {
@@ -745,11 +745,10 @@ func importNativeContent(root string, cfg *config, detected []agentConfig, skill
 		}
 	}
 	if len(mcps) > 0 && promptYesNo(streams, fmt.Sprintf("Import %d MCP servers into dotagents.yaml?", len(mcps))) {
-		mcpAgents := detectedMCPAgentNames(detected)
 		chosen := resolveMCPConflicts(mcps, streams)
 		for _, candidate := range chosen {
 			server := candidate.Server
-			server.Agents = mcpAgents
+			server.Agents = []string{candidate.Origin}
 			if err := upsertCanonicalMCPServer(cfg, server); err != nil {
 				return err
 			}
@@ -846,19 +845,6 @@ func sortedKeysNative[T any](m map[string]T) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-func detectedMCPAgentNames(detected []agentConfig) []string {
-	var agents []string
-	for _, agent := range detected {
-		if hasMCPSupport(agent.Name) {
-			agents = append(agents, agent.Name)
-		}
-	}
-	if len(agents) == 0 {
-		return []string{agentClaudeCode}
-	}
-	return agents
 }
 
 func copyDirMissing(dst string, src string) error {

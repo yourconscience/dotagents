@@ -487,7 +487,7 @@ func TestAmpMCPPatchUsesExistingSettingsJSONC(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if ok, err := ampHasSkillsPath(home); err != nil || !ok {
+	if ok, err := ampHasSkillsPath(home, filepath.Join(home, ".agents", "skills")); err != nil || !ok {
 		t.Fatalf("ampHasSkillsPath = %v, %v; want true, nil", ok, err)
 	}
 	if err := patchMCPServer(agentAmp, testMCPServer(), home); err != nil {
@@ -530,7 +530,7 @@ func TestAmpConfigPreservesExistingSkillPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	patched, err := patchAmpConfig(home)
+	patched, err := patchAmpConfig(home, filepath.Join(home, ".agents"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -548,7 +548,7 @@ func TestAmpConfigPreservesExistingSkillPaths(t *testing.T) {
 	if raw["amp.skills.path"] != "~/team-skills:~/.agents/skills" {
 		t.Fatalf("amp.skills.path = %#v, want existing path preserved", raw["amp.skills.path"])
 	}
-	if ok, err := ampHasSkillsPath(home); err != nil || !ok {
+	if ok, err := ampHasSkillsPath(home, filepath.Join(home, ".agents", "skills")); err != nil || !ok {
 		t.Fatalf("ampHasSkillsPath = %v, %v; want true, nil", ok, err)
 	}
 }
@@ -564,7 +564,7 @@ func TestAmpConfigAcceptsExistingColonSeparatedSkillPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	patched, err := patchAmpConfig(home)
+	patched, err := patchAmpConfig(home, filepath.Join(home, ".agents"))
 	if err != nil {
 		t.Fatal(err)
 	}

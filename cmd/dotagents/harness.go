@@ -44,7 +44,7 @@ type DoctorCheck struct {
 type InspectSkillsFunc func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error)
 
 // SetupFunc is the signature for agent-specific config patching during setup.
-type SetupFunc func(home string, cfg config) (bool, error)
+type SetupFunc func(home string, repoRoot string, cfg config) (bool, error)
 
 // Harness is the central descriptor for a coding agent integration.
 // All feature dispatch reads capability fields instead of switching on agent names.
@@ -93,11 +93,11 @@ func initHarnesses() {
 	harnesses = map[string]*Harness{
 		"amp": {
 			Skills: SkillsConfigDriven,
-			InspectSkills: func(agent agentConfig, expected map[string]string, _ string, cfg config, home string) (agentReport, error) {
-				return inspectAmpAgent(agent, expected, cfg, home)
+			InspectSkills: func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
+				return inspectAmpAgent(agent, expected, agentsSkillRoot, cfg, home)
 			},
-			Setup: func(home string, _ config) (bool, error) {
-				return patchAmpConfig(home)
+			Setup: func(home string, repoRoot string, _ config) (bool, error) {
+				return patchAmpConfig(home, repoRoot)
 			},
 			MCP: mcpTargetPtr(mcpTarget{
 				agentName:  "amp",
@@ -178,8 +178,8 @@ func initHarnesses() {
 			InspectSkills: func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
 				return inspectHermesAgent(agent, expected, agentsSkillRoot, cfg, home)
 			},
-			Setup: func(home string, cfg config) (bool, error) {
-				return patchHermesConfig(home, cfg)
+			Setup: func(home string, repoRoot string, cfg config) (bool, error) {
+				return patchHermesConfig(home, repoRoot, cfg)
 			},
 			MCP: mcpTargetPtr(mcpTarget{
 				agentName:  "hermes",

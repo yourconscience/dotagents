@@ -43,8 +43,8 @@ agents:
 	if !ok {
 		t.Fatalf("external_dirs = %#v, want list", skills["external_dirs"])
 	}
-	if !containsInterfaceString(dirs, dotagentsSkillsPathValue) {
-		t.Fatalf("external_dirs = %#v, want %q", dirs, dotagentsSkillsPathValue)
+	if !containsInterfaceString(dirs, filepath.Join(repoRoot, "skills")) {
+		t.Fatalf("external_dirs = %#v, want %q", dirs, filepath.Join(repoRoot, "skills"))
 	}
 
 	if _, err := os.Lstat(filepath.Join(home, ".hermes", "skills", "sample")); !os.IsNotExist(err) {
