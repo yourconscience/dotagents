@@ -5,15 +5,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestAmpMemoryHookE2EWritesSessionDigest(t *testing.T) {
-	repoRoot, _, err := findRoots()
-	if err != nil {
-		t.Fatal(err)
+	_, sourceFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve test source path")
 	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(sourceFile), "..", ".."))
 	home := t.TempDir()
 	vault := filepath.Join(home, "knowledge")
 	fakeBin := filepath.Join(home, "bin")

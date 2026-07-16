@@ -181,6 +181,7 @@ Review the change.
 name: builder
 description: Builds features
 model: sonnet
+tools: Read, Grep
 ---
 
 Implement the change.
@@ -196,6 +197,9 @@ Implement the change.
 	if roles[0].Name != "builder" || roles[1].Name != "reviewer" {
 		t.Fatalf("roles not sorted by name: %#v", roles)
 	}
+	if len(roles[0].Tools) != 2 || roles[0].Tools[0] != "Read" || roles[0].Tools[1] != "Grep" {
+		t.Fatalf("unexpected scalar tools: %#v", roles[0].Tools)
+	}
 	role := roles[1]
 	if role.Description != "Reviews changes" || role.Instructions != "Review the change." {
 		t.Fatalf("unexpected role: %#v", role)
@@ -205,6 +209,21 @@ Implement the change.
 	}
 	if filepath.Base(role.Source) != "reviewer.md" {
 		t.Fatalf("unexpected source: %q", role.Source)
+	}
+}
+func TestLoadAgentRolesMarkdownRejectsMappingTools(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeAgentsFixture(t, repoRoot, "invalid.md", `---
+name: invalid
+description: Invalid tools
+tools: {name: Read}
+---
+
+Do work.
+`)
+	_, err := loadAgentRoles(repoRoot)
+	if err == nil || !strings.Contains(err.Error(), "tools must be a YAML sequence or comma-separated string") {
+		t.Fatalf("mapping tools error = %v", err)
 	}
 }
 

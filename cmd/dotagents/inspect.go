@@ -81,24 +81,6 @@ func expectedSkillsForAgent(base map[string]string, _ string, _ config, _ string
 	return base, nil
 }
 
-func classifyExpectedSkills(expected map[string]string, home string, cfg config) []discoveredSkill {
-	localRoot := filepath.Join(home, ".agents", "skills")
-	discovered := make([]discoveredSkill, 0, len(expected))
-	for name, path := range expected {
-		skill := discoveredSkill{Name: name, Path: path, Origin: "local skills", Root: localRoot}
-		for _, src := range cfg.ExternalSkills {
-			root := filepath.Join(externalCacheDir(home), repoName(src.URL), src.SkillDir)
-			if path == root || strings.HasPrefix(path, root+string(os.PathSeparator)) {
-				skill.Origin = fmt.Sprintf("external Git %q", src.URL)
-				skill.Root = root
-				break
-			}
-		}
-		discovered = append(discovered, skill)
-	}
-	return discovered
-}
-
 func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 	linkPath := filepath.Join(home, ".agents")
 	report := repoLinkReport{

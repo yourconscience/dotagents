@@ -315,14 +315,6 @@ func resolveConfigPath(overridePath string, home string) (string, error) {
 	return filepath.Join(root, "dotagents.yaml"), nil
 }
 
-func canonicalRootFromConfigPath(configPath string, home string) (string, error) {
-	resolved, err := resolveConfigPath(configPath, home)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Dir(resolved), nil
-}
-
 func absoluteExpandedPath(path string, home string) (string, error) {
 	expanded := expandPath(path, home)
 	abs, err := filepath.Abs(expanded)

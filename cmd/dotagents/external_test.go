@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -616,4 +618,24 @@ func TestSyncFailsWhenUpstreamUnavailableAndCopiesMissing(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "clone external catalog") {
 		t.Fatalf("sync error = %v, want clone failure", err)
 	}
+}
+
+func git(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_NOSYSTEM=1",
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git %s failed: %v\nstdout:\n%s\nstderr:\n%s", strings.Join(args, " "), err, stdout.String(), stderr.String())
+	}
+	if stderr.Len() > 0 && args[0] != "init" {
+		t.Logf("git %s stderr:\n%s", strings.Join(args, " "), stderr.String())
+	}
+	return strings.TrimSuffix(stdout.String(), "\n")
 }

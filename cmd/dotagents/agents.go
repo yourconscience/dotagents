@@ -106,11 +106,6 @@ func decodeRoleTools(node *yaml.Node) ([]string, error) {
 	}
 }
 
-type agentRolesFile struct {
-	Version int         `yaml:"version"`
-	Agents  []agentRole `yaml:"agents"`
-}
-
 type codexRoleOptions struct {
 	Model                string `yaml:"model"`
 	ModelReasoningEffort string `yaml:"model_reasoning_effort"`
