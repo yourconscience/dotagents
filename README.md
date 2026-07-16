@@ -1,6 +1,6 @@
 # dotagents
 
-Dotfiles for your AI agents. One `~/.agents` repo holds your skills, MCP servers, hooks, and subagent roles. dotagents syncs each supported capability into Claude Code, Codex, Droid, Hermes, Pi, and OMP. External Git skills are commit-pinned in `dotagents.lock` and audited for risky patterns.
+Dotfiles for your AI agents. One `~/.agents` repo holds your skills, MCP servers, hooks, and subagent roles. dotagents syncs each supported capability into Claude Code, Codex, Pi, Hermes and others. External Git skills are commit-pinned in `dotagents.lock` and audited for risky patterns.
 
 This is *your* agent setup, not a project's: it lives in your home directory, versions like dotfiles, and follows you across machines and harnesses. Project-level `AGENTS.md` files stay in their repos where they belong.
 
