@@ -20,7 +20,7 @@ func TestInspectDroidRootInstructionsMissing(t *testing.T) {
 	home := t.TempDir()
 	report := agentReport{}
 
-	if err := inspectRootInstructions(&report, droidRootInstructions(), home); err != nil {
+	if err := inspectRootInstructions(&report, droidRootInstructions(), filepath.Join(home, ".agents"), home); err != nil {
 		t.Fatal(err)
 	}
 
@@ -50,7 +50,7 @@ func TestInspectDroidRootInstructionsSynced(t *testing.T) {
 	}
 
 	report := agentReport{}
-	if err := inspectRootInstructions(&report, droidRootInstructions(), home); err != nil {
+	if err := inspectRootInstructions(&report, droidRootInstructions(), filepath.Join(home, ".agents"), home); err != nil {
 		t.Fatal(err)
 	}
 
@@ -70,7 +70,7 @@ func TestInspectDroidRootInstructionsConflict(t *testing.T) {
 	}
 
 	report := agentReport{}
-	if err := inspectRootInstructions(&report, droidRootInstructions(), home); err != nil {
+	if err := inspectRootInstructions(&report, droidRootInstructions(), filepath.Join(home, ".agents"), home); err != nil {
 		t.Fatal(err)
 	}
 

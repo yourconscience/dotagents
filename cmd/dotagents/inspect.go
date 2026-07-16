@@ -291,7 +291,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		return agentReport{}, err
 	}
 	if h != nil && h.RootInstructions != nil {
-		if err := inspectRootInstructions(&report, h.RootInstructions, home); err != nil {
+		if err := inspectRootInstructions(&report, h.RootInstructions, repoRoot, home); err != nil {
 			return agentReport{}, err
 		}
 	}
@@ -389,9 +389,9 @@ func isReportSynced(report agentReport) bool {
 	return report.RootState == "" || report.RootState == stateSynced
 }
 
-func inspectRootInstructions(report *agentReport, ri *RootInstructionsCapability, home string) error {
+func inspectRootInstructions(report *agentReport, ri *RootInstructionsCapability, repoRoot string, home string) error {
 	linkPath := ri.Path(home)
-	expectedTarget := ri.Expected(home)
+	expectedTarget := ri.Expected(repoRoot)
 	report.RootPath = linkPath
 	report.RootExpected = expectedTarget
 	report.RootState = stateMissing

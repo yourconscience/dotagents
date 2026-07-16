@@ -10,18 +10,21 @@ import (
 )
 
 func TestCronCommandForWeeklyDeps(t *testing.T) {
-	cmd, interval := cronCommandForOptions("/repo", "/usr/bin/go", cronOptions{Deps: true, Interval: cronIntervalDefault})
+	cmd, interval := cronCommandForOptions("/usr/local/bin/dotagents", cronOptions{Deps: true, Interval: cronIntervalDefault, runOptions: runOptions{ConfigPath: "/custom/dotagents.yaml"}})
 	if interval != cronIntervalWeekly {
 		t.Fatalf("interval = %q, want %s", interval, cronIntervalWeekly)
 	}
 	if !strings.Contains(cmd, "deps update") {
 		t.Fatalf("cmd = %q, want deps update", cmd)
 	}
-	if !strings.Contains(cmd, "/repo/cmd/dotagents") {
-		t.Fatalf("cmd = %q, want root CLI path", cmd)
+	if !strings.Contains(cmd, "/usr/local/bin/dotagents") || strings.Contains(cmd, "go run") {
+		t.Fatalf("cmd = %q, want installed CLI path without go run", cmd)
 	}
 	if strings.Contains(cmd, " pull") {
 		t.Fatalf("cmd = %q, should not use pull mode", cmd)
+	}
+	if !strings.Contains(cmd, `--config "/custom/dotagents.yaml"`) {
+		t.Fatalf("cmd = %q, want custom config preserved", cmd)
 	}
 }
 
@@ -61,6 +64,25 @@ func TestPatchHermesConfigAddsDotagentsSkillDir(t *testing.T) {
 	dirs := skills["external_dirs"].([]interface{})
 	if !containsInterfaceString(dirs, "~/keep") || !containsInterfaceString(dirs, dotagentsSkillsPathValue) {
 		t.Fatalf("external_dirs = %#v", dirs)
+	}
+}
+
+func TestPatchHermesConfigCreatesMissingConfig(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := filepath.Join(home, "custom-agents")
+	patched, err := patchHermesConfig(home, repoRoot, config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !patched {
+		t.Fatal("patchHermesConfig reported no changes")
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".hermes", "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), filepath.Join(repoRoot, "skills")) {
+		t.Fatalf("created Hermes config missing custom skill root:\n%s", data)
 	}
 }
 

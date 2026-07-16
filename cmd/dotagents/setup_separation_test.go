@@ -110,6 +110,7 @@ func TestEnsureStarterAssetsCreatesMissingOnlyAndExecutableHooks(t *testing.T) {
 		t.Fatalf("dotagents.yaml overwritten:\n%s", got)
 	}
 	for _, path := range []string{
+		filepath.Join(root, "AGENTS.md"),
 		filepath.Join(root, "skills", "dotagents", "SKILL.md"),
 		filepath.Join(root, "agents", "architect.md"),
 		filepath.Join(root, "agents", "tester.md"),

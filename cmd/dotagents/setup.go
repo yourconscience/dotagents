@@ -192,7 +192,10 @@ func patchHermesConfig(home string, repoRoot string, _ config) (bool, error) {
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return false, fmt.Errorf("read %s: %w", configPath, err)
+		if !os.IsNotExist(err) {
+			return false, fmt.Errorf("read %s: %w", configPath, err)
+		}
+		data = []byte("{}\n")
 	}
 
 	var raw map[string]interface{}
@@ -247,6 +250,9 @@ func patchHermesConfig(home string, repoRoot string, _ config) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("marshal: %w", err)
 	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		return false, fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
+	}
 	if err := os.WriteFile(configPath, out, 0o644); err != nil {
 		return false, fmt.Errorf("write %s: %w", configPath, err)
 	}
@@ -289,17 +295,20 @@ const (
 )
 
 func runCron(opts cronOptions) error {
-	repoRoot, _, _, _, err := loadContext(opts.runOptions)
+	_, _, _, _, err := loadContext(opts.runOptions)
 	if err != nil {
 		return err
 	}
 
-	goPath, err := exec.LookPath("go")
+	binaryPath, err := exec.LookPath("dotagents")
 	if err != nil {
-		return fmt.Errorf("go not found on PATH: %w", err)
+		binaryPath, err = os.Executable()
+		if err != nil {
+			return fmt.Errorf("locate dotagents executable: %w", err)
+		}
 	}
 
-	cronCmd, interval := cronCommandForOptions(repoRoot, goPath, opts)
+	cronCmd, interval := cronCommandForOptions(binaryPath, opts)
 
 	if opts.Remove {
 		return removeCronEntry(cronCmd)
@@ -307,8 +316,7 @@ func runCron(opts cronOptions) error {
 	return installCronEntry(cronCmd, interval)
 }
 
-func cronCommandForOptions(repoRoot string, goPath string, opts cronOptions) (string, string) {
-	toolPath := filepath.Join(repoRoot, "cmd", "dotagents")
+func cronCommandForOptions(binaryPath string, opts cronOptions) (string, string) {
 	mode := "pull"
 	interval := opts.Interval
 	if opts.Deps {
@@ -320,7 +328,11 @@ func cronCommandForOptions(repoRoot string, goPath string, opts cronOptions) (st
 	if interval == "" {
 		interval = cronIntervalDefault
 	}
-	return fmt.Sprintf(". \"$HOME/.profile\" 2>/dev/null; cd %q && %q run %q %s", repoRoot, goPath, toolPath, mode), interval
+	command := fmt.Sprintf(". \"$HOME/.profile\" 2>/dev/null; %q %s", binaryPath, mode)
+	if opts.ConfigPath != "" {
+		command += fmt.Sprintf(" --config %q", opts.ConfigPath)
+	}
+	return command, interval
 }
 
 func installCronEntry(cronCmd string, interval string) error {

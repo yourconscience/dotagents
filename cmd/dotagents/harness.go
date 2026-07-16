@@ -29,8 +29,8 @@ type RolesCapability struct {
 
 // RootInstructionsCapability describes a root instructions symlink the agent needs.
 type RootInstructionsCapability struct {
-	Path     func(home string) string // symlink path, e.g. ~/.factory/AGENTS.md
-	Expected func(home string) string // target path, e.g. ~/.agents/AGENTS.md
+	Path     func(home string) string     // symlink path, e.g. ~/.factory/AGENTS.md
+	Expected func(repoRoot string) string // target path, e.g. <config-root>/AGENTS.md
 }
 
 // DoctorCheck is a named health check contributed by a harness.
@@ -168,7 +168,7 @@ func initHarnesses() {
 			},
 			RootInstructions: &RootInstructionsCapability{
 				Path:     func(home string) string { return filepath.Join(home, ".factory", "AGENTS.md") },
-				Expected: func(home string) string { return filepath.Join(home, ".agents", "AGENTS.md") },
+				Expected: func(repoRoot string) string { return filepath.Join(repoRoot, "AGENTS.md") },
 			},
 			TrailerExample: "Co-authored-by: factory-droid[bot] <factory-droid[bot]@users.noreply.github.com>",
 		},
