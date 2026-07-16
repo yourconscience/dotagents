@@ -1,6 +1,6 @@
 # dotagents
 
-Dotfiles for your AI agents. `dotagents` keeps one user-owned `~/.agents` repository as the canonical source for skills, MCP servers, hooks, and agent roles, then syncs each supported surface into the harness's native format.
+Dotfiles for your AI agents. The public `dotagents` CLI keeps one user-owned `~/.agents` repository as the canonical source for skills, MCP servers, hooks, and agent roles, then syncs each supported surface into Claude Code, Codex, Pi, Hermes, and other supported harnesses. External Git skills are commit-pinned in `dotagents.lock` and audited before delivery.
 
 The public tool and private user configuration are separate repositories. Installing `yourconscience/dotagents` does not install the maintainer's personal prompts, hooks, or MCP catalog.
 
