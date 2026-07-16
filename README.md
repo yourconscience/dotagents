@@ -4,7 +4,7 @@ Dotfiles for your AI agents. One `~/.agents` repo holds your skills, MCP servers
 
 This is *your* agent setup, not a project's: it lives in your home directory, versions like dotfiles, and follows you across machines and harnesses. Project-level `AGENTS.md` files stay in their repos where they belong.
 
-**Landing page:** [yourconscience.github.io/dotagents](https://yourconscience.github.io/dotagents/) · **Releases:** [v0.1.0](https://github.com/yourconscience/dotagents/releases/latest)
+**Landing page:** [yourconscience.github.io/dotagents](https://yourconscience.github.io/dotagents/) · [**Releases**](https://github.com/yourconscience/dotagents/releases)
 
 ![dotagents harness map](./docs/harness-map.png)
 
