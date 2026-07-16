@@ -7,19 +7,26 @@ tools and machines without tying the layout to any one agent or memory provider.
 Hook entrypoints capture compact session digests, sync selected memory facts into
 the knowledge vault, and keep the derived search index current.
 
-`memory/` is the stable abstraction. `memsearch` is the current indexing
-provider and should remain an implementation detail behind configuration and
-library code.
+`memory/` is the stable abstraction. The dependency-free basic tier writes
+bounded Markdown digests directly; `memsearch` remains an optional indexed
+provider behind the full hook pipeline.
 
 ## Setup
 
+Choose a tier through the CLI:
+
 ```bash
-uv tool install memsearch==0.4.2
-dotagents setup memsearch --vault "$HOME/knowledge"
+dotagents setup --memory basic      # default; Python 3 only
+dotagents setup --memory off        # no managed memory hooks
+dotagents setup --memory memsearch  # requires memsearch on PATH
 ```
 
-This creates the vault directories, initializes the vault as a git repo if
-needed, and writes the local configuration.
+Basic memory appends compact digests under
+`$KNOWLEDGE_DIR/sessions/YYYY-MM-DD.md` and injects bounded recent context at
+session start. It does not invoke memsearch or persist raw transcripts.
+
+The memsearch tier registers the indexed SessionStart, Stop, and SessionEnd
+pipeline. Configure its vault through `~/.agents/memsearch.conf`.
 
 ## Canonical paths
 
@@ -68,7 +75,7 @@ machines (Mac and VPS via the knowledge-sync tool).
 
 ## Hook registration
 
-Agent config patching and migration should live in the dotagents CLI, not in
-copy-pasted README snippets. Use `dotagents setup memsearch` for local
-configuration and keep manual hook details in the dedicated troubleshooting
-reference under `skills/dotagents/references/`.
+Memory-tier selection and native hook registration live in the dotagents CLI,
+not in copy-pasted setup snippets. Re-run `dotagents setup --memory <tier>` to
+change the managed hooks. Keep manual troubleshooting details in
+`skills/dotagents/references/memory-sync.md`.

@@ -79,11 +79,9 @@ func TestHiddenAliasesRouteWithOneRenameNotice(t *testing.T) {
 		{name: "pull", args: []string{"pull", "unexpected"}, wantErr: "pull does not accept positional arguments", notice: `dotagents: "pull" was renamed to "sync --pull"`},
 		{name: "deps", args: []string{"deps", "unexpected"}, wantErr: `unknown deps subcommand "unexpected"`, notice: `dotagents: "deps" was renamed to "doctor deps or sync deps"`},
 		{name: "memsearch", args: []string{"memsearch", "unexpected"}, wantErr: `unknown memsearch subcommand "unexpected"`, notice: `dotagents: "memsearch" was renamed to "setup memsearch or status memsearch"`},
-		{name: "plugin", args: []string{"plugin"}, wantErr: "plugin requires subcommand: add, remove", notice: `dotagents: "plugin add/remove" was renamed to "setup --delivery plugin/sync"`},
 		{name: "skillify", args: []string{"skillify"}, wantErr: "skillify requires a skill name: dotagents skillify <name>", notice: `dotagents: "skillify" was renamed to "skill new"`},
 		{name: "render", args: []string{"render", "unexpected"}, wantErr: "render does not accept positional arguments", notice: `dotagents: "render" was renamed to "sync"`},
 		{name: "audit", args: []string{"audit", "unexpected"}, wantErr: "audit does not accept positional arguments", notice: `dotagents: "audit" was renamed to "doctor"`},
-		{name: "sources", args: []string{"sources", "--definitely-invalid"}, containsErr: "flag provided but not defined", notice: `dotagents: "sources" was renamed to "doctor"`},
 		{name: "external", args: []string{"external"}, wantErr: "usage: dotagents external <list|update> [name ...]", notice: `dotagents: "external" was renamed to "status or skill update"`},
 		{name: "promote", args: []string{"promote"}, wantErr: "promote requires a skill name or path: dotagents promote <name-or-path>", notice: `dotagents: "promote" was renamed to "skill promote"`},
 		{name: "dogfood", args: []string{"dogfood", "unexpected"}, wantErr: "dogfood does not accept positional arguments", notice: `dotagents: "dogfood" was renamed to "doctor --e2e"`},
@@ -112,7 +110,7 @@ func TestSkillUpdateIsCanonicalAndExternalUpdateRemainsCompatible(t *testing.T) 
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	t.Setenv("DOTAGENTS_HOME", repoRoot)
 	writeSyncTestFile(t, filepath.Join(repoRoot, "dotagents.yaml"), []byte(`version: 1
 agents:
   - name: codex

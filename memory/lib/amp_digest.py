@@ -13,15 +13,14 @@ from datetime import timezone
 from pathlib import Path
 from typing import Any
 
+from safety import atomic_write_text, locked_directory, redact_text, safe_identifier, truncate_redacted
+
 
 PATH_RE = re.compile(r"(?:~?/[^\s`'\"\\]+|/Users/[^\s`'\"\\]+|\./[^\s`'\"\\]+)")
 
 
 def truncate(text: str, limit: int = 220) -> str:
-    text = re.sub(r"\s+", " ", text).strip()
-    if len(text) <= limit:
-        return text
-    return text[: limit - 1].rstrip() + "…"
+    return truncate_redacted(text, limit)
 
 
 def parse_start(value: Any) -> datetime:
@@ -75,24 +74,25 @@ def extract_paths(messages: list[dict[str, Any]]) -> list[str]:
     for msg in messages:
         text = content_text(msg.get("content"))
         for match in PATH_RE.findall(text):
-            if match.startswith("/Users/") or match.startswith("~/") or match.startswith("./"):
-                if match not in seen:
-                    seen.add(match)
-                    found.append(match)
+            cleaned = redact_text(match.rstrip(".,;:)"))
+            if cleaned.startswith("/Users/") or cleaned.startswith("~/") or cleaned.startswith("./"):
+                if cleaned not in seen:
+                    seen.add(cleaned)
+                    found.append(cleaned)
         if len(found) >= 8:
             break
     return found[:8]
 
 
 def build_block(data: dict[str, Any]) -> str:
-    session_id = str(data.get("session_id") or data.get("amp_thread_id") or "unknown")
+    session_id = safe_identifier(data.get("session_id") or data.get("amp_thread_id") or "unknown")
     started = parse_start(data.get("session_start"))
     started_human = started.strftime("%Y-%m-%d %H:%M")
     messages = data.get("messages") if isinstance(data.get("messages"), list) else []
     users = collect_user_turns(messages)
     final_assistant = nonempty_assistant_text(messages)
     paths = extract_paths(messages)
-    model = str(data.get("model") or "")
+    model = truncate(str(data.get("model") or ""), 120)
 
     lines = [
         f"<!-- amp-session:{session_id}:start -->",
@@ -114,7 +114,7 @@ def build_block(data: dict[str, Any]) -> str:
     if paths:
         lines.append("- paths mentioned:")
         for path in paths:
-            lines.append(f"  - `{path}`")
+            lines.append(f"  - `{truncate(path, 180)}`")
     lines.extend(
         [
             "",
@@ -128,26 +128,27 @@ def build_block(data: dict[str, Any]) -> str:
 def update_daily_file(sessions_dir: Path, data: dict[str, Any]) -> Path:
     started = parse_start(data.get("session_start"))
     target = sessions_dir / f"{started.strftime('%Y-%m-%d')}.md"
-    session_id = str(data.get("session_id") or data.get("amp_thread_id") or "unknown")
+    session_id = safe_identifier(data.get("session_id") or data.get("amp_thread_id") or "unknown")
     session_marker_re = re.compile(
         rf"<!-- amp-session:{re.escape(session_id)}:start -->.*?<!-- amp-session:{re.escape(session_id)}:end -->\n?",
         re.DOTALL,
     )
 
-    existing = ""
-    session_files = sorted({*sessions_dir.glob("*.md"), *sessions_dir.glob("*.markdown")})
-    for path in session_files:
-        text = path.read_text(encoding="utf-8")
-        cleaned = session_marker_re.sub("", text).rstrip()
-        if path == target:
-            existing = cleaned
-        elif cleaned != text.rstrip():
-            path.write_text(cleaned + "\n" if cleaned else "", encoding="utf-8")
-    if not existing and target.exists() and target not in session_files:
-        existing = session_marker_re.sub("", target.read_text(encoding="utf-8")).rstrip()
+    with locked_directory(sessions_dir):
+        existing = ""
+        session_files = sorted({*sessions_dir.glob("*.md"), *sessions_dir.glob("*.markdown")})
+        for path in session_files:
+            text = path.read_text(encoding="utf-8")
+            cleaned = session_marker_re.sub("", text).rstrip()
+            if path == target:
+                existing = cleaned
+            elif cleaned != text.rstrip():
+                atomic_write_text(path, cleaned + "\n" if cleaned else "")
+        if not existing and target.exists() and target not in session_files:
+            existing = session_marker_re.sub("", target.read_text(encoding="utf-8")).rstrip()
 
-    block = build_block(data).rstrip() + "\n"
-    target.write_text((existing + "\n\n" + block).lstrip() if existing else block, encoding="utf-8")
+        block = build_block(data).rstrip() + "\n"
+        atomic_write_text(target, (existing + "\n\n" + block).lstrip() if existing else block)
     return target
 
 
@@ -187,7 +188,7 @@ def main() -> None:
         json.dumps(
             {
                 "action": "continue",
-                "message": f"memsearch updated from Amp session {session_id}",
+                "message": f"memsearch updated from Amp session {safe_identifier(session_id)}",
                 "output_file": str(target),
             }
         )

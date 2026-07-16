@@ -25,71 +25,13 @@ func TestCronCommandForWeeklyDeps(t *testing.T) {
 	}
 }
 
-func TestPathContainsDir(t *testing.T) {
-	path := strings.Join([]string{"/usr/bin", "/Users/me/go/bin"}, string(':'))
-	if !pathContainsDir(path, "/Users/me/go/bin") {
-		t.Fatal("expected PATH to contain Go bin dir")
-	}
-	if pathContainsDir(path, "/Users/me/.local/bin") {
-		t.Fatal("unexpected PATH match")
-	}
-}
-
-func TestGoBinDirUsesEffectiveGOBIN(t *testing.T) {
-	fakeGo := writeFakeGo(t)
-	t.Setenv("FAKE_GOBIN", "/custom/go/bin")
-	t.Setenv("FAKE_GOPATH", "/wrong/go")
-
-	got, err := goBinDir(fakeGo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "/custom/go/bin" {
-		t.Fatalf("goBinDir = %q, want effective GOBIN", got)
-	}
-}
-
-func TestGoBinDirFallsBackToGOPATHBin(t *testing.T) {
-	fakeGo := writeFakeGo(t)
-	t.Setenv("FAKE_GOBIN", "")
-	t.Setenv("FAKE_GOPATH", strings.Join([]string{"/first/go", "/second/go"}, string(os.PathListSeparator)))
-
-	got, err := goBinDir(fakeGo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != filepath.Join("/first/go", "bin") {
-		t.Fatalf("goBinDir = %q, want first GOPATH bin", got)
-	}
-}
-
-func writeFakeGo(t *testing.T) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "go")
-	data := `#!/bin/sh
-if [ "$1" = "env" ] && [ "$2" = "GOBIN" ]; then
-  printf '%s\n' "$FAKE_GOBIN"
-  exit 0
-fi
-if [ "$1" = "env" ] && [ "$2" = "GOPATH" ]; then
-  printf '%s\n' "$FAKE_GOPATH"
-  exit 0
-fi
-exit 1
-`
-	if err := os.WriteFile(path, []byte(data), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
 func TestIntervalToScheduleWeekly(t *testing.T) {
 	if got := intervalToSchedule(cronIntervalWeekly); got != "0 4 * * 1" {
 		t.Fatalf("weekly schedule = %q, want Monday 04:00", got)
 	}
 }
 
-func TestPatchHermesConfigAddsPluginSkillDirs(t *testing.T) {
+func TestPatchHermesConfigAddsDotagentsSkillDir(t *testing.T) {
 	home := t.TempDir()
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
@@ -99,22 +41,7 @@ func TestPatchHermesConfigAddsPluginSkillDirs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pluginSource := filepath.Join(home, "plugins", "browser")
-	pluginSkillDir := filepath.Join(pluginSource, "skills", "browser")
-	if err := os.MkdirAll(pluginSkillDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pluginSkillDir, "SKILL.md"), []byte("---\nname: browser\n---\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	patched, err := patchHermesConfig(home, config{Plugins: []pluginConfig{{
-		Name:     "browser",
-		Enabled:  true,
-		Source:   pluginSource,
-		Surfaces: []string{pluginSurfaceSkills},
-		Agents:   []string{agentHermes},
-	}}})
+	patched, err := patchHermesConfig(home, config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,62 +59,7 @@ func TestPatchHermesConfigAddsPluginSkillDirs(t *testing.T) {
 	}
 	skills := raw["skills"].(map[string]interface{})
 	dirs := skills["external_dirs"].([]interface{})
-	if !containsInterfaceString(dirs, "~/keep") || !containsInterfaceString(dirs, dotagentsSkillsPathValue) || !containsInterfaceString(dirs, filepath.Join(pluginSource, "skills")) {
-		t.Fatalf("external_dirs = %#v", dirs)
-	}
-}
-
-func TestPatchHermesConfigPrunesStalePluginVersionDirs(t *testing.T) {
-	home := t.TempDir()
-	configPath := filepath.Join(home, ".hermes", "config.yaml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	pluginSource := filepath.Join(home, "plugins", "browser")
-	currentSkillDir := filepath.Join(pluginSource, "2.0.0", "skills", "browser")
-	if err := os.MkdirAll(currentSkillDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(currentSkillDir, "SKILL.md"), []byte("---\nname: browser\n---\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	staleVersionDir := filepath.Join(pluginSource, "1.0.0", "skills")
-	legacyRootDir := filepath.Join(home, ".agents", "plugin-roots", "claude", "frontend-design", "skills")
-	configBody := "skills:\n  external_dirs:\n    - ~/keep\n    - " + staleVersionDir + "\n    - " + legacyRootDir + "\n"
-	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	patched, err := patchHermesConfig(home, config{Plugins: []pluginConfig{{
-		Name:     "browser",
-		Enabled:  true,
-		Source:   pluginSource,
-		Surfaces: []string{pluginSurfaceSkills},
-		Agents:   []string{agentHermes},
-	}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !patched {
-		t.Fatal("patchHermesConfig reported no changes")
-	}
-
-	out, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(out, &raw); err != nil {
-		t.Fatal(err)
-	}
-	skills := raw["skills"].(map[string]interface{})
-	dirs := skills["external_dirs"].([]interface{})
-	if containsInterfaceString(dirs, staleVersionDir) || containsInterfaceString(dirs, legacyRootDir) {
-		t.Fatalf("stale dirs not pruned: %#v", dirs)
-	}
-	if !containsInterfaceString(dirs, "~/keep") || !containsInterfaceString(dirs, filepath.Join(pluginSource, "2.0.0", "skills")) {
+	if !containsInterfaceString(dirs, "~/keep") || !containsInterfaceString(dirs, dotagentsSkillsPathValue) {
 		t.Fatalf("external_dirs = %#v", dirs)
 	}
 }

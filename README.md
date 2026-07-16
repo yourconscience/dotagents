@@ -1,8 +1,8 @@
 # dotagents
 
-Dotfiles for your AI agents. One `~/.agents` repo holds your skills, MCP servers, hooks, and subagent roles. dotagents syncs each supported capability into Claude Code, Codex, Droid, Hermes, Pi, and OMP. External Git skills are commit-pinned in `dotagents.lock` and audited for risky patterns.
+Dotfiles for your AI agents. `dotagents` keeps one user-owned `~/.agents` repository as the canonical source for skills, MCP servers, hooks, and agent roles, then syncs each supported surface into the harness's native format.
 
-This is *your* agent setup, not a project's: it lives in your home directory, versions like dotfiles, and follows you across machines and harnesses. Project-level `AGENTS.md` files stay in their repos where they belong.
+The public tool and private user configuration are separate repositories. Installing `yourconscience/dotagents` does not install the maintainer's personal prompts, hooks, or MCP catalog.
 
 **Landing page:** [yourconscience.github.io/dotagents](https://yourconscience.github.io/dotagents/) · [**Releases**](https://github.com/yourconscience/dotagents/releases)
 
@@ -10,26 +10,10 @@ This is *your* agent setup, not a project's: it lives in your home directory, ve
 
 ## Install
 
-**Claude Code plugin only** (portable skills, no CLI needed):
-
-```
-/plugin marketplace add yourconscience/dotagents
-/plugin install dotagents@yourconscience
-```
-
-**Codex plugin only** (portable skills, no CLI needed):
+Install the CLI on macOS or Linux:
 
 ```bash
-codex plugin marketplace add yourconscience/dotagents
-codex plugin add dotagents@yourconscience
-```
-
-Codex installs the zero-copy package rooted at `skills/`: `.agents/plugins/marketplace.json` selects `./skills`, and `skills/.codex-plugin/plugin.json` exposes the canonical tree directly. No rendered skill copy is committed.
-
-**Full sync setup** (all supported harnesses):
-
-```bash
-# curl installer (macOS/Linux, no Go required)
+# Prebuilt release binary
 curl -fsSL https://raw.githubusercontent.com/yourconscience/dotagents/main/scripts/install.sh | sh
 
 # or via mise
@@ -39,16 +23,35 @@ mise use -g github:yourconscience/dotagents
 go install github.com/yourconscience/dotagents/cmd/dotagents@latest
 ```
 
-Then clone and initialize:
+Then create your private canonical configuration:
 
 ```bash
-git clone https://github.com/yourconscience/dotagents ~/.agents
 dotagents setup
 ```
 
-Prebuilt binaries for macOS and Linux (amd64/arm64) on [Releases](https://github.com/yourconscience/dotagents/releases).
+`setup` creates `~/.agents` when needed, detects installed harnesses, scans their existing skills, roles, and MCP servers, offers to copy or convert that content without modifying the originals, writes `dotagents.yaml`, and runs the first sync. Name conflicts are resolved explicitly; content is never merged silently.
 
-## What it does
+Version the result in a private repository you control:
+
+```bash
+cd ~/.agents
+git init
+git add .
+git commit -m "initialize agent configuration"
+git remote add origin <your-private-repository>
+git push -u origin main
+```
+
+Use `DOTAGENTS_HOME=/path/to/config` to replace `~/.agents`, or pass `--config /path/to/dotagents.yaml` for one command. dotagents never discovers configuration by walking the current project.
+
+## What it syncs
+
+Exactly four surfaces:
+
+1. **Skills** — canonical `SKILL.md` directories, including commit-pinned external Git skills.
+2. **MCP servers** — canonical YAML entries rendered into each supported native config.
+3. **Hooks** — lifecycle hooks registered only where the harness exposes a verified hook surface.
+4. **Agent roles** — canonical Markdown role definitions rendered into each supported native format.
 
 | Harness | Skills | Roles | MCP | Hooks |
 |---|---|---|---|---|
@@ -59,28 +62,47 @@ Prebuilt binaries for macOS and Linux (amd64/arm64) on [Releases](https://github
 | Pi | yes | -- | -- | -- |
 | OMP | yes | yes | yes | -- |
 
-Amp, OpenCode, and OpenClaw are compatibility-only: they can read the repo's skills via standard conventions, but dotagents does not manage them.
+Unsupported surfaces are skipped; dotagents does not invent compatibility files a harness cannot consume.
 
-## Skills
+## Public starter content
 
 <!-- BEGIN GENERATED SKILLS -->
-20 skills ship with this repo:
+2 skills ship with this repo:
 
-`cmux` `domain-modeling` `dotagents` `grilling` `gws` `humanizer` `jobs` `pr-triage` `remote-access` `repo-eval` `review` `spawn` `spec` `spotify` `tech-search` `tg` `tmux` `wayfinder` `x-cli` `x-sim`
+`dotagents` `grilling`
 <!-- END GENERATED SKILLS -->
 
-A skill is a `SKILL.md` in a directory under `skills/`. Add one and run `dotagents sync` to expose it through each configured skill surface. Skills projected from installed native plugins are discovered from those installations; unlike `external_skills` Git sources, they are not pinned in `dotagents.lock` or audited as external repositories.
+`dotagents` provides self-management guidance. `grilling` is a materialized,
+commit-pinned example from [`mattpocock/skills`](https://github.com/mattpocock/skills).
 
-## Agent roles
+It also ships five generic Markdown roles:
 
-Four roles defined in `agents/subagents.yaml`, synced to each harness that supports native roles:
+`architect` `builder` `researcher` `reviewer` `tester`
 
-`architect` `builder` `researcher` `reviewer`
+First-run setup copies missing starter assets into the private canonical root. Files already owned by the user are not overwritten. A same-name role in `~/.agents/agents/` is the canonical user version.
+
+## Memory tiers
+
+Choose a tier during setup:
+
+```bash
+dotagents setup --memory basic      # default
+dotagents setup --memory off
+dotagents setup --memory memsearch
+```
+
+| Tier | Behavior | Dependency |
+|---|---|---|
+| `off` | registers no managed memory hooks | none |
+| `basic` | appends bounded session digests under `$KNOWLEDGE_DIR/sessions/` and injects recent entries at session start | Python 3 |
+| `memsearch` | indexed search and vault synchronization through the full memory hook pipeline | `memsearch` |
+
+Memory data belongs in the user's knowledge directory, not in the public tool repository.
 
 ## Key commands
 
 ```bash
-dotagents setup [--delivery plugin|sync] [--agents ...]
+dotagents setup [--memory off|basic|memsearch] [--agents ...]
 dotagents status [--agents ...]
 dotagents sync [--pull] [--agents ...]
 dotagents doctor [--e2e] [--agents ...]
@@ -88,17 +110,32 @@ dotagents skill new <name> [--description ...]
 dotagents skill update [name ...]
 dotagents skill promote <name-or-path> [--dry-run]
 dotagents mcp <list|add|import|remove> [options]
-dotagents cron [--interval 30m|--deps|--remove]
 ```
 
 Run `dotagents help --all` for maintenance commands and explicitly labeled compatibility aliases.
+
+## Configuration
+
+The generated `~/.agents/dotagents.yaml` is the source of truth. The public template is intentionally small:
+
+```yaml
+version: 1
+agents: [] # populated by dotagents setup
+
+external_skills:
+  - url: https://github.com/mattpocock/skills
+    branch: main
+    skill_dirs: [skills/productivity/grilling]
+    materialize: true
+```
+
+Agent entries record detected harness paths. MCP servers and hooks are managed entries; unrelated native config remains untouched.
 
 ## External skills
 
 Pull and pin a Git skill library once, selecting paths from any upstream subdirectory:
 
 ```yaml
-# dotagents.yaml
 external_skills:
   - url: https://github.com/example/shared-skills
     branch: main
@@ -106,23 +143,8 @@ external_skills:
     materialize: true
 ```
 
-`materialize: true` makes `dotagents sync` copy each selected tree exactly into canonical `skills/<basename>` and prune stale files. Harnesses then receive only `~/.agents/skills` paths. `dotagents.lock` pins the source commit and records ownership so `doctor` can detect copy drift or direct cache delivery. `dotagents skill update [name ...]` explicitly advances pins and refreshes those copies immediately. Existing `skill_dir` plus optional `skills` entries remain supported and default to direct delivery from the shared `~/.agents/external` cache.
+`materialize: true` makes `dotagents sync` copy each selected tree exactly into canonical `skills/<basename>` and prune stale owned files. `dotagents.lock` pins the source commit and records ownership so `doctor` can detect drift. `dotagents skill update [name ...]` explicitly advances pins. `doctor` also scans external sources for risky patterns before delivery.
 
-`dotagents doctor` scans external sources for risky patterns. Installed native-plugin skill surfaces are projected separately and are not represented as pinned Git libraries.
+## How it differs
 
-Private additions go in `dotagents.local.yaml` (gitignored).
-
-## Landscape
-
-| | dotagents | [rulesync](https://github.com/dyoshikawa/rulesync) | [ruler](https://github.com/intellectronica/ruler) | [openskills](https://github.com/numman-ali/openskills) |
-|---|---|---|---|---|
-| Source of truth | canonical git repo (`~/.agents`) | unified files → generated configs | `.ruler/` dir → applied configs | skills installed from repos |
-| Skills sync | yes | yes | yes | yes |
-| MCP sync | yes | yes | yes | no |
-| Hooks sync | yes | yes | no | no |
-| Subagent roles | yes (`subagents.yaml`) | yes | experimental | no |
-| Supply-chain pinning | `dotagents.lock` + `doctor` audit | no | no | no |
-| Harness coverage | 6 deep | 35 broad | 31 broad | Claude-family + majors |
-| Install | plugin, curl, or `go install` | npm, brew, binary | npm | npm |
-
-rulesync and ruler are project-level: they generate per-tool config files inside a repo and win on tool breadth. dotagents is user-level: one versioned `~/.agents` repo follows you across machines and syncs each harness's supported skills, MCP, hooks, and roles into its native surface. External Git skill libraries are pinned to audited commits before delivery; installed native-plugin skill surfaces are projected from the local installation instead. Skills can be scoped per harness so each agent carries only what it needs.
+[rulesync](https://github.com/dyoshikawa/rulesync) and [ruler](https://github.com/intellectronica/ruler) are project-level tools: they generate per-tool configuration inside a project and cover a broad tool set. dotagents is user-level: one private configuration follows you across projects, machines, and supported harnesses. [openskills](https://github.com/numman-ali/openskills) focuses on installing skills; dotagents manages the four user-level surfaces together and pins external Git skill sources.

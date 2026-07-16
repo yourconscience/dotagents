@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>dotagents - one repo for all your coding agents</title>
-<meta name="description" content="Go CLI that syncs supported surfaces, including skills, MCP, hooks, and roles, from one ~/.agents repo across Claude Code, Codex, Droid, Hermes, Pi, OMP, and more.">
+<title>dotagents - public CLI for your private agent config</title>
+<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, Pi, and OMP.">
 <style>
   :root {
     color-scheme: dark;
@@ -190,11 +190,11 @@
 
   <!-- Hero -->
   <div class="eyebrow">open source</div>
-  <h1>One repo for all your coding agents.</h1>
+  <h1>One private repo for all your coding agents.</h1>
   <p class="subtitle">
-    <b>dotagents</b> keeps skills, MCP servers, hooks, and agent roles in one
-    <code>~/.agents</code> directory and syncs them into native formats for every harness you use.
-    Add once, available everywhere.
+    <b>dotagents</b> is a public CLI that keeps your skills, MCP servers, hooks,
+    and agent roles in a private <code>~/.agents</code> repository, then syncs
+    each supported surface into its harness-native format.
   </p>
 
   <!-- Terminal -->
@@ -207,13 +207,12 @@
     </div>
     <pre><span class="p">$</span> <span class="c">dotagents status</span>
 
-<span class="d">~/.agents synced from github.com/yourconscience/dotagents</span>
+<span class="d">canonical config: ~/.agents (user owned)</span>
 
-<span class="h">claude-code</span>  <span class="g">synced</span>   <span class="d">plugin delivery</span>   20 skills  2 MCP  4 hooks
-<span class="h">codex</span>        <span class="g">synced</span>   20 skills  4 agent roles  2 MCP  5 hooks
-<span class="h">hermes</span>       <span class="g">synced</span>   20 skills  2 MCP  13 hooks
-<span class="h">droid</span>        <span class="g">synced</span>   20 skills  4 agent roles  2 MCP  5 hooks
-<span class="h">pi</span>           <span class="g">synced</span>   20 skills</pre>
+<span class="h">skills</span>        <span class="g">synced</span>   native skill roots
+<span class="h">agent roles</span>   <span class="g">synced</span>   native role formats
+<span class="h">MCP servers</span>   <span class="g">synced</span>   targeted config entries
+<span class="h">hooks</span>         <span class="g">synced</span>   supported lifecycle events</pre>
   </div>
 
   <!-- Harnesses -->
@@ -275,6 +274,16 @@
           </svg>
         </div>
         <div class="hname">Pi</div>
+        <div class="htag managed">managed</div>
+      </div>
+      <!-- OMP - Oh My Pi -->
+      <div class="hcard">
+        <div class="icon">
+          <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <text x="20" y="25" text-anchor="middle" font-family="ui-sans-serif,-apple-system,sans-serif" font-size="12" font-weight="800" fill="var(--violet)">OMP</text>
+          </svg>
+        </div>
+        <div class="hname">OMP</div>
         <div class="htag managed">managed</div>
       </div>
       <!-- Amp - Sourcegraph triple chevron -->
@@ -345,29 +354,29 @@
   <!-- Get started -->
   <section>
     <h2>Get started</h2>
-    <p class="section-sub">Two paths. Plugin if you just want skills in Claude Code. CLI if you want the full sync layer.</p>
+    <p class="section-sub">Install the public CLI, then create a private canonical configuration you control.</p>
 
     <div class="paths">
       <div class="path-card">
-        <div class="path-label" style="background:rgba(201,167,255,.15); color:var(--violet);">Plugin</div>
-        <h3>Claude Code marketplace</h3>
-        <p class="desc">Install portable skills directly. No CLI, no clone.</p>
-        <pre><span class="p">&gt;</span> <span class="c">/plugin marketplace add yourconscience/dotagents</span>
-<span class="p">&gt;</span> <span class="c">/plugin install tech-search@yourconscience</span></pre>
+        <div class="path-label" style="background:rgba(201,167,255,.15); color:var(--violet);">Public CLI</div>
+        <h3>Install dotagents</h3>
+        <p class="desc">Use a release binary or Go. No personal configuration ships with the tool.</p>
+        <pre><span class="p">$</span> <span class="c">curl -fsSL https://raw.githubusercontent.com/yourconscience/dotagents/main/scripts/install.sh | sh</span>
+<span class="p"># or</span> <span class="c">go install github.com/yourconscience/dotagents/cmd/dotagents@latest</span></pre>
       </div>
 
       <div class="path-card">
-        <div class="path-label" style="background:rgba(245,200,106,.12); color:var(--gold);">CLI</div>
-        <h3>Full setup</h3>
-        <p class="desc">Clone, install, sync. Each detected agent gets the surfaces it supports.</p>
-        <pre><span class="p">$</span> <span class="c">git clone https://github.com/yourconscience/dotagents ~/.agents</span>
-<span class="p">$</span> <span class="c">go install github.com/yourconscience/dotagents/cmd/dotagents@latest</span>
-<span class="p">$</span> <span class="c">dotagents setup</span></pre>
+        <div class="path-label" style="background:rgba(245,200,106,.12); color:var(--gold);">Private config</div>
+        <h3>Set up your home</h3>
+        <p class="desc">Detect harnesses, import existing content by copy, and run the first native sync.</p>
+        <pre><span class="p">$</span> <span class="c">dotagents setup</span>
+<span class="p">$</span> <span class="c">git -C ~/.agents init</span>
+<span class="p">$</span> <span class="c">git -C ~/.agents remote add origin &lt;your-private-repo&gt;</span></pre>
         <div class="then">
           <p>Then add a skill and sync it everywhere:</p>
-          <pre><span class="p">$</span> <span class="c">mkdir skills/my-skill && cat > skills/my-skill/SKILL.md</span>
+          <pre><span class="p">$</span> <span class="c">mkdir -p ~/.agents/skills/my-skill</span>
 <span class="p">$</span> <span class="c">dotagents sync</span>
-<span class="g">synced skills to configured harnesses</span></pre>
+<span class="g">synced configured surfaces to detected harnesses</span></pre>
         </div>
       </div>
     </div>
@@ -413,7 +422,7 @@
           <tr><th scope="row">Agent roles</th><td class="y">yes</td><td style="color:var(--gold)">23 built-in</td><td style="color:var(--gold)">20 built-in</td><td class="n">no</td></tr>
           <tr><th scope="row">Security audit</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="y">yes</td></tr>
           <tr><th scope="row">Multi-harness</th><td class="y">6 managed + 3 compat</td><td class="n">Claude Code</td><td class="n">Claude Code</td><td class="y">60+</td></tr>
-          <tr><th scope="row">Install</th><td style="color:var(--gold)">plugin or CLI</td><td style="color:var(--gold)">CC plugin</td><td style="color:var(--gold)">pipx</td><td style="color:var(--gold)">go install</td></tr>
+          <tr><th scope="row">Install</th><td style="color:var(--gold)">CLI</td><td style="color:var(--gold)">CC plugin</td><td style="color:var(--gold)">pipx</td><td style="color:var(--gold)">go install</td></tr>
         </tbody>
       </table>
       </div>

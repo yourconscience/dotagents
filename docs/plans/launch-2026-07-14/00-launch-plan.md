@@ -1,5 +1,9 @@
 # dotagents launch plan — 2026-07-14
 
+> Superseded on 2026-07-16 by `06-separation-design.md` and the root `SPEC.md`.
+> The current user request explicitly authorizes merging the separation PR
+> after checks pass and all active review comments are resolved.
+
 > **MERGE POLICY (hard constraint, added 2026-07-14 13:20 +04 by the user via Claude):**
 > Do NOT merge anything into `main` and do NOT push to `main`. Any prior instruction to
 > merge everything is revoked for `main`. Your endpoint: push your work as a branch, open

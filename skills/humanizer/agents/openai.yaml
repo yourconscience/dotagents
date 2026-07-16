@@ -1,4 +1,0 @@
-interface:
-  display_name: "Humanizer"
-  short_description: "Rewrite drafts so they sound like you"
-  default_prompt: "Use $humanizer to process this text in my voice: rewrite, voice match, draft from context, or audit. Preserve the meaning, pull source context when relevant, keep it concise and specific, and remove generic AI-sounding phrasing."

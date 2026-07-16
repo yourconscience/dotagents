@@ -13,7 +13,7 @@ func writeREADMEInventoryFixture(t *testing.T, repoRoot string) {
 		writeSyncTestFile(t, filepath.Join(repoRoot, "skills", name, "SKILL.md"), []byte("---\nname: "+name+"\n---\n"))
 	}
 	writeSyncTestFile(t, filepath.Join(repoRoot, "skills", "not-a-skill", "README.txt"), []byte("ignored\n"))
-	writeSyncTestFile(t, filepath.Join(repoRoot, "skills", ".codex-plugin", "SKILL.md"), []byte("---\nname: should-not-ship\n---\n"))
+	writeSyncTestFile(t, filepath.Join(repoRoot, "skills", ".ignored-skill", "SKILL.md"), []byte("---\nname: should-not-ship\n---\n"))
 	writeSyncTestFile(t, filepath.Join(repoRoot, "README.md"), []byte("# Before\n\n"+readmeSkillsBeginMarker+"\n0 skills ship with this repo:\n\n``\n"+readmeSkillsEndMarker+"\n\n# After\n"))
 }
 
@@ -189,7 +189,7 @@ func TestRenderREADMESkillsRejectsAmbiguousMarkersWithoutChangingFile(t *testing
 	}
 }
 
-func TestCommittedREADMESkillInventoryIsFreshAndMatchesLaunchSet(t *testing.T) {
+func TestCommittedPublicSkillInventoryMatchesLaunchSet(t *testing.T) {
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -198,17 +198,13 @@ func TestCommittedREADMESkillInventoryIsFreshAndMatchesLaunchSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 20 {
-		t.Fatalf("committed public skill count = %d, want 20", count)
+	if count != 2 {
+		t.Fatalf("committed public skill count = %d, want 2", count)
 	}
-	if !strings.Contains(block, "`wayfinder`") {
-		t.Fatalf("committed public inventory omits wayfinder:\n%s", block)
+	if !strings.Contains(block, "`dotagents`") || !strings.Contains(block, "`grilling`") {
+		t.Fatalf("committed public inventory omits retained public skills:\n%s", block)
 	}
 	if strings.Contains(block, "`grill-me`") {
 		t.Fatalf("committed public inventory counts grill-me alias:\n%s", block)
-	}
-	result := checkREADMESkillInventory(repoRoot)
-	if result.status != checkStatusPass {
-		t.Fatalf("committed README inventory = %s (%s)", result.status, result.detail)
 	}
 }

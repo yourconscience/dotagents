@@ -218,6 +218,118 @@ func patchDroidHook(hook hookConfig, home string) error {
 	return patchNestedJSONHook(droidHooksConfigPath(home), hook)
 }
 
+func removeNativeManagedMemoryHooks(home string, root string, prior config, current config) (int, error) {
+	commands := managedMemoryNativeCommands(home, root, prior, current)
+	if len(commands) == 0 {
+		return 0, nil
+	}
+	changed := 0
+	removers := []func(string, []string) (bool, error){
+		func(home string, commands []string) (bool, error) {
+			return removeGroupedJSONHookCommands(claudeHooksConfigPath(home), commands)
+		},
+		func(home string, commands []string) (bool, error) {
+			return removeGroupedJSONHookCommands(codexHooksConfigPath(home), commands)
+		},
+		func(home string, commands []string) (bool, error) {
+			return removeGroupedJSONHookCommands(droidHooksConfigPath(home), commands)
+		},
+		func(home string, commands []string) (bool, error) {
+			return removeSimpleYAMLHookCommands(filepath.Join(home, ".hermes", "config.yaml"), commands)
+		},
+	}
+	for _, remove := range removers {
+		didChange, err := remove(home, commands)
+		if err != nil {
+			return changed, err
+		}
+		if didChange {
+			changed++
+		}
+	}
+	return changed, nil
+}
+
+func managedMemoryNativeCommands(home string, root string, cfgs ...config) []string {
+	seen := make(map[string]struct{})
+	var commands []string
+	add := func(command string) {
+		command = strings.TrimSpace(command)
+		if command == "" {
+			return
+		}
+		if _, ok := seen[command]; ok {
+			return
+		}
+		seen[command] = struct{}{}
+		commands = append(commands, command)
+	}
+	for _, cfg := range cfgs {
+		for _, hook := range cfg.Hooks {
+			if _, managed := managedMemoryHookNames[hook.Name]; managed {
+				add(hook.Command)
+			}
+		}
+	}
+	for _, commandRoot := range []string{root, filepath.Join(home, ".agents")} {
+		for _, script := range []string{"basic-session-start.py", "basic-session-end.py", "session-start.sh", "stop.sh", "session-end.sh"} {
+			add(managedMemoryHookCommand(commandRoot, home, script))
+		}
+	}
+	return commands
+}
+
+func removeGroupedJSONHookCommands(configPath string, commands []string) (bool, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("read %s: %w", configPath, err)
+	}
+	var raw map[string]interface{}
+	if err := parseJSONConfig(configPath, data, &raw); err != nil {
+		return false, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	if !removeGroupedHookCommands(raw, commands) {
+		return false, nil
+	}
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return false, fmt.Errorf("marshal %s: %w", configPath, err)
+	}
+	out = append(out, '\n')
+	if err := os.WriteFile(configPath, out, 0o644); err != nil {
+		return false, fmt.Errorf("write %s: %w", configPath, err)
+	}
+	return true, nil
+}
+
+func removeSimpleYAMLHookCommands(configPath string, commands []string) (bool, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("read %s: %w", configPath, err)
+	}
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return false, fmt.Errorf("parse %s: %w", configPath, err)
+	}
+	if !removeSimpleHookCommands(raw, "hooks", commands) {
+		return false, nil
+	}
+	out, err := yaml.Marshal(raw)
+	if err != nil {
+		return false, fmt.Errorf("marshal %s: %w", configPath, err)
+	}
+	if err := os.WriteFile(configPath, out, 0o644); err != nil {
+		return false, fmt.Errorf("write %s: %w", configPath, err)
+	}
+	return true, nil
+}
+
 func codexHooksConfigPath(home string) string {
 	return filepath.Join(home, ".codex", "hooks.json")
 }
@@ -426,6 +538,104 @@ func removeHookCommand(items []interface{}, command string) []interface{} {
 	return out
 }
 
+func removeHookCommands(items []interface{}, commands []string) ([]interface{}, bool) {
+	changed := false
+	out := items[:0]
+	for _, itemRaw := range items {
+		item, ok := itemRaw.(map[string]interface{})
+		if ok && hookCommandMatchesAny(item["command"], commands) {
+			changed = true
+			continue
+		}
+		out = append(out, itemRaw)
+	}
+	return out, changed
+}
+
+func removeGroupedHookCommands(raw map[string]interface{}, commands []string) bool {
+	hooksRoot, ok := raw["hooks"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	changed := false
+	for event, groupsRaw := range hooksRoot {
+		groups, ok := groupsRaw.([]interface{})
+		if !ok {
+			continue
+		}
+		keptGroups := groups[:0]
+		for _, groupRaw := range groups {
+			group, ok := groupRaw.(map[string]interface{})
+			if !ok {
+				keptGroups = append(keptGroups, groupRaw)
+				continue
+			}
+			items, ok := group["hooks"].([]interface{})
+			if !ok {
+				keptGroups = append(keptGroups, groupRaw)
+				continue
+			}
+			filtered, removed := removeHookCommands(items, commands)
+			if removed {
+				changed = true
+				group["hooks"] = filtered
+			}
+			if len(filtered) > 0 || !removed {
+				keptGroups = append(keptGroups, groupRaw)
+			}
+		}
+		if len(keptGroups) == 0 {
+			delete(hooksRoot, event)
+			if len(groups) > 0 {
+				changed = true
+			}
+			continue
+		}
+		hooksRoot[event] = keptGroups
+	}
+	if len(hooksRoot) == 0 {
+		delete(raw, "hooks")
+	}
+	return changed
+}
+
+func removeSimpleHookCommands(raw map[string]interface{}, rootKey string, commands []string) bool {
+	root, ok := raw[rootKey].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	changed := false
+	for event, itemsRaw := range root {
+		items, ok := itemsRaw.([]interface{})
+		if !ok {
+			continue
+		}
+		filtered, removed := removeHookCommands(items, commands)
+		if !removed {
+			continue
+		}
+		changed = true
+		if len(filtered) == 0 {
+			delete(root, event)
+			continue
+		}
+		root[event] = filtered
+	}
+	if len(root) == 0 {
+		delete(raw, rootKey)
+	}
+	return changed
+}
+
+func hookCommandMatchesAny(actual interface{}, commands []string) bool {
+	for _, command := range commands {
+		if hookCommandMatches(actual, command) {
+			return true
+		}
+	}
+	return false
+}
+
 func containsHookCommand(items []interface{}, command string) bool {
 	for _, itemRaw := range items {
 		item, ok := itemRaw.(map[string]interface{})
@@ -476,6 +686,8 @@ func hookTimeoutMatches(item map[string]interface{}, timeout int) bool {
 
 func hermesHookEvent(event string) (string, bool) {
 	switch event {
+	case "SessionStart":
+		return "on_session_start", true
 	case "SessionEnd":
 		return "on_session_finalize", true
 	case "on_session_start",

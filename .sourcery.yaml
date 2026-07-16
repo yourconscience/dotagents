@@ -1,5 +1,5 @@
-# Canonical copies managed from pinned external repositories. Review upstream;
-# dotagents doctor verifies that these directories still match their lock pin.
+# Canonical copy managed from a pinned external repository. Review upstream;
+# dotagents doctor verifies that this directory still matches its lock pin.
 ignore:
   - .git
   - venv
@@ -9,7 +9,4 @@ ignore:
   - .tox
   - node_modules
   - vendor
-  - skills/domain-modeling/
-  - skills/grill-me/
   - skills/grilling/
-  - skills/wayfinder/

@@ -69,10 +69,6 @@ type Harness struct {
 	// Hooks holds the hook config target. nil = no hook support.
 	Hooks *hookTarget
 
-	// PluginSurfaces declares which plugin surfaces this agent supports
-	// beyond the baseline (skills, mcp, assets).
-	PluginSurfaces map[string]bool
-
 	// RootInstructions describes a root instructions symlink. nil = none.
 	RootInstructions *RootInstructionsCapability
 
@@ -111,7 +107,6 @@ func initHarnesses() {
 				read:       readJSONMCPServer,
 				rootKey:    "amp.mcpServers",
 			}),
-			PluginSurfaces:  map[string]bool{},
 			IntegrationNote: "config-driven via Amp settings -> amp.skills.path",
 			TrailerExample:  "Co-authored-by: amp[bot] <amp[bot]@users.noreply.github.com>",
 		},
@@ -133,12 +128,6 @@ func initHarnesses() {
 				inspect:   inspectClaudeHook,
 				patch:     patchClaudeHook,
 			},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceAgents: true,
-				pluginSurfaceHooks:  true,
-				pluginSurfaceCmds:   true,
-				pluginFormatClaude:  true,
-			},
 			TrailerExample: "Co-authored-by: claude[bot] <claude[bot]@users.noreply.github.com>",
 		},
 
@@ -156,11 +145,6 @@ func initHarnesses() {
 				agentName: "codex",
 				inspect:   inspectCodexHook,
 				patch:     patchCodexHook,
-			},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceAgents: true,
-				pluginSurfaceHooks:  true,
-				pluginFormatCodex:   true,
 			},
 			TrailerExample: "Co-Authored-By: codex[bot] <codex[bot]@users.noreply.github.com>",
 		},
@@ -181,10 +165,6 @@ func initHarnesses() {
 				agentName: "droid",
 				inspect:   inspectDroidHook,
 				patch:     patchDroidHook,
-			},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceAgents: true,
-				pluginSurfaceHooks:  true,
 			},
 			RootInstructions: &RootInstructionsCapability{
 				Path:     func(home string) string { return filepath.Join(home, ".factory", "AGENTS.md") },
@@ -214,9 +194,6 @@ func initHarnesses() {
 				inspect:   inspectHermesHook,
 				patch:     patchHermesHook,
 			},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceHooks: true,
-			},
 			IntegrationNote: "config-driven via ~/.hermes/config.yaml -> skills.external_dirs",
 			DoctorChecks: []DoctorCheck{
 				{Name: "hermes direct mirrors", Run: checkHermesDirectMirrors},
@@ -230,7 +207,6 @@ func initHarnesses() {
 		agentPi: {
 			Detect:         detectVanillaPi,
 			Skills:         SkillsSymlink,
-			PluginSurfaces: map[string]bool{pluginSurfaceMCP: false},
 			TrailerExample: "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
 		},
 
@@ -245,9 +221,6 @@ func initHarnesses() {
 				rootKey:    "mcpServers",
 			}),
 			Roles: &RolesCapability{Extension: ".md", Render: renderOMPAgentRole},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceAgents: true,
-			},
 		},
 	}
 }

@@ -7,6 +7,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from safety import atomic_write_text, locked_directory, redact_text, safe_identifier, truncate_redacted
+
 SESSION_MARKER_RE = re.compile(
     r"<!-- hermes-session:(?P<sid>[^:]+):start -->.*?<!-- hermes-session:(?P=sid):end -->\n?",
     re.DOTALL,
@@ -15,10 +17,7 @@ PATH_RE = re.compile(r"(?:~?/[^\s`'\"\\]+|/Users/[^\s`'\"\\]+|\./[^\s`'\"\\]+)")
 
 
 def truncate(text: str, limit: int = 220) -> str:
-    text = re.sub(r"\s+", " ", text).strip()
-    if len(text) <= limit:
-        return text
-    return text[: limit - 1].rstrip() + "…"
+    return truncate_redacted(text, limit)
 
 
 def nonempty_assistant_text(messages):
@@ -54,17 +53,18 @@ def extract_paths(messages):
         if not isinstance(content, str):
             continue
         for match in PATH_RE.findall(content):
-            if match.startswith('/Users/') or match.startswith('~/') or match.startswith('./'):
-                if match not in seen:
-                    seen.add(match)
-                    found.append(match)
+            cleaned = redact_text(match.rstrip(".,;:)"))
+            if cleaned.startswith('/Users/') or cleaned.startswith('~/') or cleaned.startswith('./'):
+                if cleaned not in seen:
+                    seen.add(cleaned)
+                    found.append(cleaned)
         if len(found) >= 8:
             break
     return found[:8]
 
 
 def build_block(data):
-    session_id = data["session_id"]
+    session_id = safe_identifier(data["session_id"])
     started = data.get("session_start") or datetime.utcnow().isoformat()
     started_dt = datetime.fromisoformat(started)
     started_human = started_dt.strftime("%Y-%m-%d %H:%M")
@@ -72,8 +72,8 @@ def build_block(data):
     users = collect_user_turns(messages)
     final_assistant = nonempty_assistant_text(messages)
     paths = extract_paths(messages)
-    model = data.get("model") or ""
-    platform = data.get("platform") or ""
+    model = truncate(data.get("model") or "", 120)
+    platform = truncate(data.get("platform") or "", 120)
 
     lines = [
         f"<!-- hermes-session:{session_id}:start -->",
@@ -98,7 +98,7 @@ def build_block(data):
     if paths:
         lines.append("- paths mentioned:")
         for p in paths:
-            lines.append(f"  - `{p}`")
+            lines.append(f"  - `{truncate(p, 180)}`")
     lines.extend([
         f"- source transcript: `~/.hermes/sessions/session_{session_id}.json`",
         "",
@@ -112,14 +112,16 @@ def update_daily_file(ai_dir: Path, data):
     started = data.get("session_start") or datetime.utcnow().isoformat()
     day = datetime.fromisoformat(started).strftime("%Y-%m-%d")
     target = ai_dir / f"{day}.md"
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
-    existing = SESSION_MARKER_RE.sub("", existing).rstrip()
-    block = build_block(data).rstrip() + "\n"
-    if existing:
-        new_content = existing + "\n\n" + block
-    else:
-        new_content = block
-    target.write_text(new_content, encoding="utf-8")
+    session_id = safe_identifier(data.get("session_id") or "unknown")
+    marker_re = re.compile(
+        rf"<!-- hermes-session:{re.escape(session_id)}:start -->.*?<!-- hermes-session:{re.escape(session_id)}:end -->\n?",
+        re.DOTALL,
+    )
+    with locked_directory(ai_dir):
+        existing = target.read_text(encoding="utf-8") if target.exists() else ""
+        existing = marker_re.sub("", existing).rstrip()
+        block = build_block(data).rstrip() + "\n"
+        atomic_write_text(target, existing + "\n\n" + block if existing else block)
     return target
 
 
@@ -175,7 +177,7 @@ def main():
 
     print(json.dumps({
         "action": "continue",
-        "message": f"memsearch updated from Hermes session {session_id}",
+        "message": f"memsearch updated from Hermes session {safe_identifier(session_id)}",
         "output_file": str(target),
     }))
 

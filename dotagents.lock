@@ -1,12 +1,9 @@
 # Managed by dotagents sync / dotagents skill update. Pins commits and materialized skill ownership.
 version: 1
 external_skills:
-    - name: skills
-      url: https://github.com/mattpocock/skills
-      branch: main
-      commit: d574778f94cf620fcc8ce741584093bc650a61d3
-      materialized:
-        - domain-modeling
-        - grill-me
-        - grilling
-        - wayfinder
+  - name: skills
+    url: https://github.com/mattpocock/skills
+    branch: main
+    commit: d574778f94cf620fcc8ce741584093bc650a61d3
+    materialized:
+      - grilling

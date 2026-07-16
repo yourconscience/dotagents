@@ -10,7 +10,8 @@ import (
 )
 
 type memsearchOptions struct {
-	VaultDir string
+	VaultDir   string
+	ConfigPath string
 }
 
 func parseMemsearchFlags(args []string) (memsearchOptions, error) {
@@ -20,9 +21,10 @@ func parseMemsearchFlags(args []string) (memsearchOptions, error) {
 	var opts memsearchOptions
 	vaultDefault := os.Getenv("KNOWLEDGE_DIR")
 	if vaultDefault == "" {
-		vaultDefault = "~/knowledge"
+		vaultDefault = "~/Workspace/knowledge"
 	}
-	fs.StringVar(&opts.VaultDir, "vault", vaultDefault, "Root directory for the knowledge vault (default: $KNOWLEDGE_DIR or ~/knowledge)")
+	fs.StringVar(&opts.VaultDir, "vault", vaultDefault, "Root directory for the knowledge vault (default: $KNOWLEDGE_DIR or ~/Workspace/knowledge)")
+	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents.yaml (default: DOTAGENTS_HOME/dotagents.yaml or ~/.agents/dotagents.yaml)")
 
 	if err := fs.Parse(args); err != nil {
 		return memsearchOptions{}, err
@@ -54,18 +56,68 @@ func runMemsearch(args []string) error {
 	}
 }
 
+func memsearchConfigContent(vaultDir, home string) string {
+	sessionsDir := filepath.Join(vaultDir, "sessions")
+	notesDir := filepath.Join(vaultDir, "notes")
+	profileDir := filepath.Join(vaultDir, "profile")
+	stateDir := filepath.Join(home, ".memsearch", "state")
+	return fmt.Sprintf(`# memsearch configuration (written by dotagents memsearch setup)
+# Source this file from memory hooks to get portable paths.
+KNOWLEDGE_DIR="%s"
+SESSIONS_DIR="%s"
+NOTES_DIR="%s"
+PROFILE_DIR="%s"
+MEMSEARCH_STATE_DIR="%s"
+MEMSEARCH_COLLECTION="ai"
+`, vaultDir, sessionsDir, notesDir, profileDir, stateDir)
+}
+func ensureMemsearchConfig(root string, home string) error {
+	vaultDir := os.Getenv("KNOWLEDGE_DIR")
+	if strings.TrimSpace(vaultDir) == "" {
+		vaultDir = "~/Workspace/knowledge"
+	}
+	vaultDir = expandPath(vaultDir, home)
+	for _, dir := range []string{
+		filepath.Join(vaultDir, "sessions"),
+		filepath.Join(vaultDir, "notes"),
+		filepath.Join(vaultDir, "profile"),
+		filepath.Join(home, ".memsearch", "state"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("mkdir %s: %w", dir, err)
+		}
+	}
+	confPath := filepath.Join(root, "memsearch.conf")
+	if _, err := os.Stat(confPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat %s: %w", confPath, err)
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", root, err)
+	}
+	if err := os.WriteFile(confPath, []byte(memsearchConfigContent(vaultDir, home)), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", confPath, err)
+	}
+	return nil
+}
+
 func runMemsearchSetup(opts memsearchOptions) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
+	repoRoot, _, _, _, err := loadContext(runOptions{ConfigPath: opts.ConfigPath})
+	if err != nil {
+		return fmt.Errorf("load context: %w", err)
+	}
 
 	vaultDir := expandPath(opts.VaultDir, home)
-	aiDir := filepath.Join(vaultDir, "ai")
+	sessionsDir := filepath.Join(vaultDir, "sessions")
 	notesDir := filepath.Join(vaultDir, "notes")
 	profileDir := filepath.Join(vaultDir, "profile")
 	stateDir := filepath.Join(home, ".memsearch", "state")
-	confPath := filepath.Join(home, ".agents", "memsearch.conf")
+	confPath := filepath.Join(repoRoot, "memsearch.conf")
 
 	fmt.Println("dotagents memsearch setup")
 	fmt.Printf("vault: %s\n\n", vaultDir)
@@ -80,7 +132,7 @@ func runMemsearchSetup(opts memsearchOptions) error {
 	fmt.Printf("memsearch: %s\n", msPath)
 
 	// 2. Create vault directories
-	for _, dir := range []string{aiDir, notesDir, profileDir, stateDir} {
+	for _, dir := range []string{sessionsDir, notesDir, profileDir, stateDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", dir, err)
 		}
@@ -101,15 +153,7 @@ func runMemsearchSetup(opts memsearchOptions) error {
 	}
 
 	// 4. Write config
-	conf := fmt.Sprintf(`# memsearch configuration (written by dotagents memsearch setup)
-# Source this file from memory hooks to get portable paths.
-MEMSEARCH_VAULT_DIR="%s"
-MEMSEARCH_AI_DIR="%s"
-MEMSEARCH_NOTES_DIR="%s"
-MEMSEARCH_PROFILE_DIR="%s"
-MEMSEARCH_STATE_DIR="%s"
-MEMSEARCH_COLLECTION="ai"
-`, vaultDir, aiDir, notesDir, profileDir, stateDir)
+	conf := memsearchConfigContent(vaultDir, home)
 
 	if err := os.MkdirAll(filepath.Dir(confPath), 0o755); err != nil {
 		return fmt.Errorf("mkdir config dir: %w", err)
@@ -119,11 +163,6 @@ MEMSEARCH_COLLECTION="ai"
 	}
 	fmt.Printf("config: %s\n", confPath)
 
-	// 5. Report hook path
-	repoRoot, _, _, _, err := loadContext(runOptions{})
-	if err != nil {
-		return fmt.Errorf("load context: %w", err)
-	}
 	hookSrc := filepath.Join(repoRoot, "memory", "hooks", "session-end.sh")
 	if !hasFile(hookSrc) {
 		fmt.Printf("memory hooks: not found at %s (skipping)\n", hookSrc)
@@ -139,7 +178,7 @@ MEMSEARCH_COLLECTION="ai"
 		fmt.Printf("legacy hook paths: migrated %d config file(s)\n", migrated)
 	}
 
-	fmt.Println("\ndone. Memory hooks will read config from ~/.agents/memsearch.conf")
+	fmt.Printf("\ndone. Memory hooks will read config from %s\n", confPath)
 	return nil
 }
 

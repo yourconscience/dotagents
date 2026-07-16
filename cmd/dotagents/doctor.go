@@ -52,7 +52,6 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkSkillFrontmatter(repoRoot))
 	results = append(results, checkSkillSpec(repoRoot))
 	results = append(results, checkAgentRoles(repoRoot))
-	results = append(results, checkPluginAgents(repoRoot))
 	for _, name := range sortedHarnessNames() {
 		for _, check := range getHarnesses()[name].DoctorChecks {
 			results = append(results, check.Run(repoRoot, home, cfg))
@@ -67,9 +66,6 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkMaterializedExternalSkills(repoRoot, cfg, home))
 	results = append(results, checkExternalSkillLock(repoRoot, cfg, home))
 	results = append(results, checkExternalSkillAudit(cfg, home))
-	results = append(results, checkFirstPartyPlugins(cfg))
-	results = append(results, checkClaudeDelivery(repoRoot, home, cfg))
-	results = append(results, checkClaudeOrphanPluginCache(home))
 
 	fmt.Println("checks:")
 	labelWidth := 0
@@ -142,56 +138,9 @@ func checkAgentRoles(repoRoot string) checkResult {
 		return checkResult{"agent roles", checkStatusFail, err.Error()}
 	}
 	if len(roles) == 0 {
-		return checkResult{"agent roles", checkStatusWarn, "no agent roles found in agents/subagents.yaml"}
+		return checkResult{"agent roles", checkStatusWarn, "no agent roles found in agents/*.md"}
 	}
 	return checkResult{"agent roles", checkStatusPass, fmt.Sprintf("%d roles valid", len(roles))}
-}
-
-func checkPluginAgents(repoRoot string) checkResult {
-	expected, err := expectedPluginAgentFiles(repoRoot)
-	if err != nil {
-		return checkResult{"plugin agents", checkStatusFail, err.Error()}
-	}
-	if len(expected) == 0 {
-		return checkResult{"plugin agents", checkStatusWarn, "no agent roles found in agents/subagents.yaml"}
-	}
-
-	var stale []string
-	for path, content := range expected {
-		data, err := os.ReadFile(path)
-		if err != nil || string(data) != content {
-			stale = append(stale, filepath.Base(path))
-		}
-	}
-	if len(stale) > 0 {
-		sort.Strings(stale)
-		return checkResult{"plugin agents", checkStatusFail, fmt.Sprintf("%s stale; run: dotagents render", strings.Join(stale, ", "))}
-	}
-
-	var extras []string
-	dir := filepath.Join(repoRoot, filepath.FromSlash(pluginAgentsRelDir))
-	if entries, err := os.ReadDir(dir); err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() || filepath.Ext(entry.Name()) != ".md" {
-				continue
-			}
-			path := filepath.Join(dir, entry.Name())
-			if _, ok := expected[path]; ok {
-				continue
-			}
-			data, err := os.ReadFile(path)
-			if err != nil || !strings.Contains(string(data), generatedAgentMarker) {
-				continue
-			}
-			extras = append(extras, entry.Name())
-		}
-	}
-	if len(extras) > 0 {
-		sort.Strings(extras)
-		return checkResult{"plugin agents", checkStatusWarn, fmt.Sprintf("extra files in %s: %s", pluginAgentsRelDir, strings.Join(extras, ", "))}
-	}
-
-	return checkResult{"plugin agents", checkStatusPass, fmt.Sprintf("%d rendered agents fresh (auto-discovered from %s/)", len(expected), pluginAgentsRelDir)}
 }
 
 type skillFrontmatter struct {
@@ -610,18 +559,18 @@ func checkMaterializedExternalSkills(repoRoot string, cfg config, home string) c
 			issues = append(issues, fmt.Sprintf("%s stale canonical copy unreadable: %v", name, err))
 		}
 	}
-	deliveryNames := make(map[string]bool, len(currentNames)+len(lockedNames))
+	materializedNames := make(map[string]bool, len(currentNames)+len(lockedNames))
 	for name := range currentNames {
-		deliveryNames[name] = true
+		materializedNames[name] = true
 	}
 	for name := range lockedNames {
-		deliveryNames[name] = true
+		materializedNames[name] = true
 	}
 	for _, agent := range cfg.Agents {
 		if agent.SkillRoot == "" {
 			continue
 		}
-		for name := range deliveryNames {
+		for name := range materializedNames {
 			linkPath := filepath.Join(agent.SkillRoot, name)
 			info, err := os.Lstat(linkPath)
 			if err != nil || info.Mode()&os.ModeSymlink == 0 {
@@ -629,14 +578,14 @@ func checkMaterializedExternalSkills(repoRoot string, cfg config, home string) c
 			}
 			rawTarget, err := os.Readlink(linkPath)
 			if err == nil && isExternalSkillLink(linkPath, rawTarget, home) {
-				issues = append(issues, fmt.Sprintf("%s/%s is delivered directly from %s", agent.Name, name, externalCacheDir(home)))
+				issues = append(issues, fmt.Sprintf("%s/%s is linked directly from %s", agent.Name, name, externalCacheDir(home)))
 			}
 		}
 	}
 	for _, dir := range hermesConfiguredExternalDirs(home) {
 		for _, root := range materializedCacheRoots {
 			if pathIsWithin(dir, root) {
-				issues = append(issues, fmt.Sprintf("hermes skills.external_dirs delivers materialized skills directly from %s", dir))
+				issues = append(issues, fmt.Sprintf("hermes skills.external_dirs links materialized skills directly from %s", dir))
 				break
 			}
 		}

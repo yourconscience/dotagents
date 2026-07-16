@@ -12,7 +12,7 @@ func TestRunSyncRepairsHermesExternalDirsDrift(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	t.Setenv("DOTAGENTS_HOME", repoRoot)
 
 	writeSyncTestFile(t, filepath.Join(repoRoot, "dotagents.yaml"), []byte(`version: 1
 agents:
@@ -59,5 +59,38 @@ func writeSyncTestFile(t *testing.T, path string, data []byte) {
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInspectAgentAcceptsMatchingNativeCopyAndRejectsDifferentContent(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	canonical := filepath.Join(repoRoot, "skills", "existing")
+	native := filepath.Join(home, ".claude", "skills", "existing")
+	content := []byte("---\nname: existing\n---\n")
+	writeSyncTestFile(t, filepath.Join(canonical, "SKILL.md"), content)
+	writeSyncTestFile(t, filepath.Join(canonical, "references", "guide.txt"), []byte("same\n"))
+	writeSyncTestFile(t, filepath.Join(native, "SKILL.md"), content)
+	writeSyncTestFile(t, filepath.Join(native, "references", "guide.txt"), []byte("same\n"))
+	agent := agentConfig{Name: agentClaudeCode, Enabled: true, SkillRoot: filepath.Dir(native)}
+
+	report, err := inspectAgent(agent, map[string]string{"existing": canonical}, repoRoot, filepath.Join(repoRoot, "skills"), config{Version: 1}, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Synced || !stringSlicesEqual(report.Managed, []string{"existing"}) || len(report.Conflicts) != 0 {
+		t.Fatalf("matching native copy report = %#v", report)
+	}
+	if info, err := os.Lstat(native); err != nil || !info.IsDir() {
+		t.Fatalf("matching native source was replaced: info=%v err=%v", info, err)
+	}
+
+	writeSyncTestFile(t, filepath.Join(native, "references", "guide.txt"), []byte("different\n"))
+	report, err = inspectAgent(agent, map[string]string{"existing": canonical}, repoRoot, filepath.Join(repoRoot, "skills"), config{Version: 1}, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Synced || len(report.Conflicts) != 1 {
+		t.Fatalf("different native copy report = %#v", report)
 	}
 }

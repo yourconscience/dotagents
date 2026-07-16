@@ -1,5 +1,9 @@
 # Builder spec — dotagents launch prep
 
+> Historical only. Superseded on 2026-07-16 by
+> `06-separation-design.md` and the root `SPEC.md`; plugin-related behavior in
+> this document is intentionally removed by the separation.
+
 > **MERGE POLICY (hard constraint, added 2026-07-14 13:20 +04 by the user via Claude):**
 > Do NOT merge anything into `main` and do NOT push to `main`. Any prior instruction to
 > merge everything is revoked for `main`. Your endpoint: push your work as a branch, open

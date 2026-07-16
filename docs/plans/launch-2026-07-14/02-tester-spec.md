@@ -1,5 +1,9 @@
 # Tester spec — dotagents launch prep e2e
 
+> Historical only. Superseded on 2026-07-16 by the setup/import E2E in
+> `06-separation-design.md` and the root `SPEC.md`; plugin delivery matrices
+> below no longer apply.
+
 Runs after the builder lands `01-builder-spec.md` and self-verifies. Tester is
 report-only: record findings, do not fix. Environment: the user's machine
 (current env) for the harness-integration matrix, plus a clean machine/VM (or

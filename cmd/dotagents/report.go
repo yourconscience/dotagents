@@ -36,21 +36,6 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 			fmt.Printf("  %s  %s  %s\n", name, src.URL, state)
 		}
 	}
-	if len(cfg.Plugins) > 0 {
-		fmt.Println()
-		fmt.Println("plugins:")
-		for _, plugin := range cfg.Plugins {
-			state := "example"
-			if plugin.Enabled {
-				state = "enabled"
-			}
-			fmt.Printf("  %s  %s  %s  %s\n", plugin.Name, state, plugin.Format, strings.Join(plugin.Surfaces, ","))
-			fmt.Printf("    compatibility: %s\n", pluginCompatibilitySummary(plugin))
-			if plugin.Review != "" {
-				fmt.Printf("    review: %s\n", plugin.Review)
-			}
-		}
-	}
 	fmt.Println()
 
 	for _, report := range reports {
@@ -63,9 +48,6 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		fmt.Printf("  skill root: %s\n", report.SkillRoot)
 		if report.AgentRoot != "" {
 			fmt.Printf("  agent root: %s\n", report.AgentRoot)
-		}
-		if report.Delivery != "" && report.Delivery != deliverySync {
-			fmt.Printf("  delivery: %s\n", report.Delivery)
 		}
 		if h := harnessFor(report.Name); h != nil && h.IntegrationNote != "" {
 			fmt.Printf("  integration: %s\n", h.IntegrationNote)

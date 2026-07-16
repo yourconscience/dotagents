@@ -1,38 +1,18 @@
 .DS_Store
 tmp/
-
-# Personal config overlay (merged over dotagents.yaml, never committed)
-dotagents.local.yaml
-
-# Local agent runtime state
-external/
-.claude/
-.amp/
-.hermes/
-.omx/
 .worktrees/
-.skill-lock.json
 __pycache__/
 
-# Local binaries and generated data
-/dotagents
-skills/dotagents/tools/dotagents/dotagents
+# Canonical user-config runtime state
+external/
+dotagents.local.yaml
 memsearch.conf
+.skill-lock.json
+memory/local/
+memory/apply-local.sh
 mcp/*/.env
 mcp/*/.*.session
 mcp/*/.venv/
-memory/local/
-memory/apply-local.sh
-skills/gws/google_doc_markdown
-skills/jobs/data/
-skills/jobs/portals-scan
-skills/jobs/tools/portals-scan/portals-scan
-skills/remote-access/tools/remote-access-bridge/remote-access-bridge
-skills/pr-triage/tools/pr-triage/pr-triage
-skills/x-sim/tools/x-sim/x-sim
-skills/handoff/bin/
-research/
-skills/cua-driver
 
-# Local DX/test reports - keep out of the repo
-docs/reports/*-dx.md
+# Local development binary
+/dotagents

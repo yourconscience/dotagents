@@ -1,8 +1,6 @@
 package main
 
 import (
-	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -166,23 +164,26 @@ func writeAgentsFixture(t *testing.T, repoRoot string, name string, data string)
 	}
 }
 
-func TestLoadAgentRolesConsolidated(t *testing.T) {
+func TestLoadAgentRolesMarkdown(t *testing.T) {
 	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1
-agents:
-  - name: reviewer
-    description: Reviews changes
-    model: sonnet
-    effort: high
-    tools: [Read, Grep]
-    color: purple
-    instructions: |-
-      Review the change.
-  - name: builder
-    description: Builds features
-    model: sonnet
-    instructions: |-
-      Implement the change.
+	writeAgentsFixture(t, repoRoot, "reviewer.md", `---
+name: reviewer
+description: Reviews changes
+model: sonnet
+effort: high
+tools: [Read, Grep]
+color: purple
+---
+
+Review the change.
+`)
+	writeAgentsFixture(t, repoRoot, "builder.md", `---
+name: builder
+description: Builds features
+model: sonnet
+---
+
+Implement the change.
 `)
 
 	roles, err := loadAgentRoles(repoRoot)
@@ -202,210 +203,30 @@ agents:
 	if len(role.Tools) != 2 || role.Tools[0] != "Read" || role.Tools[1] != "Grep" {
 		t.Fatalf("unexpected tools: %#v", role.Tools)
 	}
-}
-
-func TestLoadAgentRolesConsolidatedRejectsUnsupportedVersion(t *testing.T) {
-	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 2
-agents:
-  - name: reviewer
-    description: Reviews changes
-    instructions: Review the change.
-`)
-
-	if _, err := loadAgentRoles(repoRoot); err == nil || !strings.Contains(err.Error(), "unsupported version") {
-		t.Fatalf("want unsupported version error, got %v", err)
+	if filepath.Base(role.Source) != "reviewer.md" {
+		t.Fatalf("unexpected source: %q", role.Source)
 	}
 }
 
-func TestLoadAgentRolesLegacyFallback(t *testing.T) {
+func TestLoadAgentRolesMarkdownRejectsMissingFrontmatter(t *testing.T) {
 	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "reviewer.yaml", `name: reviewer
+	writeAgentsFixture(t, repoRoot, "reviewer.md", "Review the change.\n")
+
+	if _, err := loadAgentRoles(repoRoot); err == nil || !strings.Contains(err.Error(), "missing YAML frontmatter") {
+		t.Fatalf("want missing frontmatter error, got %v", err)
+	}
+}
+
+func TestLoadAgentRolesMarkdownRejectsMissingInstructions(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeAgentsFixture(t, repoRoot, "reviewer.md", `---
+name: reviewer
 description: Reviews changes
-model: sonnet
-effort: high
-tools: [Read, Grep]
-color: purple
-instructions: |-
-  Review the change.
-`)
-
-	roles, err := loadAgentRoles(repoRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(roles) != 1 {
-		t.Fatalf("loaded %d roles, want 1", len(roles))
-	}
-	role := roles[0]
-	if role.Name != "reviewer" || role.Description != "Reviews changes" || role.Instructions != "Review the change." {
-		t.Fatalf("unexpected role: %#v", role)
-	}
-}
-
-func TestLoadAgentRolesRejectsMixedSources(t *testing.T) {
-	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1
-agents:
-  - name: reviewer
-    description: Reviews changes
-    instructions: Review the change.
-`)
-	writeAgentsFixture(t, repoRoot, "builder.yaml", `name: builder
-description: Builds features
-instructions: Implement the change.
-`)
-
-	if _, err := loadAgentRoles(repoRoot); err == nil || !strings.Contains(err.Error(), "legacy per-agent") {
-		t.Fatalf("want mixed-sources error, got %v", err)
-	}
-}
-
-func TestLoadAgentRolesInstructionsFile(t *testing.T) {
-	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "reviewer-prompt.md", "Review the change carefully.\n")
-	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1
-agents:
-  - name: reviewer
-    description: Reviews changes
-    instructions_file: reviewer-prompt.md
-`)
-
-	roles, err := loadAgentRoles(repoRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(roles) != 1 {
-		t.Fatalf("loaded %d roles, want 1", len(roles))
-	}
-	if roles[0].Instructions != "Review the change carefully." {
-		t.Fatalf("unexpected instructions: %q", roles[0].Instructions)
-	}
-}
-
-func TestLoadAgentRolesRejectsBothInstructionsForms(t *testing.T) {
-	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "reviewer-prompt.md", "Review the change carefully.\n")
-	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1
-agents:
-  - name: reviewer
-    description: Reviews changes
-    instructions: Review the change.
-    instructions_file: reviewer-prompt.md
-`)
-
-	if _, err := loadAgentRoles(repoRoot); err == nil || !strings.Contains(err.Error(), "both instructions and instructions_file") {
-		t.Fatalf("want mutual-exclusion error, got %v", err)
-	}
-}
-
-func TestLoadAgentRolesRejectsMissingInstructions(t *testing.T) {
-	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1
-agents:
-  - name: reviewer
-    description: Reviews changes
+---
 `)
 
 	if _, err := loadAgentRoles(repoRoot); err == nil || !strings.Contains(err.Error(), "missing instructions") {
 		t.Fatalf("want missing instructions error, got %v", err)
-	}
-}
-
-func TestLoadAgentRolesRejectsEscapingInstructionsFile(t *testing.T) {
-	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1
-agents:
-  - name: reviewer
-    description: Reviews changes
-    instructions_file: ../outside.md
-`)
-
-	if _, err := loadAgentRoles(repoRoot); err == nil || !strings.Contains(err.Error(), "must be a relative path within the agents directory") {
-		t.Fatalf("want escaping path error, got %v", err)
-	}
-}
-
-func TestRenderPluginAgentsIdempotent(t *testing.T) {
-	repoRoot := t.TempDir()
-	writeAgentsFixture(t, repoRoot, "subagents.yaml", `version: 1
-agents:
-  - name: reviewer
-    description: Reviews changes
-    model: sonnet
-    instructions: |-
-      Review the change.
-`)
-
-	if err := renderPluginAgents(repoRoot); err != nil {
-		t.Fatal(err)
-	}
-
-	rendered := filepath.Join(repoRoot, "agents", "reviewer.md")
-	first, err := os.ReadFile(rendered)
-	if err != nil {
-		t.Fatalf("rendered file missing: %v", err)
-	}
-	if !strings.Contains(string(first), generatedAgentMarker) {
-		t.Fatalf("rendered file missing generated marker:\n%s", first)
-	}
-
-	stale := filepath.Join(repoRoot, "agents", "removed-role.md")
-	if err := os.WriteFile(stale, []byte("# "+generatedAgentMarker+"\nold"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	manual := filepath.Join(repoRoot, "agents", "README.md")
-	if err := os.WriteFile(manual, []byte("hand-written notes"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := renderPluginAgents(repoRoot); err != nil {
-		t.Fatal(err)
-	}
-	second, err := os.ReadFile(rendered)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(first) != string(second) {
-		t.Fatal("second render changed output")
-	}
-	if _, err := os.Stat(stale); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("stale file not removed: %v", err)
-	}
-	if _, err := os.Stat(manual); err != nil {
-		t.Fatalf("manual file was removed: %v", err)
-	}
-
-	roles, err := loadAgentRoles(repoRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(roles) != 1 {
-		t.Fatalf("rendered agents/*.md leaked into loadAgentRoles: %d roles", len(roles))
-	}
-}
-
-func TestCommittedPluginAgentsFresh(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected, err := expectedPluginAgentFiles(repoRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(expected) == 0 {
-		t.Fatal("no agent roles found in repo")
-	}
-	for path, content := range expected {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Errorf("%s missing; run: dotagents render", path)
-			continue
-		}
-		if string(data) != content {
-			t.Errorf("%s stale; run: dotagents render", path)
-		}
 	}
 }
 

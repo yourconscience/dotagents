@@ -108,22 +108,13 @@ func TestSkillListingBytes(t *testing.T) {
 	}
 }
 
-func TestContextSkillsForPluginReportIncludesRepoSkills(t *testing.T) {
-	repoRoot := t.TempDir()
-	home := t.TempDir()
-	writeSkill(t, filepath.Join(repoRoot, "skills"), "shared", "shared", "native plugin skill")
-	if err := os.Symlink(repoRoot, filepath.Join(home, ".agents")); err != nil {
-		t.Fatal(err)
-	}
-	report := agentReport{
-		Name:           "claude-code",
-		Delivery:       deliveryPlugin,
-		ExpectedSkills: map[string]string{},
-	}
+func TestContextSkillsForReportUsesExpectedSkills(t *testing.T) {
+	expected := map[string]string{"shared": filepath.Join(t.TempDir(), "shared")}
+	report := agentReport{ExpectedSkills: expected}
 
-	got := contextSkillsForReport(config{}, repoRoot, home, report)
-	if _, ok := got["shared"]; !ok || skillListingBytes(got) == 0 {
-		t.Fatalf("plugin context skills omitted native repo skill: got %v", got)
+	got := contextSkillsForReport(config{}, "", "", report)
+	if got["shared"] != expected["shared"] || len(got) != 1 {
+		t.Fatalf("context skills = %#v, want %#v", got, expected)
 	}
 }
 

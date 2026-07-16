@@ -8,18 +8,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from safety import atomic_write_text, locked_directory, redact_text, safe_identifier, truncate_redacted
+
 PATH_RE = re.compile(r"(?:~?/[^\s`'\"\\]+|/Users/[^\s`'\"\\]+|\./[^\s`'\"\\]+)")
-SECRET_RE = re.compile(
-    r"(?i)\b((?:api[_-]?key|secret|token|password|authorization)\s*[:=]\s*)([^\s`'\"\\]{8,})"
-)
+
 
 
 def truncate(text: str, limit: int = 220) -> str:
-    text = SECRET_RE.sub(r"\1[REDACTED]", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    if len(text) <= limit:
-        return text
-    return text[: limit - 1].rstrip() + "…"
+    return truncate_redacted(text, limit)
 
 
 def parse_timestamp(value: Optional[str]) -> datetime:
@@ -102,7 +98,7 @@ def extract_paths(messages):
         if not isinstance(content, str):
             continue
         for match in PATH_RE.findall(content):
-            cleaned = match.rstrip(".,;:)")
+            cleaned = redact_text(match.rstrip(".,;:)"))
             if cleaned.startswith(("/Users/", "~/", "./")) and cleaned not in seen:
                 seen.add(cleaned)
                 found.append(cleaned)
@@ -112,14 +108,14 @@ def extract_paths(messages):
 
 
 def build_block(payload, transcript_path: Path, session, messages):
-    session_id = payload.get("session_id") or session.get("id") or transcript_path.stem
+    session_id = safe_identifier(payload.get("session_id") or session.get("id") or transcript_path.stem)
     started = parse_timestamp(session.get("timestamp") or (messages[0].get("timestamp") if messages else None))
     started_human = started.strftime("%Y-%m-%d %H:%M")
     users = collect_user_turns(messages)
     final_assistant = nonempty_assistant_text(messages)
     paths = extract_paths(messages)
-    cwd = payload.get("cwd") or session.get("cwd") or ""
-    title = session.get("sessionTitle") or session.get("title") or ""
+    cwd = truncate(payload.get("cwd") or session.get("cwd") or "", 180)
+    title = truncate(session.get("sessionTitle") or session.get("title") or "", 180)
 
     lines = [
         f"<!-- droid-session:{session_id}:start -->",
@@ -128,7 +124,7 @@ def build_block(payload, transcript_path: Path, session, messages):
     ]
     meta = []
     if title:
-        meta.append(f"title: {truncate(title, 180)}")
+        meta.append(f"title: {title}")
     if cwd:
         meta.append(f"cwd: `{cwd}`")
     if meta:
@@ -144,10 +140,10 @@ def build_block(payload, transcript_path: Path, session, messages):
     if paths:
         lines.append("- paths mentioned:")
         for p in paths:
-            lines.append(f"  - `{p}`")
+            lines.append(f"  - `{truncate(p, 180)}`")
     lines.extend(
         [
-            f"- source transcript: `{transcript_path}`",
+            f"- source transcript: `{truncate(str(transcript_path), 220)}`",
             "",
             f"<!-- droid-session:{session_id}:end -->",
             "",
@@ -158,16 +154,17 @@ def build_block(payload, transcript_path: Path, session, messages):
 
 def update_daily_file(ai_dir: Path, payload, transcript_path: Path, session, messages):
     block, started = build_block(payload, transcript_path, session, messages)
-    session_id = payload.get("session_id") or session.get("id") or transcript_path.stem
+    session_id = safe_identifier(payload.get("session_id") or session.get("id") or transcript_path.stem)
     target = ai_dir / f"{started.strftime('%Y-%m-%d')}.md"
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
     marker_re = re.compile(
         rf"<!-- droid-session:{re.escape(session_id)}:start -->.*?<!-- droid-session:{re.escape(session_id)}:end -->\n?",
         re.DOTALL,
     )
-    existing = marker_re.sub("", existing).rstrip()
-    block = block.rstrip() + "\n"
-    target.write_text((existing + "\n\n" + block if existing else block), encoding="utf-8")
+    with locked_directory(ai_dir):
+        existing = target.read_text(encoding="utf-8") if target.exists() else ""
+        existing = marker_re.sub("", existing).rstrip()
+        block = block.rstrip() + "\n"
+        atomic_write_text(target, existing + "\n\n" + block if existing else block)
     return target
 
 
@@ -227,7 +224,7 @@ def main():
             {
                 "continue": True,
                 "suppressOutput": True,
-                "systemMessage": f"memsearch updated from Droid session {payload.get('session_id') or session.get('id')}",
+                "systemMessage": f"memsearch updated from Droid session {safe_identifier(payload.get('session_id') or session.get('id'))}",
                 "output_file": str(target),
             }
         )

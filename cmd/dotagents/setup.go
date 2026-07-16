@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,142 +13,82 @@ import (
 )
 
 func runSetup(opts runOptions) error {
-	delivery := opts.Delivery
-	opts.Delivery = ""
-	switch delivery {
-	case deliveryPlugin:
-		if err := applyPluginDelivery(opts); err != nil {
-			return err
-		}
-	case deliverySync:
-		if err := applySyncDelivery(opts, false); err != nil {
-			return err
-		}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve home: %w", err)
 	}
-
-	repoRoot, home, cfg, selected, err := loadContext(opts)
+	configPath, err := resolveConfigPath(opts.ConfigPath, home)
 	if err != nil {
 		return err
 	}
-	if err := rejectClaudeSyncPluginConflict(home, cfg); err != nil {
-		return err
-	}
+	repoRoot := filepath.Dir(configPath)
+	streams := setupStreams(opts)
 
-	fmt.Println("dotagents setup")
-	fmt.Printf("repo: %s\n\n", repoRoot)
+	fmt.Fprintln(streams.out, "dotagents setup")
+	fmt.Fprintf(streams.out, "config root: %s\n\n", repoRoot)
 
-	if err := installDotagentsBinary(repoRoot); err != nil {
-		return err
-	}
-
-	// 1. Fix ~/.agents symlink
-	repoReport, err := inspectRepoLink(repoRoot, home)
+	cfg, err := loadSetupConfig(configPath, home)
 	if err != nil {
 		return err
 	}
-	if err := applyRepoLink(repoReport); err != nil {
-		return err
-	}
-	repoReport, err = inspectRepoLink(repoRoot, home)
+	detected, err := detectDefaultAgents(opts.Agents)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("~/.agents: %s -> %s\n\n", repoReport.State, repoReport.ExpectedTarget)
+	if len(detected) == 0 {
+		return errors.New("no supported agents detected on PATH")
+	}
+	priorCfg := cfg
+	upsertSetupAgents(&cfg, detected)
+	if err := applyMemoryTier(&cfg, opts.MemoryTier, repoRoot, home); err != nil {
+		return err
+	}
 
-	// 2. Patch agent configs for detected agents
-	for _, agent := range selected {
-		if !isDetected(agent) {
-			fmt.Printf("%s: not detected, skipping\n", agent.Name)
-			continue
-		}
+	skills, roles, mcps, err := scanNativeImports(cfg, detected, repoRoot, home)
+	if err != nil {
+		return err
+	}
+	if err := importNativeContent(repoRoot, &cfg, detected, skills, roles, mcps, streams); err != nil {
+		return err
+	}
+	if err := ensureStarterAssets(repoRoot, configPath); err != nil {
+		return err
+	}
+	if err := ensureMemoryHookExecutables(repoRoot); err != nil {
+		return err
+	}
+	if err := writeSetupConfig(configPath, cfg, home); err != nil {
+		return err
+	}
+
+	for _, agent := range detected {
 		patched, err := patchAgentConfig(agent, home, cfg)
 		if err != nil {
-			fmt.Printf("%s: config patch failed: %v\n", agent.Name, err)
+			fmt.Fprintf(streams.out, "%s: config patch failed: %v\n", agent.Name, err)
 			continue
 		}
 		if patched {
-			fmt.Printf("%s: config patched (added ~/.agents/skills)\n", agent.Name)
+			fmt.Fprintf(streams.out, "%s: config patched (added ~/.agents/skills)\n", agent.Name)
 		} else {
-			fmt.Printf("%s: config already set\n", agent.Name)
+			fmt.Fprintf(streams.out, "%s: config already set\n", agent.Name)
 		}
 	}
-	fmt.Println()
-
 	migrated, err := migrateLegacyMemoryHookPaths(home, repoRoot)
 	if err != nil {
-		fmt.Printf("memory hooks: legacy path migration failed: %v\n", err)
+		fmt.Fprintf(streams.out, "memory hooks: legacy path migration failed: %v\n", err)
 	} else if migrated > 0 {
-		fmt.Printf("memory hooks: migrated legacy paths in %d config file(s)\n\n", migrated)
+		fmt.Fprintf(streams.out, "memory hooks: migrated legacy paths in %d config file(s)\n\n", migrated)
 	}
-
-	// 3. Run sync
-	return runSync(opts)
-}
-
-func installDotagentsBinary(repoRoot string) error {
-	// Skip build if the root has no Go source (user config repo, not dotagents source)
-	if !hasFile(filepath.Join(repoRoot, "cmd", "dotagents", "main.go")) {
-		if _, err := exec.LookPath("dotagents"); err == nil {
-			fmt.Println("dotagents binary: already on PATH")
-			return nil
-		}
-		return fmt.Errorf("dotagents binary not found on PATH; install with: go install github.com/yourconscience/dotagents/cmd/dotagents@latest")
-	}
-
-	goPath, err := exec.LookPath("go")
+	cleaned, err := removeNativeManagedMemoryHooks(home, repoRoot, priorCfg, cfg)
 	if err != nil {
-		return fmt.Errorf("go not found on PATH: %w", err)
+		fmt.Fprintf(streams.out, "memory hooks: native cleanup failed: %v\n", err)
+	} else if cleaned > 0 {
+		fmt.Fprintf(streams.out, "memory hooks: removed previous managed commands from %d native config file(s)\n\n", cleaned)
 	}
 
-	cmd := exec.Command(goPath, "install", "-modcacherw", "./cmd/dotagents")
-	cmd.Dir = repoRoot
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("go install ./cmd/dotagents: %w", err)
-	}
-
-	binDir, err := goBinDir(goPath)
-	if err != nil {
-		fmt.Printf("dotagents binary: installed (could not determine Go bin dir: %v)\n\n", err)
-		return nil
-	}
-	if pathContainsDir(os.Getenv("PATH"), binDir) {
-		fmt.Printf("dotagents binary: installed to %s\n\n", binDir)
-	} else {
-		fmt.Printf("dotagents binary: installed to %s, but that directory is not on PATH\n\n", binDir)
-	}
-	return nil
-}
-
-func goBinDir(goPath string) (string, error) {
-	out, err := exec.Command(goPath, "env", "GOBIN").Output()
-	if err != nil {
-		return "", fmt.Errorf("go env GOBIN: %w", err)
-	}
-	if goBinValue := strings.TrimSpace(string(out)); goBinValue != "" {
-		return goBinValue, nil
-	}
-	out, err = exec.Command(goPath, "env", "GOPATH").Output()
-	if err != nil {
-		return "", fmt.Errorf("go env GOPATH: %w", err)
-	}
-	goPathValue := strings.TrimSpace(string(out))
-	if goPathValue == "" {
-		return "", fmt.Errorf("go env GOPATH returned empty output")
-	}
-	first := strings.Split(goPathValue, string(os.PathListSeparator))[0]
-	return filepath.Join(first, "bin"), nil
-}
-
-func pathContainsDir(pathValue string, dir string) bool {
-	dir = filepath.Clean(dir)
-	for _, entry := range filepath.SplitList(pathValue) {
-		if entry != "" && filepath.Clean(entry) == dir {
-			return true
-		}
-	}
-	return false
+	syncOpts := opts
+	syncOpts.ConfigPath = configPath
+	return runSync(syncOpts)
 }
 
 func patchAgentConfig(agent agentConfig, home string, cfg config) (bool, error) {
@@ -247,7 +188,7 @@ func appendAmpSkillsPath(raw string) string {
 	return strings.TrimRight(raw, ":") + ":" + dotagentsSkillsPathValue
 }
 
-func patchHermesConfig(home string, cfg config) (bool, error) {
+func patchHermesConfig(home string, _ config) (bool, error) {
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -270,18 +211,11 @@ func patchHermesConfig(home string, cfg config) (bool, error) {
 	}
 
 	targets := []string{filepath.Join(home, ".agents", "skills")}
-	pluginTargets, err := pluginSkillBasesForAgent(cfg.Plugins, home, agentHermes)
-	if err != nil {
-		return false, err
-	}
-	targets = append(targets, pluginTargets...)
 
 	targetSet := make(map[string]bool, len(targets))
 	for _, target := range targets {
 		targetSet[target] = true
 	}
-	pruneRoots := hermesStaleDirPruneRoots(cfg, home)
-
 	existing := make(map[string]bool)
 	dirsRaw, ok := skills["external_dirs"]
 	var dirs []interface{}
@@ -291,10 +225,6 @@ func patchHermesConfig(home string, cfg config) (bool, error) {
 			for _, d := range existingDirs {
 				if s, isStr := d.(string); isStr {
 					expanded := expandPath(strings.TrimSpace(s), home)
-					if !targetSet[expanded] && pathUnderAny(expanded, pruneRoots) {
-						changed = true
-						continue
-					}
 					existing[expanded] = true
 				}
 				dirs = append(dirs, d)
@@ -321,23 +251,6 @@ func patchHermesConfig(home string, cfg config) (bool, error) {
 		return false, fmt.Errorf("write %s: %w", configPath, err)
 	}
 	return true, nil
-}
-
-// hermesStaleDirPruneRoots returns roots under which non-target external_dirs
-// entries are dotagents-managed leftovers (superseded plugin version dirs and
-// the legacy ~/.agents/plugin-roots location) and safe to prune.
-func hermesStaleDirPruneRoots(cfg config, home string) []string {
-	roots := pluginSourceRootsForAgent(cfg.Plugins, home, agentHermes)
-	return append(roots, filepath.Join(home, ".agents", "plugin-roots"))
-}
-
-func pathUnderAny(path string, roots []string) bool {
-	for _, root := range roots {
-		if path == root || strings.HasPrefix(path, root+string(os.PathSeparator)) {
-			return true
-		}
-	}
-	return false
 }
 
 func hermesExternalDirValue(home string, target string) string {

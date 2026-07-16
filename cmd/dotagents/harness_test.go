@@ -40,7 +40,7 @@ func TestPiAndOMPHarnessCapabilities(t *testing.T) {
 	}
 }
 
-func TestCanonicalPiAndOMPPaths(t *testing.T) {
+func TestPublicTemplateStartsWithoutConfiguredAgents(t *testing.T) {
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -50,19 +50,8 @@ func TestCanonicalPiAndOMPPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	agents := make(map[string]agentConfig, len(cfg.Agents))
-	for _, agent := range cfg.Agents {
-		agents[agent.Name] = agent
-	}
-	if got, want := agents[agentPi].SkillRoot, filepath.Join(home, ".pi", "agent", "skills"); got != want {
-		t.Fatalf("Pi skill root = %q, want %q", got, want)
-	}
-	if got, want := agents[agentOMP].SkillRoot, filepath.Join(home, ".omp", "agent", "skills"); got != want {
-		t.Fatalf("OMP skill root = %q, want %q", got, want)
-	}
-	if got, want := agents[agentOMP].AgentRoot, filepath.Join(home, ".omp", "agent", "agents"); got != want {
-		t.Fatalf("OMP agent root = %q, want %q", got, want)
+	if len(cfg.Agents) != 0 {
+		t.Fatalf("public template agents = %#v, want none before setup detection", cfg.Agents)
 	}
 
 	target, err := mcpTargetForHarness(agentOMP)
