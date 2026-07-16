@@ -6,18 +6,9 @@ exclude = [
     ".git/**",
     "node_modules/**",
     "target/**",
-    "experimental/**",
-    "research/**",
-    "skills/jobs/tools/portals-scan/portals-scan",
-    # Generated Claude-native subagent renders (agents/*.md, beside the *.yaml
-    # sources). Claude Code's docs require a comma-separated `tools:` string;
-    # agnix wrongly demands a YAML list and cannot parse them. dotagents doctor's
-    # "plugin agents" check validates these instead.
+    # Canonical starter roles use Claude-compatible comma-separated `tools:`;
+    # agnix currently requires a YAML list and cannot parse that native form.
     "agents/*.md",
-    # Codex requires the package-root `skills: "./"` declaration for this
-    # zero-copy package. agnix rejects bare root paths; codex_layout_test.go
-    # validates the marketplace and manifest contract instead.
-    "skills/.codex-plugin/plugin.json",
 ]
 
 [rules]
@@ -26,7 +17,7 @@ hooks = true
 agents = true
 memory = true
 output_styles = true
-plugins = true
+plugins = false
 xml = true
 mcp = true
 imports = true

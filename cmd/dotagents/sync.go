@@ -14,9 +14,6 @@ func runStatus(opts runOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := rejectClaudeSyncPluginConflict(home, cfg); err != nil {
-		return err
-	}
 
 	repoReport, err := inspectRepoLink(repoRoot, home)
 	if err != nil {
@@ -34,11 +31,6 @@ func runStatus(opts runOptions) error {
 
 	printReport("status", repoRoot, repoReport, reports, home, cfg)
 	printStatusSummaries(repoRoot, home, cfg)
-	claudeDelivery := checkClaudeDelivery(repoRoot, home, cfg)
-	fmt.Printf("claude delivery: %s (%s)\n\n", claudeDelivery.status, claudeDelivery.detail)
-	if claudeDelivery.status == checkStatusFail {
-		return fmt.Errorf("claude delivery check failed: %s", claudeDelivery.detail)
-	}
 	if repoReport.State != stateSynced {
 		return errors.New("dotagents is not fully synced")
 	}
@@ -54,9 +46,6 @@ func runStatus(opts runOptions) error {
 func runSync(opts runOptions) error {
 	repoRoot, home, cfg, selected, err := loadContext(opts)
 	if err != nil {
-		return err
-	}
-	if err := rejectClaudeSyncPluginConflict(home, cfg); err != nil {
 		return err
 	}
 
@@ -99,7 +88,7 @@ func runSync(opts runOptions) error {
 		printReport("sync", repoRoot, repoReport, reports, home, cfg)
 		return fmt.Errorf("sync aborted due to conflicts: %s", strings.Join(conflicts, "; "))
 	}
-	if err := applyAgentSync(reports, cfg, home); err != nil {
+	if err := applyAgentSync(reports, cfg, repoRoot, home); err != nil {
 		return err
 	}
 	if err := applyAgentRoleSync(reports, selected, repoRoot); err != nil {
@@ -175,7 +164,7 @@ func applyRepoLink(report repoLinkReport) error {
 	}
 }
 
-func applyAgentSync(reports []agentReport, cfg config, home string) error {
+func applyAgentSync(reports []agentReport, cfg config, repoRoot string, home string) error {
 	for _, report := range reports {
 		if !report.Detected {
 			continue
@@ -183,18 +172,9 @@ func applyAgentSync(reports []agentReport, cfg config, home string) error {
 		if len(report.Conflicts) > 0 {
 			return fmt.Errorf("%s has conflicts", report.Name)
 		}
-		if report.Name == agentClaudeCode && normalizeDeliveryMode(report.Delivery) == deliveryPlugin {
-			if err := pruneManagedSkillLinks(report.SkillRoot, report.Removes); err != nil {
-				return err
-			}
-			if err := linkExpectedSkills(report); err != nil {
-				return err
-			}
-			continue
-		}
 		h := harnessFor(report.Name)
 		if h != nil && h.Skills == SkillsConfigDriven {
-			if err := applyConfigDrivenSkillDrift(report, h, cfg, home); err != nil {
+			if err := applyConfigDrivenSkillDrift(report, h, cfg, repoRoot, home); err != nil {
 				return err
 			}
 			continue
@@ -245,11 +225,11 @@ func linkExpectedSkills(report agentReport) error {
 	return nil
 }
 
-func applyConfigDrivenSkillDrift(report agentReport, h *Harness, cfg config, home string) error {
+func applyConfigDrivenSkillDrift(report agentReport, h *Harness, cfg config, repoRoot string, home string) error {
 	if h.Setup == nil || (len(report.Adds) == 0 && len(report.Updates) == 0 && len(report.Removes) == 0) {
 		return nil
 	}
-	if _, err := h.Setup(home, cfg); err != nil {
+	if _, err := h.Setup(home, repoRoot, cfg); err != nil {
 		return fmt.Errorf("%s config-driven skill sync: %w", report.Name, err)
 	}
 

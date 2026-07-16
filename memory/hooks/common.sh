@@ -4,7 +4,7 @@ MEMORY_HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 MEMORY_DIR="$(dirname "$MEMORY_HOOK_DIR")"
 
 load_memory_config() {
-  CONF="${KNOWLEDGE_CONF:-$HOME/.agents/memsearch.conf}"
+  CONF="${KNOWLEDGE_CONF:-$(dirname "$MEMORY_DIR")/memsearch.conf}"
   KNOWLEDGE_DIR_ENV="${KNOWLEDGE_DIR:-}"
   SESSIONS_DIR_ENV="${SESSIONS_DIR:-}"
   NOTES_DIR_ENV="${NOTES_DIR:-}"

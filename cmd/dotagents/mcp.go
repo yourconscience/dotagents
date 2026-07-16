@@ -819,7 +819,7 @@ func endTOMLSection(content string, start int, header string) int {
 }
 
 func findTOMLInsertPoint(content string) int {
-	candidates := []string{"[profiles.", "[projects.", "[tui]", "[analytics]", "[notice]", "[[skills.config]]", "[env]", "[agents]", "[marketplaces.", "[plugins."}
+	candidates := []string{"[profiles.", "[projects.", "[tui]", "[analytics]", "[notice]", "[[skills.config]]", "[env]", "[agents]", "[marketplaces."}
 	best := -1
 	for _, candidate := range candidates {
 		idx := indexTOMLHeaderCandidate(content, candidate)

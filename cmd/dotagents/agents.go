@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -9,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -20,38 +20,90 @@ const (
 	readmeSkillsEndMarker   = "<!-- END GENERATED SKILLS -->"
 )
 
-// agentRolesFileName is the consolidated source of truth for agent roles,
-// living at agents/subagents.yaml. Legacy per-agent agents/<name>.yaml files
-// are still loaded when the consolidated file is absent.
-const agentRolesFileName = "subagents.yaml"
-
-// pluginAgentsRelDir is where committed Claude-format renders of the roles in
-// agents/subagents.yaml live. Claude Code auto-discovers plugin subagents from
-// top-level agents/*.md only - it does not recurse, and the plugin.json
-// "agents" array does not register them (verified empirically) - so the
-// renders sit directly alongside the .yaml source. loadAgentRoles reads only
-// .yaml files and ignores the .md, so they coexist in the same directory.
-const pluginAgentsRelDir = "agents"
+// agentRoleMarkdownExt is the editable starter role source format under
+// agents/<name>.md. The YAML frontmatter holds metadata; the Markdown body is
+// the role prompt.
+const agentRoleMarkdownExt = ".md"
 
 type agentRole struct {
-	Name        string   `yaml:"name"`
-	Description string   `yaml:"description"`
-	Model       string   `yaml:"model"`
-	Effort      string   `yaml:"effort"`
-	Tools       []string `yaml:"tools"`
-	Color       string   `yaml:"color"`
-	// Instructions holds the inline prompt. InstructionsFile is an optional
-	// alternative: a path relative to agents/ whose contents become the
-	// prompt. Exactly one of the two must be set.
-	Instructions     string           `yaml:"instructions"`
-	InstructionsFile string           `yaml:"instructions_file"`
-	Codex            codexRoleOptions `yaml:"codex"`
-	Droid            droidRoleOptions `yaml:"droid"`
+	Name         string           `yaml:"name"`
+	Description  string           `yaml:"description"`
+	Model        string           `yaml:"model"`
+	Effort       string           `yaml:"effort"`
+	Tools        []string         `yaml:"tools"`
+	Color        string           `yaml:"color"`
+	Instructions string           `yaml:"-"`
+	Source       string           `yaml:"-"`
+	Codex        codexRoleOptions `yaml:"codex"`
+	Droid        droidRoleOptions `yaml:"droid"`
 }
 
-type agentRolesFile struct {
-	Version int         `yaml:"version"`
-	Agents  []agentRole `yaml:"agents"`
+func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind != yaml.MappingNode {
+		return fmt.Errorf("agent role must be a mapping")
+	}
+	for i := 0; i+1 < len(value.Content); i += 2 {
+		key := value.Content[i].Value
+		node := value.Content[i+1]
+		switch key {
+		case "name":
+			if err := node.Decode(&role.Name); err != nil {
+				return err
+			}
+		case "description":
+			if err := node.Decode(&role.Description); err != nil {
+				return err
+			}
+		case "model":
+			if err := node.Decode(&role.Model); err != nil {
+				return err
+			}
+		case "effort":
+			if err := node.Decode(&role.Effort); err != nil {
+				return err
+			}
+		case "color":
+			if err := node.Decode(&role.Color); err != nil {
+				return err
+			}
+		case "codex":
+			if err := node.Decode(&role.Codex); err != nil {
+				return err
+			}
+		case "droid":
+			if err := node.Decode(&role.Droid); err != nil {
+				return err
+			}
+		case "tools":
+			tools, err := decodeRoleTools(node)
+			if err != nil {
+				return err
+			}
+			role.Tools = tools
+		}
+	}
+	return nil
+}
+
+func decodeRoleTools(node *yaml.Node) ([]string, error) {
+	switch node.Kind {
+	case yaml.SequenceNode:
+		var tools []string
+		if err := node.Decode(&tools); err != nil {
+			return nil, err
+		}
+		return tools, nil
+	case yaml.ScalarNode:
+		var tools []string
+		for _, part := range strings.Split(node.Value, ",") {
+			if tool := strings.TrimSpace(part); tool != "" {
+				tools = append(tools, tool)
+			}
+		}
+		return tools, nil
+	default:
+		return nil, fmt.Errorf("tools must be a YAML sequence or comma-separated string")
+	}
 }
 
 type codexRoleOptions struct {
@@ -103,15 +155,13 @@ func expectedAgentRoles(repoRoot string, agent agentConfig) (map[string]rendered
 		}
 		rendered[role.Name] = renderedAgentRole{
 			Name:    role.Name,
-			Source:  filepath.Join(repoRoot, "agents", agentRolesFileName),
+			Source:  role.Source,
 			Target:  target,
 			Content: content,
 		}
 	}
 	return rendered, nil
 }
-
-var legacyAgentRolesNote sync.Once
 
 func loadAgentRoles(repoRoot string) ([]agentRole, error) {
 	agentsDir := filepath.Join(repoRoot, "agents")
@@ -123,138 +173,94 @@ func loadAgentRoles(repoRoot string) ([]agentRole, error) {
 		return nil, fmt.Errorf("read %s: %w", agentsDir, err)
 	}
 
-	haveConsolidated := false
-	var legacyPaths []string
+	var paths []string
 	for _, entry := range entries {
-		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") || filepath.Ext(entry.Name()) != ".yaml" {
+		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") || filepath.Ext(entry.Name()) != agentRoleMarkdownExt {
 			continue
 		}
-		if entry.Name() == agentRolesFileName {
-			haveConsolidated = true
-			continue
-		}
-		legacyPaths = append(legacyPaths, filepath.Join(agentsDir, entry.Name()))
+		paths = append(paths, filepath.Join(agentsDir, entry.Name()))
 	}
-	if haveConsolidated && len(legacyPaths) > 0 {
-		return nil, fmt.Errorf("both agents/%s and legacy per-agent .yaml files exist (%s); keep only agents/%s", agentRolesFileName, strings.Join(legacyPaths, ", "), agentRolesFileName)
-	}
-	if haveConsolidated {
-		return loadConsolidatedAgentRoles(filepath.Join(agentsDir, agentRolesFileName), agentsDir)
-	}
-	if len(legacyPaths) > 0 {
-		legacyAgentRolesNote.Do(func() {
-			fmt.Fprintf(os.Stderr, "note: per-agent agents/*.yaml files are deprecated; consolidate them into agents/%s\n", agentRolesFileName)
-		})
-	}
-	return loadLegacyAgentRoles(legacyPaths, agentsDir)
+	sort.Strings(paths)
+	return loadMarkdownAgentRoles(paths)
 }
 
-func loadConsolidatedAgentRoles(path string, agentsDir string) ([]agentRole, error) {
+func loadMarkdownAgentRoles(paths []string) ([]agentRole, error) {
+	roles := make([]agentRole, 0, len(paths))
+	seen := make(map[string]struct{}, len(paths))
+	for _, path := range paths {
+		role, err := loadMarkdownAgentRole(path)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := seen[role.Name]; ok {
+			return nil, fmt.Errorf("agent role %s is duplicated", role.Name)
+		}
+		seen[role.Name] = struct{}{}
+		roles = append(roles, role)
+	}
+	sort.Slice(roles, func(i, j int) bool {
+		return roles[i].Name < roles[j].Name
+	})
+	return roles, nil
+}
+
+func loadMarkdownAgentRole(path string) (agentRole, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		return agentRole{}, fmt.Errorf("read %s: %w", path, err)
 	}
-	var file agentRolesFile
-	if err := yaml.Unmarshal(data, &file); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+	role, err := parseAgentRoleMarkdown(path, data)
+	if err != nil {
+		return agentRole{}, err
 	}
-	if file.Version != 1 {
-		return nil, fmt.Errorf("%s: unsupported version %d (want 1)", path, file.Version)
+	if err := finalizeAgentRole(&role, path); err != nil {
+		return agentRole{}, err
 	}
-	if len(file.Agents) == 0 {
-		return nil, fmt.Errorf("%s has no agents", path)
-	}
-
-	roles := make([]agentRole, 0, len(file.Agents))
-	seen := make(map[string]struct{})
-	for _, role := range file.Agents {
-		if err := finalizeAgentRole(&role, path, agentsDir); err != nil {
-			return nil, err
-		}
-		if _, ok := seen[role.Name]; ok {
-			return nil, fmt.Errorf("agent role %s is duplicated", role.Name)
-		}
-		seen[role.Name] = struct{}{}
-		roles = append(roles, role)
-	}
-	sort.Slice(roles, func(i, j int) bool {
-		return roles[i].Name < roles[j].Name
-	})
-	return roles, nil
+	return role, nil
 }
 
-func loadLegacyAgentRoles(paths []string, agentsDir string) ([]agentRole, error) {
-	var roles []agentRole
-	seen := make(map[string]struct{})
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", path, err)
-		}
-		var role agentRole
-		if err := yaml.Unmarshal(data, &role); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", path, err)
-		}
-		if err := finalizeAgentRole(&role, path, agentsDir); err != nil {
-			return nil, err
-		}
-		if _, ok := seen[role.Name]; ok {
-			return nil, fmt.Errorf("agent role %s is duplicated", role.Name)
-		}
-		seen[role.Name] = struct{}{}
-		roles = append(roles, role)
+func parseAgentRoleMarkdown(path string, data []byte) (agentRole, error) {
+	if !bytes.HasPrefix(data, []byte("---\n")) {
+		return agentRole{}, fmt.Errorf("%s: missing YAML frontmatter", path)
 	}
-	sort.Slice(roles, func(i, j int) bool {
-		return roles[i].Name < roles[j].Name
-	})
-	return roles, nil
+	rest := data[len("---\n"):]
+	end := bytes.Index(rest, []byte("\n---"))
+	if end < 0 {
+		return agentRole{}, fmt.Errorf("%s: unterminated YAML frontmatter", path)
+	}
+	frontmatter := rest[:end]
+	body := rest[end+len("\n---"):]
+	if len(body) > 0 && body[0] == '\r' {
+		body = body[1:]
+	}
+	if len(body) > 0 && body[0] == '\n' {
+		body = body[1:]
+	}
+	var role agentRole
+	if err := yaml.Unmarshal(frontmatter, &role); err != nil {
+		return agentRole{}, fmt.Errorf("parse %s frontmatter: %w", path, err)
+	}
+	role.Instructions = strings.TrimSpace(string(body))
+	role.Source = path
+	return role, nil
 }
 
-func finalizeAgentRole(role *agentRole, source string, agentsDir string) error {
+func finalizeAgentRole(role *agentRole, source string) error {
 	role.Name = normalizeAgentName(role.Name)
 	role.Model = strings.TrimSpace(role.Model)
 	role.Effort = strings.TrimSpace(role.Effort)
 	role.Description = strings.TrimSpace(role.Description)
 	role.Instructions = strings.TrimSpace(role.Instructions)
-	role.InstructionsFile = strings.TrimSpace(role.InstructionsFile)
 	if role.Name == "" {
 		return fmt.Errorf("%s is missing name", source)
 	}
 	if role.Description == "" {
 		return fmt.Errorf("%s: role %s is missing description", source, role.Name)
 	}
-	if role.Instructions != "" && role.InstructionsFile != "" {
-		return fmt.Errorf("%s: role %s sets both instructions and instructions_file; use exactly one", source, role.Name)
-	}
-	if role.InstructionsFile != "" {
-		cleaned := filepath.Clean(filepath.FromSlash(role.InstructionsFile))
-		if filepath.IsAbs(cleaned) || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
-			return fmt.Errorf("%s: role %s instructions_file %q must be a relative path within the agents directory", source, role.Name, role.InstructionsFile)
-		}
-		path := filepath.Join(agentsDir, cleaned)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("%s: role %s instructions_file: %w", source, role.Name, err)
-		}
-		role.Instructions = strings.TrimSpace(string(data))
-	}
 	if role.Instructions == "" {
 		return fmt.Errorf("%s: role %s is missing instructions", source, role.Name)
 	}
 	return nil
-}
-
-func expectedPluginAgentFiles(repoRoot string) (map[string]string, error) {
-	roles, err := loadAgentRoles(repoRoot)
-	if err != nil {
-		return nil, err
-	}
-	files := make(map[string]string, len(roles))
-	for _, role := range roles {
-		path := filepath.Join(repoRoot, filepath.FromSlash(pluginAgentsRelDir), role.Name+".md")
-		files[path] = renderClaudeAgentRole(role)
-	}
-	return files, nil
 }
 
 func expectedREADMESkillsBlock(repoRoot string) (string, int, error) {
@@ -347,66 +353,7 @@ func runRender(opts runOptions) error {
 }
 
 func renderCommittedArtifacts(repoRoot string) error {
-	if err := renderPluginAgents(repoRoot); err != nil {
-		return err
-	}
 	return renderREADMESkills(repoRoot)
-}
-
-func renderPluginAgents(repoRoot string) error {
-	expected, err := expectedPluginAgentFiles(repoRoot)
-	if err != nil {
-		return err
-	}
-	dir := filepath.Join(repoRoot, filepath.FromSlash(pluginAgentsRelDir))
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", dir, err)
-	}
-
-	written, unchanged := 0, 0
-	for path, content := range expected {
-		data, err := os.ReadFile(path)
-		if err == nil && string(data) == content {
-			unchanged++
-			continue
-		}
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("read %s: %w", path, err)
-		}
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			return fmt.Errorf("write %s: %w", path, err)
-		}
-		written++
-	}
-
-	removed := 0
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", dir, err)
-	}
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".md" {
-			continue
-		}
-		path := filepath.Join(dir, entry.Name())
-		if _, ok := expected[path]; ok {
-			continue
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("read %s: %w", path, err)
-		}
-		if !strings.Contains(string(data), generatedAgentMarker) {
-			continue
-		}
-		if err := os.Remove(path); err != nil {
-			return fmt.Errorf("remove stale %s: %w", path, err)
-		}
-		removed++
-	}
-
-	fmt.Printf("rendered %s: %d written, %d unchanged, %d removed\n", pluginAgentsRelDir, written, unchanged, removed)
-	return nil
 }
 
 func renderAgentRole(role agentRole, agent agentConfig) (string, string, bool) {
@@ -435,8 +382,8 @@ func renderClaudeAgentRole(role agentRole) string {
 	b.WriteString("---\n\n")
 	b.WriteString("<!-- ")
 	b.WriteString(generatedAgentMarker)
-	b.WriteString(" from agents/")
-	b.WriteString(agentRolesFileName)
+	b.WriteString(" from ")
+	b.WriteString(agentRoleSourceLabel(role))
 	b.WriteString("; do not edit directly. -->\n\n")
 	b.WriteString(role.Instructions)
 	b.WriteString("\n")
@@ -456,8 +403,8 @@ func renderCodexAgentRole(role agentRole) string {
 	var b strings.Builder
 	b.WriteString("# ")
 	b.WriteString(generatedAgentMarker)
-	b.WriteString(" from agents/")
-	b.WriteString(agentRolesFileName)
+	b.WriteString(" from ")
+	b.WriteString(agentRoleSourceLabel(role))
 	b.WriteString("; do not edit directly.\n")
 	writeTOMLString(&b, "name", role.Name)
 	writeTOMLString(&b, "description", role.Description)
@@ -496,12 +443,19 @@ func renderDroidAgentRole(role agentRole) string {
 	b.WriteString("---\n\n")
 	b.WriteString("<!-- ")
 	b.WriteString(generatedAgentMarker)
-	b.WriteString(" from agents/")
-	b.WriteString(agentRolesFileName)
+	b.WriteString(" from ")
+	b.WriteString(agentRoleSourceLabel(role))
 	b.WriteString("; do not edit directly. -->\n\n")
 	b.WriteString(role.Instructions)
 	b.WriteString("\n")
 	return b.String()
+}
+
+func agentRoleSourceLabel(role agentRole) string {
+	if role.Source == "" {
+		return "agents/" + role.Name + agentRoleMarkdownExt
+	}
+	return "agents/" + filepath.Base(role.Source)
 }
 
 func writeYAMLScalar(b *strings.Builder, key string, value string) {
@@ -661,12 +615,6 @@ func applyAgentRoleSync(reports []agentReport, selected []agentConfig, repoRoot 
 		}
 		if len(report.Conflicts) > 0 {
 			return fmt.Errorf("%s has conflicts", report.Name)
-		}
-		if usesPluginDelivery(agent) {
-			if err := pruneManagedAgentFiles(agent.AgentRoot, report.RemovesAgent); err != nil {
-				return err
-			}
-			continue
 		}
 		expected, err := expectedAgentRoles(repoRoot, agent)
 		if err != nil {

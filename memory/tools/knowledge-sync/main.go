@@ -39,12 +39,20 @@ func main() {
 	if err != nil {
 		fatal("open lock", err, "")
 	}
-	defer lock.Close()
+	defer func() {
+		if err := lock.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "knowledge-sync: close lock failed: %v\n", err)
+		}
+	}()
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		fmt.Println("knowledge-sync: another sync is running")
 		return
 	}
-	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+	defer func() {
+		if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); err != nil {
+			fmt.Fprintf(os.Stderr, "knowledge-sync: unlock failed: %v\n", err)
+		}
+	}()
 
 	if out, err := git(repo, "status", "--short"); err != nil {
 		fatal("git status", err, out)
@@ -69,8 +77,12 @@ func main() {
 	if out, err := git(repo, "merge", "--no-edit", remote+"/"+branch); err != nil {
 		fmt.Print(out)
 		conflict := "sync-conflict-" + time.Now().UTC().Format("20060102T150405Z")
-		git(repo, "branch", conflict)
-		git(repo, "merge", "--abort")
+		if branchOut, branchErr := git(repo, "branch", conflict); branchErr != nil {
+			fatal("git conflict branch", branchErr, branchOut)
+		}
+		if abortOut, abortErr := git(repo, "merge", "--abort"); abortErr != nil {
+			fatal("git merge abort", abortErr, abortOut)
+		}
 		fatal("git merge", err, "created conflict branch "+conflict+"\n")
 	}
 	if out, err := git(repo, "push", remote, branch); err != nil {

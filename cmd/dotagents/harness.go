@@ -29,8 +29,8 @@ type RolesCapability struct {
 
 // RootInstructionsCapability describes a root instructions symlink the agent needs.
 type RootInstructionsCapability struct {
-	Path     func(home string) string // symlink path, e.g. ~/.factory/AGENTS.md
-	Expected func(home string) string // target path, e.g. ~/.agents/AGENTS.md
+	Path     func(home string) string     // symlink path, e.g. ~/.factory/AGENTS.md
+	Expected func(repoRoot string) string // target path, e.g. <config-root>/AGENTS.md
 }
 
 // DoctorCheck is a named health check contributed by a harness.
@@ -44,7 +44,7 @@ type DoctorCheck struct {
 type InspectSkillsFunc func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error)
 
 // SetupFunc is the signature for agent-specific config patching during setup.
-type SetupFunc func(home string, cfg config) (bool, error)
+type SetupFunc func(home string, repoRoot string, cfg config) (bool, error)
 
 // Harness is the central descriptor for a coding agent integration.
 // All feature dispatch reads capability fields instead of switching on agent names.
@@ -68,10 +68,6 @@ type Harness struct {
 	Roles *RolesCapability
 	// Hooks holds the hook config target. nil = no hook support.
 	Hooks *hookTarget
-
-	// PluginSurfaces declares which plugin surfaces this agent supports
-	// beyond the baseline (skills, mcp, assets).
-	PluginSurfaces map[string]bool
 
 	// RootInstructions describes a root instructions symlink. nil = none.
 	RootInstructions *RootInstructionsCapability
@@ -97,11 +93,11 @@ func initHarnesses() {
 	harnesses = map[string]*Harness{
 		"amp": {
 			Skills: SkillsConfigDriven,
-			InspectSkills: func(agent agentConfig, expected map[string]string, _ string, cfg config, home string) (agentReport, error) {
-				return inspectAmpAgent(agent, expected, cfg, home)
+			InspectSkills: func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
+				return inspectAmpAgent(agent, expected, agentsSkillRoot, cfg, home)
 			},
-			Setup: func(home string, _ config) (bool, error) {
-				return patchAmpConfig(home)
+			Setup: func(home string, repoRoot string, _ config) (bool, error) {
+				return patchAmpConfig(home, repoRoot)
 			},
 			MCP: mcpTargetPtr(mcpTarget{
 				agentName:  "amp",
@@ -111,7 +107,6 @@ func initHarnesses() {
 				read:       readJSONMCPServer,
 				rootKey:    "amp.mcpServers",
 			}),
-			PluginSurfaces:  map[string]bool{},
 			IntegrationNote: "config-driven via Amp settings -> amp.skills.path",
 			TrailerExample:  "Co-authored-by: amp[bot] <amp[bot]@users.noreply.github.com>",
 		},
@@ -133,12 +128,6 @@ func initHarnesses() {
 				inspect:   inspectClaudeHook,
 				patch:     patchClaudeHook,
 			},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceAgents: true,
-				pluginSurfaceHooks:  true,
-				pluginSurfaceCmds:   true,
-				pluginFormatClaude:  true,
-			},
 			TrailerExample: "Co-authored-by: claude[bot] <claude[bot]@users.noreply.github.com>",
 		},
 
@@ -156,11 +145,6 @@ func initHarnesses() {
 				agentName: "codex",
 				inspect:   inspectCodexHook,
 				patch:     patchCodexHook,
-			},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceAgents: true,
-				pluginSurfaceHooks:  true,
-				pluginFormatCodex:   true,
 			},
 			TrailerExample: "Co-Authored-By: codex[bot] <codex[bot]@users.noreply.github.com>",
 		},
@@ -182,13 +166,9 @@ func initHarnesses() {
 				inspect:   inspectDroidHook,
 				patch:     patchDroidHook,
 			},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceAgents: true,
-				pluginSurfaceHooks:  true,
-			},
 			RootInstructions: &RootInstructionsCapability{
 				Path:     func(home string) string { return filepath.Join(home, ".factory", "AGENTS.md") },
-				Expected: func(home string) string { return filepath.Join(home, ".agents", "AGENTS.md") },
+				Expected: func(repoRoot string) string { return filepath.Join(repoRoot, "AGENTS.md") },
 			},
 			TrailerExample: "Co-authored-by: factory-droid[bot] <factory-droid[bot]@users.noreply.github.com>",
 		},
@@ -198,8 +178,8 @@ func initHarnesses() {
 			InspectSkills: func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
 				return inspectHermesAgent(agent, expected, agentsSkillRoot, cfg, home)
 			},
-			Setup: func(home string, cfg config) (bool, error) {
-				return patchHermesConfig(home, cfg)
+			Setup: func(home string, repoRoot string, cfg config) (bool, error) {
+				return patchHermesConfig(home, repoRoot, cfg)
 			},
 			MCP: mcpTargetPtr(mcpTarget{
 				agentName:  "hermes",
@@ -214,9 +194,6 @@ func initHarnesses() {
 				inspect:   inspectHermesHook,
 				patch:     patchHermesHook,
 			},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceHooks: true,
-			},
 			IntegrationNote: "config-driven via ~/.hermes/config.yaml -> skills.external_dirs",
 			DoctorChecks: []DoctorCheck{
 				{Name: "hermes direct mirrors", Run: checkHermesDirectMirrors},
@@ -230,7 +207,6 @@ func initHarnesses() {
 		agentPi: {
 			Detect:         detectVanillaPi,
 			Skills:         SkillsSymlink,
-			PluginSurfaces: map[string]bool{pluginSurfaceMCP: false},
 			TrailerExample: "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
 		},
 
@@ -245,9 +221,6 @@ func initHarnesses() {
 				rootKey:    "mcpServers",
 			}),
 			Roles: &RolesCapability{Extension: ".md", Render: renderOMPAgentRole},
-			PluginSurfaces: map[string]bool{
-				pluginSurfaceAgents: true,
-			},
 		},
 	}
 }

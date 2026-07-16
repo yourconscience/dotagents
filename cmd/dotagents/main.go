@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 )
@@ -13,24 +14,11 @@ type config struct {
 	Agents         []agentConfig         `yaml:"agents"`
 	MCPServers     []mcpServerConfig     `yaml:"mcp_servers"`
 	ExternalSkills []externalSkillSource `yaml:"external_skills"`
-	Plugins        []pluginConfig        `yaml:"plugins,omitempty"`
 	Hooks          []hookConfig          `yaml:"hooks,omitempty"`
-	Sources        []sourceConfig        `yaml:"sources,omitempty"`
 	// ContextNoteTokens is the estimated skill-listing token threshold above
 	// which `dotagents doctor` prints a soft context advisory note. Absent
 	// (nil) uses contextNoteTokensDefault; 0 (or negative) disables the note.
 	ContextNoteTokens *int `yaml:"context_note_tokens,omitempty"`
-}
-
-type pluginConfig struct {
-	Name        string   `yaml:"name"`
-	Enabled     bool     `yaml:"enabled"`
-	Source      string   `yaml:"source,omitempty"`
-	Format      string   `yaml:"format,omitempty"`
-	Description string   `yaml:"description,omitempty"`
-	Surfaces    []string `yaml:"surfaces,omitempty"`
-	Agents      []string `yaml:"agents,omitempty"`
-	Review      string   `yaml:"review,omitempty"`
 }
 
 type externalSkillSource struct {
@@ -48,7 +36,6 @@ type agentConfig struct {
 	SkillRoot string `yaml:"skill_root"`
 	AgentRoot string `yaml:"agent_root,omitempty"`
 	Detect    string `yaml:"detect,omitempty"`
-	Delivery  string `yaml:"delivery,omitempty"`
 }
 
 type repoLinkReport struct {
@@ -62,7 +49,6 @@ type agentReport struct {
 	Name            string
 	SkillRoot       string
 	AgentRoot       string
-	Delivery        string
 	ExpectedSkills  map[string]string
 	Detected        bool
 	RootPath        string
@@ -115,10 +101,12 @@ func isDetected(agent agentConfig) bool {
 type runOptions struct {
 	ConfigPath     string
 	Agents         string
-	Delivery       string
 	Pull           bool
 	E2E            bool
 	SkipPackageAge bool
+	MemoryTier     string
+	Stdin          io.Reader
+	Stdout         io.Writer
 }
 
 func main() {
@@ -164,9 +152,6 @@ func run(args []string) error {
 		return runDeprecatedDeps(args[1:])
 	case "memsearch":
 		return runDeprecatedMemsearch(args[1:])
-	case "plugin":
-		printRenameNotice("plugin add/remove", "setup --delivery plugin/sync")
-		return runPlugin(args[1:])
 	case "skillify":
 		printRenameNotice("skillify", "skill new")
 		return runSkillCommand(append([]string{"new"}, args[1:]...))
@@ -184,9 +169,6 @@ func run(args []string) error {
 			return err
 		}
 		return runAudit(opts)
-	case "sources":
-		printRenameNotice("sources", "doctor")
-		return runSources(args[1:])
 	case "external":
 		if len(args) > 1 && args[1] == "list" {
 			printRenameNotice("external list", "status")
@@ -233,9 +215,6 @@ func runSetupCommand(args []string) error {
 		switch args[0] {
 		case "memsearch":
 			return runMemsearch(append([]string{"setup"}, args[1:]...))
-		case "plugin":
-			printRenameNotice("setup plugin add/remove", "setup --delivery plugin/sync")
-			return runPlugin(args[1:])
 		}
 	}
 	opts, err := parseSetupFlags(args)
@@ -251,9 +230,6 @@ func runStatusCommand(args []string) error {
 		case "memsearch":
 			printRenameNotice("status memsearch", "status")
 			return runMemsearch(append([]string{"status"}, args[1:]...))
-		case "sources":
-			printRenameNotice("status sources", "doctor")
-			return runSources(args[1:])
 		}
 	}
 	opts, err := parseSubcommandFlags("status", args)
@@ -416,17 +392,15 @@ func parseSetupFlags(args []string) (runOptions, error) {
 	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	var opts runOptions
+	opts.MemoryTier = memoryTierBasic
 	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
 	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names to use for this run")
-	fs.StringVar(&opts.Delivery, "delivery", "", "Claude Code delivery: plugin or sync")
+	fs.StringVar(&opts.MemoryTier, "memory", memoryTierBasic, "Memory tier: off, basic, or memsearch")
 	if err := fs.Parse(args); err != nil {
 		return runOptions{}, err
 	}
 	if fs.NArg() != 0 {
 		return runOptions{}, errors.New("setup does not accept positional arguments")
-	}
-	if opts.Delivery != "" && opts.Delivery != deliveryPlugin && opts.Delivery != deliverySync {
-		return runOptions{}, fmt.Errorf("setup --delivery must be %q or %q", deliveryPlugin, deliverySync)
 	}
 	return opts, nil
 }
@@ -485,10 +459,10 @@ func printUsage() {
 	fmt.Println("dotagents - manage shared skills and MCP config across coding agents")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  setup    Set up this machine and choose plugin or sync delivery")
+	fmt.Println("  setup    Set up this machine and sync configured harnesses")
 	fmt.Println("  status   Show harness, external lock, and memsearch state")
 	fmt.Println("  sync     Regenerate committed artifacts and reconcile harnesses")
-	fmt.Println("  doctor   Check sources, dependencies, delivery, and local health")
+	fmt.Println("  doctor   Check pins, dependencies, and local health")
 	fmt.Println()
 	fmt.Println("Command groups:")
 	fmt.Println("  skill    Create, update, and promote skills")
@@ -501,7 +475,7 @@ func printAllUsage() {
 	printUsage()
 	fmt.Println()
 	fmt.Println("Canonical forms:")
-	fmt.Println("  dotagents setup [--delivery plugin|sync] [--agents ...]")
+	fmt.Println("  dotagents setup [--memory off|basic|memsearch] [--agents ...]")
 	fmt.Println("  dotagents status [--agents ...]")
 	fmt.Println("  dotagents sync [--pull] [--agents ...]")
 	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
@@ -515,10 +489,8 @@ func printAllUsage() {
 	fmt.Println("  dotagents deps <check|update> [options]")
 	fmt.Println("  dotagents memsearch <setup|status> [options]")
 	fmt.Println("  dotagents pull [options]")
-	fmt.Println("  dotagents plugin <add|remove> [options]")
 	fmt.Println("  dotagents render [options]")
 	fmt.Println("  dotagents audit [options]")
-	fmt.Println("  dotagents sources [options]")
 	fmt.Println("  dotagents external <list|update> [name ...]")
 	fmt.Println("  dotagents skillify <name> [options]")
 	fmt.Println("  dotagents promote <name-or-path> [--dry-run]")

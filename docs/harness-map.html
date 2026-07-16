@@ -280,7 +280,7 @@
       <h1>Harness map, not harness sprawl.</h1>
     </div>
     <div class="header-note">
-      <b>dotagents</b> keeps one shared layer for skills, roles, MCP entries, and approved hooks. Primary harnesses get managed support. Everything else stays compatibility-only until someone owns it.
+      <b>dotagents</b> syncs one private user-owned layer for skills, roles, MCP entries, and approved hooks. The public CLI stays separate from personal configuration. Each managed harness receives only the native surfaces it supports.
     </div>
   </header>
 
@@ -293,7 +293,7 @@
     <article class="card" style="--accent: var(--blue)">
       <div class="topline"><div class="logo">▣</div><div class="badge">primary</div></div>
       <h2>Codex</h2><div class="path">~/.codex/{skills,agents}</div>
-      <div class="chips"><span class="chip">skills</span><span class="chip">agents</span><span class="chip">MCP</span><span class="chip">hooks</span><span class="chip">native plugin source</span></div>
+      <div class="chips"><span class="chip">skills</span><span class="chip">agents</span><span class="chip">MCP</span><span class="chip">hooks</span></div>
     </article>
     <article class="card" style="--accent: var(--gold)">
       <div class="topline"><div class="logo">☤</div><div class="badge">primary</div></div>
@@ -347,7 +347,7 @@
   </section>
 
   <section class="principles" aria-label="Minimalism principles">
-    <div class="principle"><strong>Default to the boring surface.</strong><p>Prefer console CLIs plus portable skills. Native plugins are preserved, not copied blindly across every agent.</p></div>
+    <div class="principle"><strong>Separate tool from config.</strong><p>The CLI is public; personal skills, hooks, MCP servers, and memory settings stay in the user's private repository.</p></div>
     <div class="principle"><strong>Patch configs surgically.</strong><p>No whole-file symlinked configs. dotagents owns targeted entries and leaves host-local choices alone.</p></div>
     <div class="principle"><strong>No support without ownership.</strong><p>If skills, MCP, hooks, roles, and approvals are not verified, the harness stays compatibility-only.</p></div>
   </section>

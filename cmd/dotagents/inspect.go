@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -45,7 +47,7 @@ func expectedSkills(repoRoot string, home string, cfg config) (map[string]string
 	return discoveredSkillPaths(discovered), nil
 }
 
-func discoverLocalSkills(repoRoot string, home string) ([]discoveredSkill, error) {
+func discoverLocalSkills(repoRoot string, _ string) ([]discoveredSkill, error) {
 	skillsDir := filepath.Join(repoRoot, "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
@@ -55,7 +57,7 @@ func discoverLocalSkills(repoRoot string, home string) ([]discoveredSkill, error
 		return nil, fmt.Errorf("read %s: %w", skillsDir, err)
 	}
 
-	agentsSkillRoot := filepath.Join(home, ".agents", "skills")
+	agentsSkillRoot := filepath.Join(repoRoot, "skills")
 	discovered := make([]discoveredSkill, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
@@ -75,37 +77,8 @@ func discoverLocalSkills(repoRoot string, home string) ([]discoveredSkill, error
 	return discovered, nil
 }
 
-func expectedSkillsForAgent(base map[string]string, home string, cfg config, agentName string) (map[string]string, error) {
-	discovered := make(map[string]discoveredSkill, len(base))
-	if err := mergeDiscoveredSkills(discovered, classifyExpectedSkills(base, home, cfg)); err != nil {
-		return nil, err
-	}
-	pluginSkills, err := discoverPluginSkillSet(cfg.Plugins, home, agentName)
-	if err != nil {
-		return nil, err
-	}
-	if err := mergeDiscoveredSkills(discovered, discoveredSkillValues(pluginSkills)); err != nil {
-		return nil, err
-	}
-	return discoveredSkillPaths(discovered), nil
-}
-
-func classifyExpectedSkills(expected map[string]string, home string, cfg config) []discoveredSkill {
-	localRoot := filepath.Join(home, ".agents", "skills")
-	discovered := make([]discoveredSkill, 0, len(expected))
-	for name, path := range expected {
-		skill := discoveredSkill{Name: name, Path: path, Origin: "local skills", Root: localRoot}
-		for _, src := range cfg.ExternalSkills {
-			root := filepath.Join(externalCacheDir(home), repoName(src.URL), src.SkillDir)
-			if path == root || strings.HasPrefix(path, root+string(os.PathSeparator)) {
-				skill.Origin = fmt.Sprintf("external Git %q", src.URL)
-				skill.Root = root
-				break
-			}
-		}
-		discovered = append(discovered, skill)
-	}
-	return discovered
+func expectedSkillsForAgent(base map[string]string, _ string, _ config, _ string) (map[string]string, error) {
+	return base, nil
 }
 
 func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
@@ -114,6 +87,11 @@ func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 		Path:           linkPath,
 		ExpectedTarget: repoRoot,
 		State:          stateMissing,
+	}
+	if !sameCleanPath(linkPath, repoRoot) && !sameResolvedPath(linkPath, repoRoot) {
+		report.ActualTarget = repoRoot
+		report.State = stateSynced
+		return report, nil
 	}
 
 	info, err := os.Lstat(linkPath)
@@ -153,6 +131,15 @@ func inspectRepoLink(repoRoot string, home string) (repoLinkReport, error) {
 	return report, nil
 }
 
+func sameCleanPath(a, b string) bool {
+	aa, errA := filepath.Abs(a)
+	bb, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return filepath.Clean(a) == filepath.Clean(b)
+	}
+	return filepath.Clean(aa) == filepath.Clean(bb)
+}
+
 // sameResolvedPath reports whether a and b refer to the same location after
 // resolving symlinks. Used to detect an in-place ~/.agents clone (the repo
 // cloned directly to ~/.agents) where a symlink to itself is unnecessary.
@@ -170,9 +157,10 @@ func sameResolvedPath(a, b string) bool {
 
 func inspectAgents(selected []agentConfig, expected map[string]string, repoRoot string, home string, cfg config) ([]agentReport, error) {
 	reports := make([]agentReport, 0, len(selected))
+	agentsSkillRoot := filepath.Join(repoRoot, "skills")
 	for _, agent := range selected {
 		if !isDetected(agent) {
-			report, err := inspectAgent(agent, expected, repoRoot, filepath.Join(home, ".agents", "skills"), cfg, home)
+			report, err := inspectAgent(agent, expected, repoRoot, agentsSkillRoot, cfg, home)
 			if err != nil {
 				return nil, err
 			}
@@ -183,7 +171,7 @@ func inspectAgents(selected []agentConfig, expected map[string]string, repoRoot 
 		if err != nil {
 			return nil, err
 		}
-		report, err := inspectAgent(agent, agentExpected, repoRoot, filepath.Join(home, ".agents", "skills"), cfg, home)
+		report, err := inspectAgent(agent, agentExpected, repoRoot, agentsSkillRoot, cfg, home)
 		if err != nil {
 			return nil, err
 		}
@@ -197,15 +185,11 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		Name:           agent.Name,
 		SkillRoot:      agent.SkillRoot,
 		AgentRoot:      agent.AgentRoot,
-		Delivery:       normalizeDeliveryMode(agent.Delivery),
 		ExpectedSkills: expected,
 		Detected:       isDetected(agent),
 	}
 	if !report.Detected {
 		return report, nil
-	}
-	if usesPluginDelivery(agent) {
-		return inspectPluginDeliveryAgent(agent, repoRoot, agentsSkillRoot, cfg, home)
 	}
 	h := harnessFor(agent.Name)
 	if h != nil && h.Skills == SkillsConfigDriven && h.InspectSkills != nil {
@@ -251,7 +235,15 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 
 		mode := entry.Type()
 		if mode&os.ModeSymlink == 0 {
-			report.Conflicts = append(report.Conflicts, fmt.Sprintf("%s exists but is not a symlink", linkPath))
+			matches, err := treesEqual(linkPath, expected[name])
+			if err != nil {
+				return agentReport{}, fmt.Errorf("compare %s with %s: %w", linkPath, expected[name], err)
+			}
+			if matches {
+				report.Managed = append(report.Managed, name)
+				continue
+			}
+			report.Conflicts = append(report.Conflicts, fmt.Sprintf("%s exists but differs from canonical content and is not a symlink", linkPath))
 			continue
 		}
 
@@ -268,11 +260,6 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		report.Updates = append(report.Updates, name)
 	}
 
-	pluginSkillBases, err := allPluginSkillBasesForAgent(cfg.Plugins, home, agent.Name)
-	if err != nil {
-		return agentReport{}, err
-	}
-	pluginSkillBases = append(pluginSkillBases, pluginSourceRootsForAgent(cfg.Plugins, home, agent.Name)...)
 	if !rootMissing {
 		for name, entry := range entryMap {
 			if _, ok := expected[name]; ok {
@@ -284,7 +271,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 				if err != nil {
 					return agentReport{}, fmt.Errorf("readlink %s: %w", path, err)
 				}
-				if isManagedSkillLink(path, rawTarget, repoRoot, agentsSkillRoot) || isExternalSkillLink(path, rawTarget, home) || isPluginSkillLink(path, rawTarget, pluginSkillBases) {
+				if isManagedSkillLink(path, rawTarget, repoRoot, agentsSkillRoot) || isExternalSkillLink(path, rawTarget, home) {
 					report.StaleManaged = append(report.StaleManaged, name)
 					report.Removes = append(report.Removes, name)
 					continue
@@ -304,7 +291,7 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		return agentReport{}, err
 	}
 	if h != nil && h.RootInstructions != nil {
-		if err := inspectRootInstructions(&report, h.RootInstructions, home); err != nil {
+		if err := inspectRootInstructions(&report, h.RootInstructions, repoRoot, home); err != nil {
 			return agentReport{}, err
 		}
 	}
@@ -312,6 +299,81 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 	sortReportLists(&report)
 	report.Synced = isReportSynced(report)
 	return report, nil
+}
+func treesEqual(left string, right string) (bool, error) {
+	leftInfo, err := os.Lstat(left)
+	if err != nil {
+		return false, err
+	}
+	rightInfo, err := os.Lstat(right)
+	if err != nil {
+		return false, err
+	}
+	if leftInfo.Mode().Type() != rightInfo.Mode().Type() {
+		return false, nil
+	}
+	if leftInfo.Mode()&os.ModeSymlink != 0 {
+		leftTarget, err := os.Readlink(left)
+		if err != nil {
+			return false, err
+		}
+		rightTarget, err := os.Readlink(right)
+		return leftTarget == rightTarget, err
+	}
+	if leftInfo.IsDir() {
+		leftEntries, err := os.ReadDir(left)
+		if err != nil {
+			return false, err
+		}
+		rightEntries, err := os.ReadDir(right)
+		if err != nil {
+			return false, err
+		}
+		if len(leftEntries) != len(rightEntries) {
+			return false, nil
+		}
+		for i := range leftEntries {
+			if leftEntries[i].Name() != rightEntries[i].Name() {
+				return false, nil
+			}
+			matches, err := treesEqual(filepath.Join(left, leftEntries[i].Name()), filepath.Join(right, rightEntries[i].Name()))
+			if err != nil || !matches {
+				return matches, err
+			}
+		}
+		return true, nil
+	}
+	if !leftInfo.Mode().IsRegular() || leftInfo.Size() != rightInfo.Size() {
+		return false, nil
+	}
+	leftFile, err := os.Open(left)
+	if err != nil {
+		return false, err
+	}
+	defer leftFile.Close()
+	rightFile, err := os.Open(right)
+	if err != nil {
+		return false, err
+	}
+	defer rightFile.Close()
+	leftBuffer := make([]byte, 32*1024)
+	rightBuffer := make([]byte, len(leftBuffer))
+	for {
+		leftN, leftErr := leftFile.Read(leftBuffer)
+		rightN, rightErr := rightFile.Read(rightBuffer)
+		if leftN != rightN || !bytes.Equal(leftBuffer[:leftN], rightBuffer[:rightN]) {
+			return false, nil
+		}
+		if leftErr == io.EOF || rightErr == io.EOF {
+			return leftErr == io.EOF && rightErr == io.EOF, nil
+		}
+		if leftErr != nil {
+			return false, leftErr
+		}
+		if rightErr != nil {
+			return false, rightErr
+		}
+	}
 }
 
 func isReportSynced(report agentReport) bool {
@@ -327,9 +389,9 @@ func isReportSynced(report agentReport) bool {
 	return report.RootState == "" || report.RootState == stateSynced
 }
 
-func inspectRootInstructions(report *agentReport, ri *RootInstructionsCapability, home string) error {
+func inspectRootInstructions(report *agentReport, ri *RootInstructionsCapability, repoRoot string, home string) error {
 	linkPath := ri.Path(home)
-	expectedTarget := ri.Expected(home)
+	expectedTarget := ri.Expected(repoRoot)
 	report.RootPath = linkPath
 	report.RootExpected = expectedTarget
 	report.RootState = stateMissing
@@ -362,12 +424,11 @@ func inspectRootInstructions(report *agentReport, ri *RootInstructionsCapability
 	return nil
 }
 
-func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, home string) (agentReport, error) {
+func inspectAmpAgent(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
 	report := agentReport{
 		Name:           agent.Name,
 		SkillRoot:      agent.SkillRoot,
 		AgentRoot:      agent.AgentRoot,
-		Delivery:       normalizeDeliveryMode(agent.Delivery),
 		ExpectedSkills: expected,
 		Detected:       isDetected(agent),
 	}
@@ -375,11 +436,12 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 		return report, nil
 	}
 
-	if ok, err := ampHasSkillsPath(home); err != nil {
+	if ok, err := ampHasSkillsPath(home, agentsSkillRoot); err != nil {
 		return agentReport{}, err
 	} else if !ok {
-		report.Missing = append(report.Missing, "config amp.skills.path -> ~/.agents/skills")
-		report.Adds = append(report.Adds, "config amp.skills.path -> ~/.agents/skills")
+		message := "config amp.skills.path -> " + hermesExternalDirValue(home, agentsSkillRoot)
+		report.Missing = append(report.Missing, message)
+		report.Adds = append(report.Adds, message)
 	}
 	report.Managed = append(report.Managed, sortedKeys(expected)...)
 	if err := augmentMCPReport(&report, agent, cfg, home); err != nil {
@@ -394,7 +456,7 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, cfg config, 
 	return report, nil
 }
 
-func ampHasSkillsPath(home string) (bool, error) {
+func ampHasSkillsPath(home string, target string) (bool, error) {
 	configPath := ampSettingsPath(home)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -409,7 +471,7 @@ func ampHasSkillsPath(home string) (bool, error) {
 		return false, fmt.Errorf("parse %s: %w", configPath, err)
 	}
 	path, _ := raw["amp.skills.path"].(string)
-	return ampSkillsPathConfigured(path, home), nil
+	return ampSkillsPathConfigured(path, home, target), nil
 }
 
 func inspectHermesAgent(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
@@ -417,7 +479,6 @@ func inspectHermesAgent(agent agentConfig, expected map[string]string, agentsSki
 		Name:           agent.Name,
 		SkillRoot:      agent.SkillRoot,
 		AgentRoot:      agent.AgentRoot,
-		Delivery:       normalizeDeliveryMode(agent.Delivery),
 		ExpectedSkills: expected,
 		Detected:       isDetected(agent),
 	}
@@ -467,17 +528,11 @@ func inspectHermesAgent(agent agentConfig, expected map[string]string, agentsSki
 	return report, nil
 }
 
-func hermesExternalSkillDirs(agentsSkillRoot string, cfg config, home string) ([]string, error) {
-	dirs := []string{agentsSkillRoot}
-	pluginDirs, err := pluginSkillBasesForAgent(cfg.Plugins, home, agentHermes)
-	if err != nil {
-		return nil, err
-	}
-	dirs = append(dirs, pluginDirs...)
-	return dirs, nil
+func hermesExternalSkillDirs(agentsSkillRoot string, _ config, _ string) ([]string, error) {
+	return []string{agentsSkillRoot}, nil
 }
 
-func hermesExternalSkillsDirsState(expected []string, cfg config, configHome string) (bool, []string, error) {
+func hermesExternalSkillsDirsState(expected []string, _ config, _ string) (bool, []string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return false, nil, fmt.Errorf("resolve home: %w", err)
@@ -514,9 +569,7 @@ func hermesExternalSkillsDirsState(expected []string, cfg config, configHome str
 	for _, dir := range expected {
 		expectedSet[dir] = true
 	}
-	pruneRoots := hermesStaleDirPruneRoots(cfg, configHome)
 
-	var stale []string
 	found := make(map[string]bool, len(expected))
 	for _, d := range dirs {
 		s, ok := d.(string)
@@ -526,19 +579,15 @@ func hermesExternalSkillsDirsState(expected []string, cfg config, configHome str
 		expanded := expandPath(strings.TrimSpace(s), home)
 		if expectedSet[expanded] {
 			found[expanded] = true
-			continue
-		}
-		if pathUnderAny(expanded, pruneRoots) {
-			stale = append(stale, expanded)
 		}
 	}
 
 	for _, dir := range expected {
 		if !found[dir] {
-			return false, stale, nil
+			return false, nil, nil
 		}
 	}
-	return true, stale, nil
+	return true, nil, nil
 }
 
 func linkMatches(linkPath string, rawTarget string, expectedTarget string) bool {

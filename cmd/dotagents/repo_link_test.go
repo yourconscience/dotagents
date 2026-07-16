@@ -47,10 +47,10 @@ func TestInspectRepoLinkSymlink(t *testing.T) {
 	}
 }
 
-// TestInspectRepoLinkForeignDirConflict guards the safety case: a real directory
-// at ~/.agents that is not the repo must still be reported as a conflict so the
-// tool never clobbers unrelated user data.
-func TestInspectRepoLinkForeignDirConflict(t *testing.T) {
+// TestInspectRepoLinkCustomRootDoesNotConflict covers DOTAGENTS_HOME/--config:
+// a canonical root outside ~/.agents is already the source, so status/sync must
+// not force ~/.agents to be a symlink.
+func TestInspectRepoLinkCustomRootDoesNotConflict(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 	linkPath := filepath.Join(home, ".agents")
@@ -62,13 +62,14 @@ func TestInspectRepoLinkForeignDirConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.State != stateConflict {
-		t.Fatalf("foreign dir: got state %q, want %q", report.State, stateConflict)
+	if report.State != stateSynced {
+		t.Fatalf("custom root: got state %q, want %q", report.State, stateSynced)
 	}
 }
 
-// TestInspectRepoLinkMissing covers a fresh machine with no ~/.agents yet.
-func TestInspectRepoLinkMissing(t *testing.T) {
+// TestInspectRepoLinkCustomRootMissingAgentsDoesNotLink covers a fresh machine
+// using an explicit canonical root outside ~/.agents.
+func TestInspectRepoLinkCustomRootMissingAgentsDoesNotLink(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 
@@ -76,7 +77,7 @@ func TestInspectRepoLinkMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.State != stateMissing {
-		t.Fatalf("missing: got state %q, want %q", report.State, stateMissing)
+	if report.State != stateSynced {
+		t.Fatalf("custom root missing ~/.agents: got state %q, want %q", report.State, stateSynced)
 	}
 }

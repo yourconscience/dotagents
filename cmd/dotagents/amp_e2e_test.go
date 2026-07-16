@@ -40,6 +40,9 @@ func installFakeDotagentsOnPath(t *testing.T, home string) {
 	if err := os.WriteFile(filepath.Join(fakeBin, "dotagents"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(fakeBin, "amp"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("PATH", fakeBin)
 }
 
@@ -47,25 +50,13 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	t.Setenv("DOTAGENTS_HOME", repoRoot)
 	installFakeDotagentsOnPath(t, home)
 	configPath := filepath.Join(repoRoot, "dotagents.yaml")
 	writeAmpE2EConfig(t, configPath)
 
 	if err := run([]string{"setup", "--agents=amp", "--config", configPath}); err != nil {
 		t.Fatal(err)
-	}
-
-	repoLink, err := os.Readlink(filepath.Join(home, ".agents"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resolvedRepoRoot, _, err := findRoots()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if filepath.Clean(repoLink) != filepath.Clean(resolvedRepoRoot) {
-		t.Fatalf("~/.agents target = %q, want %q", repoLink, resolvedRepoRoot)
 	}
 
 	settingsPath := filepath.Join(home, ".config", "amp", "settings.json")
@@ -77,8 +68,8 @@ func TestAmpSetupE2EConfiguresSkillsAndMCP(t *testing.T) {
 	if err := json.Unmarshal(settingsData, &settings); err != nil {
 		t.Fatal(err)
 	}
-	if settings["amp.skills.path"] != dotagentsSkillsPathValue {
-		t.Fatalf("amp.skills.path = %#v", settings["amp.skills.path"])
+	if settings["amp.skills.path"] != filepath.Join(repoRoot, "skills") {
+		t.Fatalf("amp.skills.path = %#v, want custom canonical root", settings["amp.skills.path"])
 	}
 	servers, ok := asMap(settings["amp.mcpServers"])
 	if !ok {
@@ -101,7 +92,7 @@ func TestAmpSetupE2EPreservesExistingSettings(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("DOTAGENTS_ROOT", repoRoot)
+	t.Setenv("DOTAGENTS_HOME", repoRoot)
 	installFakeDotagentsOnPath(t, home)
 	configPath := filepath.Join(repoRoot, "dotagents.yaml")
 	writeAmpE2EConfig(t, configPath)

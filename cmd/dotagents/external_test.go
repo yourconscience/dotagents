@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -499,14 +501,14 @@ func TestLegacyDirectExternalSourceRemainsDeliverableWithoutMaterialization(t *t
 		t.Fatal(err)
 	}
 	if len(expected) != 1 || expected["legacy-catalog"] != cacheSkill {
-		t.Fatalf("legacy direct delivery = %#v, want cache path %q", expected, cacheSkill)
+		t.Fatalf("legacy direct external source = %#v, want cache path %q", expected, cacheSkill)
 	}
 	if _, err := os.Lstat(filepath.Join(repoRoot, "skills", "legacy-catalog")); !os.IsNotExist(err) {
 		t.Fatalf("legacy direct mode unexpectedly materialized a canonical copy, stat error = %v", err)
 	}
 }
 
-func TestDoctorRejectsDirectCacheDeliveryForMaterializedSkill(t *testing.T) {
+func TestDoctorRejectsDirectCacheLinkForMaterializedSkill(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
 	makeGitDir(t, filepath.Join(externalCacheDir(home), "catalog"))
@@ -534,8 +536,8 @@ func TestDoctorRejectsDirectCacheDeliveryForMaterializedSkill(t *testing.T) {
 	}
 
 	result := checkMaterializedExternalSkills(repoRoot, cfg, home)
-	if result.status != checkStatusFail || !strings.Contains(result.detail, "claude-code/alpha is delivered directly from "+externalCacheDir(home)) {
-		t.Fatalf("doctor direct-cache result = %s (%s), want fail identifying direct delivery", result.status, result.detail)
+	if result.status != checkStatusFail || !strings.Contains(result.detail, "claude-code/alpha is linked directly from "+externalCacheDir(home)) {
+		t.Fatalf("doctor direct-cache result = %s (%s), want fail identifying direct cache link", result.status, result.detail)
 	}
 	if err := os.Remove(link); err != nil {
 		t.Fatal(err)
@@ -545,7 +547,7 @@ func TestDoctorRejectsDirectCacheDeliveryForMaterializedSkill(t *testing.T) {
 	}
 	result = checkMaterializedExternalSkills(repoRoot, cfg, home)
 	if result.status != checkStatusPass {
-		t.Fatalf("doctor rejected canonical materialized delivery = %s (%s)", result.status, result.detail)
+		t.Fatalf("doctor rejected canonical materialized link = %s (%s)", result.status, result.detail)
 	}
 }
 
@@ -616,4 +618,24 @@ func TestSyncFailsWhenUpstreamUnavailableAndCopiesMissing(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "clone external catalog") {
 		t.Fatalf("sync error = %v, want clone failure", err)
 	}
+}
+
+func git(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_NOSYSTEM=1",
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git %s failed: %v\nstdout:\n%s\nstderr:\n%s", strings.Join(args, " "), err, stdout.String(), stderr.String())
+	}
+	if stderr.Len() > 0 && args[0] != "init" {
+		t.Logf("git %s stderr:\n%s", strings.Join(args, " "), stderr.String())
+	}
+	return strings.TrimSuffix(stdout.String(), "\n")
 }

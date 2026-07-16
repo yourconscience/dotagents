@@ -164,6 +164,62 @@ func TestHookCommandMatchingNormalizesHomePaths(t *testing.T) {
 	}
 }
 
+func TestRemoveNativeManagedMemoryHooksCleansSupportedNativeConfigs(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	root := filepath.Join(home, ".agents")
+	files := map[string]string{
+		filepath.Join(home, ".claude", "settings.json"): `{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"command": "echo keep"}, {"command": "~/.agents/memory/hooks/basic-session-start.py"}]}]
+  }
+}`,
+		filepath.Join(home, ".codex", "hooks.json"): `{
+  "hooks": {
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "~/.agents/memory/hooks/session-end.sh"}, {"type": "command", "command": "echo codex"}]}]
+  }
+}`,
+		filepath.Join(home, ".factory", "settings.json"): `{
+  "hooks": {
+    "Stop": [{"hooks": [{"command": "` + filepath.Join(root, "memory", "hooks", "stop.sh") + `"}, {"command": "echo droid"}]}]
+  }
+}`,
+		filepath.Join(home, ".hermes", "config.yaml"): `hooks:
+  on_session_finalize:
+    - command: ~/.agents/memory/hooks/session-end.sh
+    - command: echo hermes
+`,
+	}
+	for path, data := range files {
+		writeSyncTestFile(t, path, []byte(data))
+	}
+	cleaned, err := removeNativeManagedMemoryHooks(home, root, config{}, config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleaned != 4 {
+		t.Fatalf("cleaned files = %d, want 4", cleaned)
+	}
+	for path, keep := range map[string]string{
+		filepath.Join(home, ".claude", "settings.json"):  "echo keep",
+		filepath.Join(home, ".codex", "hooks.json"):      "echo codex",
+		filepath.Join(home, ".factory", "settings.json"): "echo droid",
+		filepath.Join(home, ".hermes", "config.yaml"):    "echo hermes",
+	} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(data)
+		if strings.Contains(text, "memory/hooks") {
+			t.Fatalf("%s still contains managed memory command:\n%s", path, text)
+		}
+		if !strings.Contains(text, keep) {
+			t.Fatalf("%s did not preserve unrelated hook %q:\n%s", path, keep, text)
+		}
+	}
+}
+
 func TestHermesHookPatchSessionEnd(t *testing.T) {
 	home := t.TempDir()
 	configPath := filepath.Join(home, ".hermes", "config.yaml")

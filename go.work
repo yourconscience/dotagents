@@ -1,10 +1,6 @@
 go 1.24.0
 
 use (
-	./cmd/dotagents
-	./skills/gws
-	./skills/pr-triage/tools/pr-triage
-	./skills/remote-access/tools/remote-access-bridge
-	./skills/jobs/tools/portals-scan
-	./skills/x-sim/tools/x-sim
+	.
+	./memory/tools/knowledge-sync
 )
