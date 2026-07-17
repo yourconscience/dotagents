@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dotagents - public CLI for your private agent config</title>
-<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, Pi, and OMP.">
+<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, and Pi.">
 <style>
   :root {
     color-scheme: dark;
@@ -266,7 +266,7 @@
         <div class="hname">Hermes</div>
         <div class="htag managed">managed</div>
       </div>
-      <!-- Pi - Greek pi (no public SVG logo) -->
+      <!-- Pi - Greek pi (no public SVG logo); OMP fork folded into the same card -->
       <div class="hcard">
         <div class="icon">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -274,16 +274,6 @@
           </svg>
         </div>
         <div class="hname">Pi</div>
-        <div class="htag managed">managed</div>
-      </div>
-      <!-- OMP - Oh My Pi -->
-      <div class="hcard">
-        <div class="icon">
-          <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-            <text x="20" y="25" text-anchor="middle" font-family="ui-sans-serif,-apple-system,sans-serif" font-size="12" font-weight="800" fill="var(--violet)">OMP</text>
-          </svg>
-        </div>
-        <div class="hname">OMP</div>
         <div class="htag managed">managed</div>
       </div>
       <!-- Amp - Sourcegraph triple chevron -->
@@ -397,11 +387,11 @@
           <tr><th scope="row">Codex</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS.md</td></tr>
           <tr><th scope="row">Factory Droid</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS link</td></tr>
           <tr><th scope="row">Hermes</th><td class="y">yes</td><td class="n">--</td><td class="y">yes</td><td class="y">yes</td><td style="color:var(--gold)">native ctx</td></tr>
-          <tr><th scope="row">Pi</th><td class="y">yes</td><td class="n">--</td><td class="n">--</td><td class="n">--</td><td class="n">--</td></tr>
-          <tr><th scope="row">OMP</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="n">--</td><td class="n">--</td></tr>
+          <tr><th scope="row">Pi*</th><td class="y">yes</td><td class="n">--*</td><td class="n">--*</td><td class="n">--</td><td class="n">--</td></tr>
         </tbody>
       </table>
       </div>
+      <p class="section-sub" style="margin-top:10px">* Vanilla pi is skills-only by design; on the OMP fork dotagents additionally manages agent roles and MCP servers.</p>
     </div>
   </section>
 
