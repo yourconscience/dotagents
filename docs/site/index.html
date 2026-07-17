@@ -358,13 +358,12 @@
       <div class="path-card">
         <div class="path-label" style="background:rgba(245,200,106,.12); color:var(--gold);">Private config</div>
         <h3>Set up your home</h3>
-        <p class="desc">Detect harnesses, import existing content by copy, and run the first native sync.</p>
+        <p class="desc">Detect harnesses, import existing content by copy, offer git init, and run the first native sync. Removals are previewed per harness before anything is touched.</p>
         <pre><span class="p">$</span> <span class="c">dotagents setup</span>
-<span class="p">$</span> <span class="c">git -C ~/.agents init</span>
 <span class="p">$</span> <span class="c">git -C ~/.agents remote add origin &lt;your-private-repo&gt;</span></pre>
         <div class="then">
           <p>Then add a skill and sync it everywhere:</p>
-          <pre><span class="p">$</span> <span class="c">mkdir -p ~/.agents/skills/my-skill</span>
+          <pre><span class="p">$</span> <span class="c">dotagents skill new my-skill</span>
 <span class="p">$</span> <span class="c">dotagents sync</span>
 <span class="g">synced configured surfaces to detected harnesses</span></pre>
         </div>
@@ -398,24 +397,26 @@
   <!-- Landscape -->
   <section>
     <h2>Landscape</h2>
-    <p class="section-sub">Content packs target one agent. Skills syncing covers breadth but not depth. dotagents syncs the full config surface across harnesses.</p>
+    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo that follows you across machines, five harnesses deep, with pinned and audited external skills.</p>
 
     <div class="panel">
       <h3>How it compares</h3>
       <div class="table-wrap">
       <table>
-        <thead><tr><th></th><th>dotagents</th><th><a href="https://github.com/garrytan/gstack">gstack</a></th><th><a href="https://github.com/SuperClaude-Org/SuperClaude_Framework">SuperClaude</a></th><th><a href="https://github.com/runkids/skillshare">skillshare</a></th></tr></thead>
+        <thead><tr><th></th><th>dotagents</th><th><a href="https://github.com/dyoshikawa/rulesync">rulesync</a></th><th><a href="https://github.com/intellectronica/ruler">ruler</a></th><th><a href="https://github.com/numman-ali/openskills">openskills</a></th></tr></thead>
         <tbody>
-          <tr><th scope="row">Skills sync</th><td class="y">yes</td><td class="n">--</td><td class="n">--</td><td class="y">yes</td></tr>
-          <tr><th scope="row">MCP sync</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
-          <tr><th scope="row">Hooks sync</th><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="n">no</td></tr>
-          <tr><th scope="row">Agent roles</th><td class="y">yes</td><td style="color:var(--gold)">23 built-in</td><td style="color:var(--gold)">20 built-in</td><td class="n">no</td></tr>
-          <tr><th scope="row">Security audit</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="y">yes</td></tr>
-          <tr><th scope="row">Multi-harness</th><td class="y">6 managed + 3 compat</td><td class="n">Claude Code</td><td class="n">Claude Code</td><td class="y">60+</td></tr>
-          <tr><th scope="row">Install</th><td style="color:var(--gold)">CLI</td><td style="color:var(--gold)">CC plugin</td><td style="color:var(--gold)">pipx</td><td style="color:var(--gold)">go install</td></tr>
+          <tr><th scope="row">Scope</th><td class="y">user-level</td><td style="color:var(--gold)">project-level</td><td style="color:var(--gold)">project-level</td><td style="color:var(--gold)">user + project</td></tr>
+          <tr><th scope="row">Skills sync</th><td class="y">yes</td><td class="y">yes</td><td style="color:var(--gold)">experimental</td><td class="y">yes</td></tr>
+          <tr><th scope="row">MCP sync</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="n">no</td></tr>
+          <tr><th scope="row">Hooks sync</th><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
+          <tr><th scope="row">Agent roles</th><td class="y">rendered native</td><td class="y">yes</td><td style="color:var(--gold)">experimental</td><td class="n">no</td></tr>
+          <tr><th scope="row">Pinned + audited externals</th><td class="y">lock file + audit</td><td class="n">no pinning</td><td class="n">no pinning</td><td style="color:var(--gold)">tracks source, no pin</td></tr>
+          <tr><th scope="row">Harness coverage</th><td class="y">5 deep</td><td style="color:var(--gold)">35 broad</td><td style="color:var(--gold)">31 broad</td><td style="color:var(--gold)">~5</td></tr>
+          <tr><th scope="row">Install</th><td style="color:var(--gold)">curl / mise / go</td><td style="color:var(--gold)">npm / brew</td><td style="color:var(--gold)">npm</td><td style="color:var(--gold)">npm</td></tr>
         </tbody>
       </table>
       </div>
+      <p class="section-sub" style="margin-top:10px; margin-bottom:8px; padding: 0 24px 12px; font-size: 13px">Counts verified 2026-07-15 against each project's docs. Different tools for different jobs: rulesync and ruler generate per-project config for many tools; dotagents carries one personal setup deeply into the harnesses you live in.</p>
     </div>
   </section>
 
