@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -553,6 +554,39 @@ func TestSetupFirstRunSyncStatusEndToEnd(t *testing.T) {
 	}
 	if err := runStatus(runOptions{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSetupOffersGitInitOnFreshRoot(t *testing.T) {
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not available")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := fakePath(t, "claude")
+	if err := os.Symlink(gitPath, filepath.Join(dir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := runSetup(runOptions{MemoryTier: memoryTierBasic, Stdin: strings.NewReader("y\ny\ny\ny\n"), Stdout: &out}); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(home, ".agents")
+	if _, err := os.Stat(filepath.Join(root, ".git")); err != nil {
+		t.Fatalf("expected git repository in %s: %v\noutput:\n%s", root, err, out.String())
+	}
+}
+
+func TestSetupSkipsGitInitNonInteractive(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	fakePath(t, "claude")
+	if err := runSetup(runOptions{MemoryTier: memoryTierBasic, Stdin: strings.NewReader(""), Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".agents", ".git")); err == nil {
+		t.Fatal("expected no git repository without an interactive answer")
 	}
 }
 

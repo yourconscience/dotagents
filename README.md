@@ -31,13 +31,10 @@ dotagents setup
 
 `setup` creates `~/.agents` when needed, detects installed harnesses, scans their existing skills, roles, and MCP servers, offers to copy or convert that content without modifying the originals, writes `dotagents.yaml`, and runs the first sync. Name conflicts are resolved explicitly; content is never merged silently.
 
-Version the result in a private repository you control:
+`setup` also offers to initialize `~/.agents` as a git repository. To sync the same configuration across machines, add a private remote:
 
 ```bash
 cd ~/.agents
-git init
-git add .
-git commit -m "initialize agent configuration"
 git remote add origin <your-private-repository>
 git push -u origin main
 ```
