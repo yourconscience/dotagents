@@ -196,88 +196,94 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 		return h.InspectSkills(agent, expected, agentsSkillRoot, cfg, home)
 	}
 
-	expectedNames := sortedKeys(expected)
-	rootInfo, err := os.Stat(agent.SkillRoot)
-	rootMissing := false
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		rootMissing = true
-	case err != nil:
-		return agentReport{}, fmt.Errorf("stat %s: %w", agent.SkillRoot, err)
-	case !rootInfo.IsDir():
-		report.Conflicts = append(report.Conflicts, fmt.Sprintf("%s exists but is not a directory", agent.SkillRoot))
-		report.Missing = append(report.Missing, expectedNames...)
-		report.Adds = append(report.Adds, expectedNames...)
-		sortReportLists(&report)
-		report.Synced = false
-		return report, nil
-	}
-
-	entryMap := make(map[string]fs.DirEntry)
-	if !rootMissing {
-		entries, err := os.ReadDir(agent.SkillRoot)
-		if err != nil {
-			return agentReport{}, fmt.Errorf("read %s: %w", agent.SkillRoot, err)
-		}
-		for _, entry := range entries {
-			entryMap[entry.Name()] = entry
-		}
-	}
-
-	for _, name := range expectedNames {
-		linkPath := filepath.Join(agent.SkillRoot, name)
-		entry, ok := entryMap[name]
-		if !ok || rootMissing {
-			report.Missing = append(report.Missing, name)
-			report.Adds = append(report.Adds, name)
-			continue
+	if h != nil && h.SkillsNativeRoot != nil && h.SkillsNativeRoot(repoRoot, home) {
+		// Skills are consumed directly from the config root; no per-harness
+		// mirror is created, so every expected skill is already managed.
+		report.Managed = append(report.Managed, sortedKeys(expected)...)
+	} else {
+		expectedNames := sortedKeys(expected)
+		rootInfo, err := os.Stat(agent.SkillRoot)
+		rootMissing := false
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			rootMissing = true
+		case err != nil:
+			return agentReport{}, fmt.Errorf("stat %s: %w", agent.SkillRoot, err)
+		case !rootInfo.IsDir():
+			report.Conflicts = append(report.Conflicts, fmt.Sprintf("%s exists but is not a directory", agent.SkillRoot))
+			report.Missing = append(report.Missing, expectedNames...)
+			report.Adds = append(report.Adds, expectedNames...)
+			sortReportLists(&report)
+			report.Synced = false
+			return report, nil
 		}
 
-		mode := entry.Type()
-		if mode&os.ModeSymlink == 0 {
-			matches, err := treesEqual(linkPath, expected[name])
+		entryMap := make(map[string]fs.DirEntry)
+		if !rootMissing {
+			entries, err := os.ReadDir(agent.SkillRoot)
 			if err != nil {
-				return agentReport{}, fmt.Errorf("compare %s with %s: %w", linkPath, expected[name], err)
+				return agentReport{}, fmt.Errorf("read %s: %w", agent.SkillRoot, err)
 			}
-			if matches {
+			for _, entry := range entries {
+				entryMap[entry.Name()] = entry
+			}
+		}
+
+		for _, name := range expectedNames {
+			linkPath := filepath.Join(agent.SkillRoot, name)
+			entry, ok := entryMap[name]
+			if !ok || rootMissing {
+				report.Missing = append(report.Missing, name)
+				report.Adds = append(report.Adds, name)
+				continue
+			}
+
+			mode := entry.Type()
+			if mode&os.ModeSymlink == 0 {
+				matches, err := treesEqual(linkPath, expected[name])
+				if err != nil {
+					return agentReport{}, fmt.Errorf("compare %s with %s: %w", linkPath, expected[name], err)
+				}
+				if matches {
+					report.Managed = append(report.Managed, name)
+					continue
+				}
+				report.Conflicts = append(report.Conflicts, fmt.Sprintf("%s exists but differs from canonical content and is not a symlink", linkPath))
+				continue
+			}
+
+			rawTarget, err := os.Readlink(linkPath)
+			if err != nil {
+				return agentReport{}, fmt.Errorf("readlink %s: %w", linkPath, err)
+			}
+			if linkMatches(linkPath, rawTarget, expected[name]) {
 				report.Managed = append(report.Managed, name)
 				continue
 			}
-			report.Conflicts = append(report.Conflicts, fmt.Sprintf("%s exists but differs from canonical content and is not a symlink", linkPath))
-			continue
+
+			report.Drifted = append(report.Drifted, name)
+			report.Updates = append(report.Updates, name)
 		}
 
-		rawTarget, err := os.Readlink(linkPath)
-		if err != nil {
-			return agentReport{}, fmt.Errorf("readlink %s: %w", linkPath, err)
-		}
-		if linkMatches(linkPath, rawTarget, expected[name]) {
-			report.Managed = append(report.Managed, name)
-			continue
-		}
-
-		report.Drifted = append(report.Drifted, name)
-		report.Updates = append(report.Updates, name)
-	}
-
-	if !rootMissing {
-		for name, entry := range entryMap {
-			if _, ok := expected[name]; ok {
-				continue
-			}
-			path := filepath.Join(agent.SkillRoot, name)
-			if entry.Type()&os.ModeSymlink != 0 {
-				rawTarget, err := os.Readlink(path)
-				if err != nil {
-					return agentReport{}, fmt.Errorf("readlink %s: %w", path, err)
-				}
-				if isManagedSkillLink(path, rawTarget, repoRoot, agentsSkillRoot) || isExternalSkillLink(path, rawTarget, home) {
-					report.StaleManaged = append(report.StaleManaged, name)
-					report.Removes = append(report.Removes, name)
+		if !rootMissing {
+			for name, entry := range entryMap {
+				if _, ok := expected[name]; ok {
 					continue
 				}
+				path := filepath.Join(agent.SkillRoot, name)
+				if entry.Type()&os.ModeSymlink != 0 {
+					rawTarget, err := os.Readlink(path)
+					if err != nil {
+						return agentReport{}, fmt.Errorf("readlink %s: %w", path, err)
+					}
+					if isManagedSkillLink(path, rawTarget, repoRoot, agentsSkillRoot) || isExternalSkillLink(path, rawTarget, home) {
+						report.StaleManaged = append(report.StaleManaged, name)
+						report.Removes = append(report.Removes, name)
+						continue
+					}
+				}
+				report.External = append(report.External, name)
 			}
-			report.External = append(report.External, name)
 		}
 	}
 

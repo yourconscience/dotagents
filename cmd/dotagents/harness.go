@@ -58,6 +58,11 @@ type Harness struct {
 	// InspectSkills is called instead of the generic symlink inspector
 	// when Skills == SkillsConfigDriven.
 	InspectSkills InspectSkillsFunc
+	// SkillsNativeRoot, when non-nil and returning true, marks that this
+	// harness reads dotagents skills directly from the config root, so no
+	// per-harness skill mirror is created. Only consulted for SkillsSymlink
+	// harnesses.
+	SkillsNativeRoot func(repoRoot string, home string) bool
 	// Setup patches the agent's config during `dotagents setup`.
 	// nil means no patching needed.
 	Setup SetupFunc
@@ -202,6 +207,24 @@ func initHarnesses() {
 				}},
 			},
 			TrailerExample: "Co-Authored-By: hermes[bot] <hermes[bot]@users.noreply.github.com>",
+		},
+
+		agentOpenCode: {
+			Skills:           SkillsSymlink,
+			SkillsNativeRoot: openCodeReadsAgentsSkills,
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  agentOpenCode,
+				configPath: openCodeConfigPath,
+				inspect:    inspectOpenCodeMCPServer,
+				patch:      patchOpenCodeMCPServer,
+				read:       readOpenCodeMCPServer,
+				rootKey:    "mcp",
+			}),
+			Roles:           &RolesCapability{Extension: ".md", Render: renderOpenCodeAgentRole},
+			IntegrationNote: "skills read natively from ~/.agents/skills (mirrored into the skill root only when the config root differs)",
+			DoctorChecks: []DoctorCheck{
+				{Name: "opencode duplicate skills", Run: checkOpenCodeDuplicateSkills},
+			},
 		},
 
 		agentPi: {
