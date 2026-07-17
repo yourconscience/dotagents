@@ -310,6 +310,11 @@
       <h2>Pi</h2><div class="path">~/.pi/agent/skills</div>
       <div class="chips"><span class="chip">skills</span><span class="chip">skills-only by design</span><span class="chip">OMP fork: +agents +MCP*</span></div>
     </article>
+    <article class="card" style="--accent: var(--red)">
+      <div class="topline"><div class="logo">{ }</div><div class="badge">primary</div></div>
+      <h2>OpenCode</h2><div class="path">~/.config/opencode/{agents,opencode.json}</div>
+      <div class="chips"><span class="chip">skills (native ~/.agents)</span><span class="chip">agents</span><span class="chip">MCP</span><span class="chip">no hooks</span></div>
+    </article>
   </section>
 
   <section class="layout">
@@ -323,6 +328,7 @@
           <tr><td>Codex</td><td class="yes">managed mirror</td><td class="yes">TOML</td><td class="yes">TOML</td><td class="yes">hooks.json</td><td class="yes">AGENTS.md</td></tr>
           <tr><td>Hermes</td><td class="yes">external_dirs</td><td class="no">not managed</td><td class="yes">YAML</td><td class="yes">YAML</td><td class="partial">native context</td></tr>
           <tr><td>Factory Droid</td><td class="yes">managed mirror</td><td class="yes">.md</td><td class="yes">JSON</td><td class="yes">settings</td><td class="yes">AGENTS link</td></tr>
+          <tr><td>OpenCode</td><td class="yes">native ~/.agents</td><td class="yes">.md</td><td class="yes">JSON</td><td class="no">JS plugin only</td><td class="partial">native AGENTS.md</td></tr>
           <tr><td>Pi*</td><td class="yes">managed mirror</td><td class="no">not supported*</td><td class="no">not supported*</td><td class="no">not managed</td><td class="no">not managed</td></tr>
         </tbody>
       </table>
@@ -335,7 +341,6 @@
       <div class="compat">
         <div class="mini" style="--accent: var(--gold)"><div class="name"><span class="mark">⚡</span>Amp</div><p>CLI support remains for migration and one-off local configs. Not a canonical default target.</p></div>
         <div class="mini" style="--accent: var(--red)"><div class="name"><span class="mark">⟠</span>OpenClaw</div><p>Needs an owner and verified config surface before dotagents treats it as managed.</p></div>
-        <div class="mini" style="--accent: var(--blue)"><div class="name"><span class="mark">{ }</span>OpenCode</div><p>Compatibility research only. Add support when there is a real daily workflow to preserve.</p></div>
         <div class="mini" style="--accent: var(--green)"><div class="name"><span class="mark">?</span>New harnesses</div><p>Help wanted: document skills root, MCP config, hooks, roles, and failure mode first.</p></div>
       </div>
     </div>
@@ -349,7 +354,7 @@
 
   <footer>
     <span>Source of truth: dotagents.yaml + cmd/dotagents/harness.go</span>
-    <span>Primary stack: Claude Code · Codex · Hermes · Factory Droid · Pi</span>
+    <span>Primary stack: Claude Code · Codex · Hermes · Factory Droid · OpenCode · Pi</span>
   </footer>
 </main>
 </body>

@@ -182,6 +182,10 @@ func applyAgentSync(reports []agentReport, cfg config, repoRoot string, home str
 			}
 			continue
 		}
+		if h != nil && h.SkillsNativeRoot != nil && h.SkillsNativeRoot(repoRoot, home) {
+			// Skills are read directly from the config root; no mirror to write.
+			continue
+		}
 
 		if err := os.MkdirAll(report.SkillRoot, 0o755); err != nil {
 			return fmt.Errorf("create %s: %w", report.SkillRoot, err)

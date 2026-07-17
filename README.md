@@ -2,7 +2,7 @@
 
 Dotfiles for your AI agents.
 
-One private `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs each of those into the native format of every coding agent you use — Claude Code, Codex, Factory Droid, Hermes, Pi — and follows you across machines the way dotfiles do. External skills are commit-pinned and audited before any agent loads them.
+One private `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs each of those into the native format of every coding agent you use — Claude Code, Codex, Factory Droid, Hermes, OpenCode, Pi — and follows you across machines the way dotfiles do. External skills are commit-pinned and audited before any agent loads them.
 
 **[Overview & comparison →](https://yourconscience.github.io/dotagents/)** · [Releases](https://github.com/yourconscience/dotagents/releases)
 
@@ -75,11 +75,14 @@ Exactly four surfaces, each rendered into the harness's own format — dotagents
 | Codex | yes | yes | yes | yes |
 | Factory Droid | yes | yes | yes | yes |
 | Hermes | yes | -- | yes | yes |
+| OpenCode | yes† | yes | yes | -- |
 | Pi* | yes | --* | --* | -- |
 
 \* Vanilla [pi](https://github.com/earendil-works/pi) is skills-only by design. If you run the OMP fork instead, dotagents detects it separately and additionally manages roles and MCP servers there — the two never conflict.
 
-Amp, OpenCode, and OpenClaw can read the repo's skills through standard conventions but are not managed; a surface gets a "yes" above only after its native behavior is verified end to end.
+† OpenCode reads `~/.agents/skills/` natively, so dotagents delivers skills without a mirror when the config root is `~/.agents`; a custom config root mirrors into `~/.config/opencode/skills/` like other harnesses. OpenCode's only hook surface is a JS plugin API, so hooks stay unsupported.
+
+Amp and OpenClaw can read the repo's skills through standard conventions but are not managed; a surface gets a "yes" above only after its native behavior is verified end to end.
 
 ## Working with skills
 

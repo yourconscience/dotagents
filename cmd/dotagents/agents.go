@@ -26,16 +26,17 @@ const (
 const agentRoleMarkdownExt = ".md"
 
 type agentRole struct {
-	Name         string           `yaml:"name"`
-	Description  string           `yaml:"description"`
-	Model        string           `yaml:"model"`
-	Effort       string           `yaml:"effort"`
-	Tools        []string         `yaml:"tools"`
-	Color        string           `yaml:"color"`
-	Instructions string           `yaml:"-"`
-	Source       string           `yaml:"-"`
-	Codex        codexRoleOptions `yaml:"codex"`
-	Droid        droidRoleOptions `yaml:"droid"`
+	Name         string              `yaml:"name"`
+	Description  string              `yaml:"description"`
+	Model        string              `yaml:"model"`
+	Effort       string              `yaml:"effort"`
+	Tools        []string            `yaml:"tools"`
+	Color        string              `yaml:"color"`
+	Instructions string              `yaml:"-"`
+	Source       string              `yaml:"-"`
+	Codex        codexRoleOptions    `yaml:"codex"`
+	Droid        droidRoleOptions    `yaml:"droid"`
+	Opencode     opencodeRoleOptions `yaml:"opencode"`
 }
 
 func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
@@ -72,6 +73,10 @@ func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
 			}
 		case "droid":
 			if err := node.Decode(&role.Droid); err != nil {
+				return err
+			}
+		case "opencode":
+			if err := node.Decode(&role.Opencode); err != nil {
 				return err
 			}
 		case "tools":
@@ -115,6 +120,12 @@ type droidRoleOptions struct {
 	Model           string   `yaml:"model"`
 	ReasoningEffort string   `yaml:"reasoning_effort"`
 	Tools           []string `yaml:"tools"`
+}
+
+type opencodeRoleOptions struct {
+	Model       string `yaml:"model"`
+	Temperature string `yaml:"temperature"`
+	Mode        string `yaml:"mode"`
 }
 
 var droidToolMapping = map[string][]string{

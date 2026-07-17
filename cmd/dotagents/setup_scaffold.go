@@ -151,6 +151,7 @@ func defaultAgentConfigs() []agentConfig {
 		{Name: agentDroid, Enabled: true, SkillRoot: "~/.factory/skills", AgentRoot: "~/.factory/droids", Detect: "droid"},
 		{Name: agentHermes, Enabled: true, SkillRoot: "~/.hermes/skills", Detect: "hermes"},
 		{Name: agentOMP, Enabled: true, SkillRoot: "~/.omp/agent/skills", AgentRoot: "~/.omp/agent/agents", Detect: "omp"},
+		{Name: agentOpenCode, Enabled: true, SkillRoot: "~/.config/opencode/skills", AgentRoot: "~/.config/opencode/agents", Detect: "opencode"},
 		{Name: agentPi, Enabled: true, SkillRoot: "~/.pi/agent/skills", Detect: "pi"},
 	}
 }
@@ -655,15 +656,16 @@ func renderCanonicalRoleMarkdown(role agentRole) ([]byte, error) {
 		return nil, err
 	}
 	front := struct {
-		Name        string           `yaml:"name"`
-		Description string           `yaml:"description"`
-		Model       string           `yaml:"model,omitempty"`
-		Effort      string           `yaml:"effort,omitempty"`
-		Tools       []string         `yaml:"tools,omitempty"`
-		Color       string           `yaml:"color,omitempty"`
-		Codex       codexRoleOptions `yaml:"codex,omitempty"`
-		Droid       droidRoleOptions `yaml:"droid,omitempty"`
-	}{Name: role.Name, Description: role.Description, Model: role.Model, Effort: role.Effort, Tools: role.Tools, Color: role.Color, Codex: role.Codex, Droid: role.Droid}
+		Name        string              `yaml:"name"`
+		Description string              `yaml:"description"`
+		Model       string              `yaml:"model,omitempty"`
+		Effort      string              `yaml:"effort,omitempty"`
+		Tools       []string            `yaml:"tools,omitempty"`
+		Color       string              `yaml:"color,omitempty"`
+		Codex       codexRoleOptions    `yaml:"codex,omitempty"`
+		Droid       droidRoleOptions    `yaml:"droid,omitempty"`
+		Opencode    opencodeRoleOptions `yaml:"opencode,omitempty"`
+	}{Name: role.Name, Description: role.Description, Model: role.Model, Effort: role.Effort, Tools: role.Tools, Color: role.Color, Codex: role.Codex, Droid: role.Droid, Opencode: role.Opencode}
 	meta, err := yaml.Marshal(front)
 	if err != nil {
 		return nil, err

@@ -21,6 +21,7 @@ const (
 	agentCodex               = "codex"
 	agentDroid               = "droid"
 	agentHermes              = "hermes"
+	agentOpenCode            = "opencode"
 	agentPi                  = "pi"
 	agentOMP                 = "omp"
 	dotagentsSkillsPathValue = "~/.agents/skills"
