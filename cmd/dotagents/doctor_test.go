@@ -95,6 +95,28 @@ description: Use when preparing for interviews.
 	}
 }
 
+func TestScopeAgnixToCanonicalIgnoresExternalClones(t *testing.T) {
+	report := agnixReport{
+		Summary: agnixSummary{Errors: 2, Warnings: 1, Info: 1},
+		Diagnostics: []agnixDiagnostic{
+			{Level: "error", File: "external/skills/.agents/writing-docs.md", Line: 17, Message: "Unclosed XML tag"},
+			{Level: "warning", File: "external/skills/README.md", Line: 3, Message: "style"},
+			{Level: "error", File: "agents/tester.md", Line: 6, Message: "bad frontmatter"},
+			{Level: "info", File: "skills/dotagents/SKILL.md", Line: 1, Message: "note"},
+		},
+	}
+	scoped, ignored := scopeAgnixToCanonical(report)
+	if ignored != 2 {
+		t.Fatalf("ignored = %d, want 2", ignored)
+	}
+	if scoped.Summary.Errors != 1 || scoped.Summary.Warnings != 0 || scoped.Summary.Info != 1 {
+		t.Fatalf("scoped summary = %+v", scoped.Summary)
+	}
+	if len(scoped.Diagnostics) != 2 || scoped.Diagnostics[0].File != "agents/tester.md" {
+		t.Fatalf("scoped diagnostics = %+v", scoped.Diagnostics)
+	}
+}
+
 func TestCheckAgnixMissingBinaryWarns(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	res := checkAgnix(t.TempDir())
