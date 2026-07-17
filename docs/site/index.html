@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dotagents - public CLI for your private agent config</title>
-<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, and Pi.">
+<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, OpenCode, and Pi.">
 <style>
   :root {
     color-scheme: dark;
@@ -276,6 +276,17 @@
         <div class="hname">Pi</div>
         <div class="htag managed">managed</div>
       </div>
+      <!-- OpenCode - sst/opencode square-in-square -->
+      <div class="hcard">
+        <div class="icon">
+          <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <path d="M320 224V352H192V224H320Z" fill="var(--muted)"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="var(--ink)"/>
+          </svg>
+        </div>
+        <div class="hname">OpenCode</div>
+        <div class="htag managed">managed</div>
+      </div>
       <!-- Amp - Sourcegraph triple chevron -->
       <div class="hcard compat">
         <div class="icon">
@@ -286,17 +297,6 @@
           </svg>
         </div>
         <div class="hname">Amp</div>
-        <div class="htag compat-tag">compat</div>
-      </div>
-      <!-- OpenCode - sst/opencode square-in-square -->
-      <div class="hcard compat">
-        <div class="icon">
-          <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-            <path d="M320 224V352H192V224H320Z" fill="var(--muted)"/>
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="var(--ink)"/>
-          </svg>
-        </div>
-        <div class="hname">OpenCode</div>
         <div class="htag compat-tag">compat</div>
       </div>
       <!-- OpenClaw - pixel lobster mascot -->
@@ -386,18 +386,19 @@
           <tr><th scope="row">Codex</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS.md</td></tr>
           <tr><th scope="row">Factory Droid</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS link</td></tr>
           <tr><th scope="row">Hermes</th><td class="y">yes</td><td class="n">--</td><td class="y">yes</td><td class="y">yes</td><td style="color:var(--gold)">native ctx</td></tr>
+          <tr><th scope="row">OpenCode</th><td class="y">yes†</td><td class="y">yes</td><td class="y">yes</td><td class="n">--</td><td style="color:var(--gold)">native AGENTS.md</td></tr>
           <tr><th scope="row">Pi*</th><td class="y">yes</td><td class="n">--*</td><td class="n">--*</td><td class="n">--</td><td class="n">--</td></tr>
         </tbody>
       </table>
       </div>
-      <p class="section-sub" style="margin-top:10px">* Vanilla pi is skills-only by design; on the OMP fork dotagents additionally manages agent roles and MCP servers.</p>
+      <p class="section-sub" style="margin-top:10px">* Vanilla pi is skills-only by design; on the OMP fork dotagents additionally manages agent roles and MCP servers. &dagger; OpenCode reads <code>~/.agents/skills/</code> natively, so skills need no mirror when the config root is <code>~/.agents</code>; hooks are a JS plugin surface only.</p>
     </div>
   </section>
 
   <!-- Landscape -->
   <section>
     <h2>Landscape</h2>
-    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo that follows you across machines, five harnesses deep, with pinned and audited external skills.</p>
+    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo that follows you across machines, six harnesses deep, with pinned and audited external skills.</p>
 
     <div class="panel">
       <h3>How it compares</h3>
@@ -411,7 +412,7 @@
           <tr><th scope="row">Hooks sync</th><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
           <tr><th scope="row">Agent roles</th><td class="y">rendered native</td><td class="y">yes</td><td style="color:var(--gold)">experimental</td><td class="n">no</td></tr>
           <tr><th scope="row">Pinned + audited externals</th><td class="y">lock file + audit</td><td class="n">no pinning</td><td class="n">no pinning</td><td style="color:var(--gold)">tracks source, no pin</td></tr>
-          <tr><th scope="row">Harness coverage</th><td class="y">5 deep</td><td style="color:var(--gold)">35 broad</td><td style="color:var(--gold)">31 broad</td><td style="color:var(--gold)">~5</td></tr>
+          <tr><th scope="row">Harness coverage</th><td class="y">6 deep</td><td style="color:var(--gold)">35 broad</td><td style="color:var(--gold)">31 broad</td><td style="color:var(--gold)">~5</td></tr>
           <tr><th scope="row">Install</th><td style="color:var(--gold)">curl / mise / go</td><td style="color:var(--gold)">npm / brew</td><td style="color:var(--gold)">npm</td><td style="color:var(--gold)">npm</td></tr>
         </tbody>
       </table>
