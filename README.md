@@ -4,9 +4,7 @@ Dotfiles for your AI agents.
 
 One private `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs each of those into the native format of every coding agent you use — Claude Code, Codex, Factory Droid, Hermes, Pi — and follows you across machines the way dotfiles do. External skills are commit-pinned and audited before any agent loads them.
 
-[**Releases**](https://github.com/yourconscience/dotagents/releases) · [Landing page](https://yourconscience.github.io/dotagents/)
-
-![dotagents harness map](./docs/harness-map.png)
+**[Overview & comparison →](https://yourconscience.github.io/dotagents/)** · [Releases](https://github.com/yourconscience/dotagents/releases)
 
 ## Why
 
