@@ -90,6 +90,7 @@ func runSetup(opts runOptions) error {
 
 	syncOpts := opts
 	syncOpts.ConfigPath = configPath
+	syncOpts.ConfirmRemovals = true
 	return runSync(syncOpts)
 }
 
@@ -107,9 +108,12 @@ func offerGitInit(repoRoot string, streams setupIO) {
 	if !promptYesNo(streams, fmt.Sprintf("Initialize a git repository in %s to version your configuration?", repoRoot)) {
 		return
 	}
-	if out, err := exec.Command("git", "-C", repoRoot, "init").CombinedOutput(); err != nil {
-		fmt.Fprintf(streams.out, "git init failed: %v: %s\n", err, strings.TrimSpace(string(out)))
-		return
+	if out, err := exec.Command("git", "-C", repoRoot, "init", "-b", "main").CombinedOutput(); err != nil {
+		// -b needs git >= 2.28; retry without it before giving up.
+		if out2, err2 := exec.Command("git", "-C", repoRoot, "init").CombinedOutput(); err2 != nil {
+			fmt.Fprintf(streams.out, "git init failed: %v: %s\n", err, strings.TrimSpace(string(append(out, out2...))))
+			return
+		}
 	}
 	if out, err := exec.Command("git", "-C", repoRoot, "add", "-A").CombinedOutput(); err != nil {
 		fmt.Fprintf(streams.out, "git add failed: %v: %s\n", err, strings.TrimSpace(string(out)))

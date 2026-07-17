@@ -671,10 +671,55 @@ func renderCanonicalRoleMarkdown(role agentRole) ([]byte, error) {
 	return []byte("---\n" + string(meta) + "---\n\n" + strings.TrimSpace(role.Instructions) + "\n"), nil
 }
 
+// confirmDestructiveSyncActions previews per-harness removals and role
+// overwrites before a setup-driven sync applies them. A declined (or
+// unanswered) harness keeps its existing content: removals and role overwrites
+// are dropped from that harness's plan while adds and skill updates still
+// apply.
+func confirmDestructiveSyncActions(reports []agentReport, streams setupIO) {
+	for i := range reports {
+		r := &reports[i]
+		if !r.Detected {
+			continue
+		}
+		if len(r.Removes)+len(r.RemovesAgent)+len(r.UpdatesAgent) == 0 {
+			continue
+		}
+		fmt.Fprintf(streams.out, "\n%s has existing content this sync would change:\n", r.Name)
+		if len(r.Removes) > 0 {
+			fmt.Fprintf(streams.out, "  remove %d skill(s) from %s: %s\n", len(r.Removes), r.SkillRoot, strings.Join(r.Removes, ", "))
+		}
+		if len(r.RemovesAgent) > 0 {
+			fmt.Fprintf(streams.out, "  remove %d agent role(s) from %s: %s\n", len(r.RemovesAgent), r.AgentRoot, strings.Join(r.RemovesAgent, ", "))
+		}
+		if len(r.UpdatesAgent) > 0 {
+			fmt.Fprintf(streams.out, "  overwrite %d agent role(s) in %s: %s\n", len(r.UpdatesAgent), r.AgentRoot, strings.Join(r.UpdatesAgent, ", "))
+		}
+		if !promptYesNoDefaultNo(streams, fmt.Sprintf("Apply these changes to %s?", r.Name)) {
+			fmt.Fprintf(streams.out, "%s: keeping existing content; removals and overwrites skipped this run\n", r.Name)
+			r.Removes = nil
+			r.RemovesAgent = nil
+			r.UpdatesAgent = nil
+		}
+	}
+}
+
+func promptYesNoDefaultNo(streams setupIO, prompt string) bool {
+	fmt.Fprintf(streams.out, "%s [y/N] ", prompt)
+	line, answered := readSetupLine(streams.in)
+	if !answered {
+		fmt.Fprintln(streams.out, "skipped (no input; answering no)")
+		return false
+	}
+	answer := strings.ToLower(strings.TrimSpace(line))
+	return answer == "y" || answer == "yes"
+}
+
 func promptYesNo(streams setupIO, prompt string) bool {
 	fmt.Fprintf(streams.out, "%s [Y/n] ", prompt)
 	line, answered := readSetupLine(streams.in)
 	if !answered {
+		fmt.Fprintln(streams.out, "skipped (no input; answering no)")
 		return false
 	}
 	answer := strings.ToLower(strings.TrimSpace(line))
@@ -685,6 +730,7 @@ func promptConflict(streams setupIO, category string, name string, left string, 
 	fmt.Fprintf(streams.out, "%s %q conflict: keep left (%s), keep right (%s), or skip? [l/r/s] ", category, name, left, right)
 	line, answered := readSetupLine(streams.in)
 	if !answered {
+		fmt.Fprintln(streams.out, "skipped (no input)")
 		return "skip"
 	}
 	switch strings.ToLower(strings.TrimSpace(line)) {

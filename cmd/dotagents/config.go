@@ -198,18 +198,28 @@ func validateConfig(cfg *config, home string, expand bool) error {
 			return fmt.Errorf("config MCP server %s is duplicated", cfg.MCPServers[i].Name)
 		}
 		seenMCP[cfg.MCPServers[i].Name] = struct{}{}
+		kept := cfg.MCPServers[i].Agents[:0]
 		for j := range cfg.MCPServers[i].Agents {
-			cfg.MCPServers[i].Agents[j] = normalizeAgentName(cfg.MCPServers[i].Agents[j])
-			agentName := cfg.MCPServers[i].Agents[j]
+			agentName := normalizeAgentName(cfg.MCPServers[i].Agents[j])
 			if len(seen) > 0 {
 				if _, ok := seen[agentName]; !ok {
 					return fmt.Errorf("config MCP server %s targets unknown agent %q", cfg.MCPServers[i].Name, agentName)
 				}
 			}
+			// Legacy configs predate the Pi/OMP split and target "pi" with MCP.
+			// Dropping the target with a warning keeps setup/status/doctor usable
+			// on old configs instead of hard-failing on first contact.
 			if !hasMCPSupport(agentName) {
-				return fmt.Errorf("config MCP server %s targets unsupported agent %q", cfg.MCPServers[i].Name, agentName)
+				hint := ""
+				if agentName == agentPi {
+					hint = ` (if this config predates the Pi/OMP split, rename "pi" to "omp" in dotagents.yaml)`
+				}
+				fmt.Fprintf(os.Stderr, "warning: config MCP server %s targets agent %q without MCP support; target ignored%s\n", cfg.MCPServers[i].Name, agentName, hint)
+				continue
 			}
+			kept = append(kept, agentName)
 		}
+		cfg.MCPServers[i].Agents = kept
 	}
 
 	seenHooks := make(map[string]struct{})

@@ -77,8 +77,11 @@ func TestConfigRejectsPiMCPButAcceptsOMP(t *testing.T) {
 			Name: "search", Enabled: true, Command: "search-server", Agents: []string{agentPi},
 		}},
 	}
-	if err := validateConfig(&piConfig, home, true); err == nil || err.Error() != `config MCP server search targets unsupported agent "pi"` {
-		t.Fatalf("Pi MCP validation error = %v", err)
+	if err := validateConfig(&piConfig, home, true); err != nil {
+		t.Fatalf("Pi MCP target must degrade with a warning, not fail: %v", err)
+	}
+	if len(piConfig.MCPServers[0].Agents) != 0 {
+		t.Fatalf("pi MCP target must be dropped: %#v", piConfig.MCPServers[0].Agents)
 	}
 
 	ompConfig := config{

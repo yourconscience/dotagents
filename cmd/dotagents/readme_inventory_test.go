@@ -149,10 +149,27 @@ func TestDoctorDetectsREADMECountAndListDrift(t *testing.T) {
 			if result.status != checkStatusFail {
 				t.Fatalf("doctor status = %q (%s), want fail", result.status, result.detail)
 			}
-			if result.detail != "generated block is stale; run: dotagents sync render" {
+			if result.detail != "generated block is stale; run: dotagents sync" {
 				t.Fatalf("doctor detail = %q", result.detail)
 			}
 		})
+	}
+}
+
+func TestDoctorSkipsREADMECheckWithoutREADME(t *testing.T) {
+	repoRoot := t.TempDir()
+	result := checkREADMESkillInventory(repoRoot)
+	if result.status != checkStatusPass {
+		t.Fatalf("fresh config root without README.md must pass: %q (%s)", result.status, result.detail)
+	}
+}
+
+func TestDoctorSkipsREADMECheckWithoutMarkers(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeSyncTestFile(t, filepath.Join(repoRoot, "README.md"), []byte("# my agents\n\nuser-owned notes\n"))
+	result := checkREADMESkillInventory(repoRoot)
+	if result.status != checkStatusPass {
+		t.Fatalf("user README without generated block must pass: %q (%s)", result.status, result.detail)
 	}
 }
 

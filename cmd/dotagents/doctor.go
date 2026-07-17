@@ -370,16 +370,19 @@ func checkAgentsMDSize(repoRoot string) checkResult {
 }
 
 func checkREADMESkillInventory(repoRoot string) checkResult {
-	const remediation = "run: dotagents sync render"
+	const remediation = "run: dotagents sync"
+	data, err := os.ReadFile(filepath.Join(repoRoot, "README.md"))
+	if err != nil {
+		return checkResult{"README skills", checkStatusPass, "no README.md in config root (optional)"}
+	}
 	expected, count, err := expectedREADMESkillsBlock(repoRoot)
 	if err != nil {
 		return checkResult{"README skills", checkStatusFail, fmt.Sprintf("%s; %s", err, remediation)}
 	}
-	data, err := os.ReadFile(filepath.Join(repoRoot, "README.md"))
-	if err != nil {
-		return checkResult{"README skills", checkStatusFail, fmt.Sprintf("README.md not found; %s", remediation)}
-	}
 	content := string(data)
+	if !strings.Contains(content, readmeSkillsBeginMarker) && !strings.Contains(content, readmeSkillsEndMarker) {
+		return checkResult{"README skills", checkStatusPass, "README.md has no generated skills block (optional)"}
+	}
 	start, end, err := locateREADMESkillsBlock(content)
 	if err != nil {
 		return checkResult{"README skills", checkStatusFail, fmt.Sprintf("%s; %s", err, remediation)}

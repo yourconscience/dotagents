@@ -590,6 +590,79 @@ func TestSetupSkipsGitInitNonInteractive(t *testing.T) {
 	}
 }
 
+func TestConfirmDestructiveSyncActionsDeclineClearsPlan(t *testing.T) {
+	reports := []agentReport{{
+		Name: "codex", Detected: true, SkillRoot: "/tmp/skills", AgentRoot: "/tmp/agents",
+		Removes: []string{"real-skill"}, UpdatesAgent: []string{"architect"}, Adds: []string{"starter"},
+	}}
+	var out bytes.Buffer
+	confirmDestructiveSyncActions(reports, setupIO{in: strings.NewReader("n\n"), out: &out})
+	if len(reports[0].Removes) != 0 || len(reports[0].UpdatesAgent) != 0 {
+		t.Fatalf("declined harness kept destructive plan: %#v", reports[0])
+	}
+	if len(reports[0].Adds) != 1 {
+		t.Fatalf("decline must not drop additive actions: %#v", reports[0])
+	}
+	if !strings.Contains(out.String(), "remove 1 skill(s) from /tmp/skills: real-skill") {
+		t.Fatalf("missing removal preview:\n%s", out.String())
+	}
+}
+
+func TestConfirmDestructiveSyncActionsAcceptKeepsPlan(t *testing.T) {
+	reports := []agentReport{{
+		Name: "codex", Detected: true, SkillRoot: "/tmp/skills",
+		Removes: []string{"real-skill"},
+	}}
+	var out bytes.Buffer
+	confirmDestructiveSyncActions(reports, setupIO{in: strings.NewReader("y\n"), out: &out})
+	if len(reports[0].Removes) != 1 {
+		t.Fatalf("accepted harness lost its plan: %#v", reports[0])
+	}
+}
+
+func TestConfirmDestructiveSyncActionsEOFDefaultsToNo(t *testing.T) {
+	reports := []agentReport{{
+		Name: "codex", Detected: true, SkillRoot: "/tmp/skills",
+		Removes: []string{"real-skill"},
+	}}
+	var out bytes.Buffer
+	confirmDestructiveSyncActions(reports, setupIO{in: strings.NewReader(""), out: &out})
+	if len(reports[0].Removes) != 0 {
+		t.Fatalf("EOF must decline destructive plan: %#v", reports[0])
+	}
+	if !strings.Contains(out.String(), "skipped (no input") {
+		t.Fatalf("EOF skip must be announced:\n%s", out.String())
+	}
+}
+
+func TestPromptYesNoEOFAnnouncesSkip(t *testing.T) {
+	var out bytes.Buffer
+	if promptYesNo(setupIO{in: strings.NewReader(""), out: &out}, "Do it?") {
+		t.Fatal("EOF must answer no")
+	}
+	if !strings.Contains(out.String(), "skipped (no input") {
+		t.Fatalf("EOF skip must be announced:\n%s", out.String())
+	}
+}
+
+func TestValidateConfigLegacyPiMCPTargetDegrades(t *testing.T) {
+	cfg := config{
+		Agents: []agentConfig{
+			{Name: "pi", Enabled: true, SkillRoot: "~/.pi/agent/skills"},
+			{Name: "claude-code", Enabled: true, SkillRoot: "~/.claude/skills"},
+		},
+		MCPServers: []mcpServerConfig{
+			{Name: "linkedin", Command: "uvx", Agents: []string{"pi", "claude-code"}},
+		},
+	}
+	if err := validateConfig(&cfg, "/home/u", false); err != nil {
+		t.Fatalf("legacy pi MCP target must degrade, not fail: %v", err)
+	}
+	if len(cfg.MCPServers[0].Agents) != 1 || cfg.MCPServers[0].Agents[0] != "claude-code" {
+		t.Fatalf("pi target must be dropped, keeping supported targets: %#v", cfg.MCPServers[0].Agents)
+	}
+}
+
 func TestSetupMemsearchDependencyFailure(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
