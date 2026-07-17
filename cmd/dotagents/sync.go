@@ -76,6 +76,9 @@ func runSync(opts runOptions) error {
 	if err != nil {
 		return err
 	}
+	if opts.ConfirmRemovals {
+		confirmDestructiveSyncActions(reports, setupStreams(opts))
+	}
 	preflight := cloneReports(reports)
 
 	var conflicts []string

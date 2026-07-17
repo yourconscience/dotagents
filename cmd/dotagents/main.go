@@ -107,6 +107,9 @@ type runOptions struct {
 	MemoryTier     string
 	Stdin          io.Reader
 	Stdout         io.Writer
+	// ConfirmRemovals makes sync preview per-harness removals and role
+	// overwrites and ask before applying them. Set by setup-driven syncs.
+	ConfirmRemovals bool
 }
 
 func main() {

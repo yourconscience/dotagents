@@ -29,7 +29,7 @@ Then create your private canonical configuration:
 dotagents setup
 ```
 
-`setup` creates `~/.agents` when needed, detects installed harnesses, scans their existing skills, roles, and MCP servers, offers to copy or convert that content without modifying the originals, writes `dotagents.yaml`, and runs the first sync. Name conflicts are resolved explicitly; content is never merged silently.
+`setup` creates `~/.agents` when needed, detects installed harnesses, scans their existing skills, roles, and MCP servers, offers to copy or convert that content without modifying the originals, writes `dotagents.yaml`, and runs the first sync. Name conflicts are resolved explicitly; content is never merged silently. Before the first sync touches a harness that already has content, setup previews exactly what would be removed or overwritten there and asks per harness; declining keeps that harness's existing files.
 
 `setup` also offers to initialize `~/.agents` as a git repository. To sync the same configuration across machines, add a private remote:
 
