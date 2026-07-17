@@ -314,15 +314,48 @@ func checkAgnix(repoRoot string) checkResult {
 	if _, err := exec.LookPath("agnix"); err != nil {
 		return checkResult{"agnix", checkStatusWarn, "agnix not installed (optional lint); enable with: npm install -g agnix"}
 	}
-	out, err := runAgnix(repoRoot)
+	out, _ := runAgnix(repoRoot)
 	report, parseErr := parseAgnixReport(out)
 	if parseErr != nil {
 		return checkResult{"agnix", checkStatusFail, fmt.Sprintf("could not parse agnix output: %s", parseErr)}
 	}
-	if err != nil || report.Summary.Errors > 0 {
-		return checkResult{"agnix", checkStatusFail, agnixDetail(report)}
+	report, ignored := scopeAgnixToCanonical(report)
+	detail := agnixDetail(report)
+	if ignored > 0 {
+		detail = fmt.Sprintf("%s (%d findings in external/ clones ignored; upstream sources are audited separately)", detail, ignored)
 	}
-	return checkResult{"agnix", checkStatusPass, agnixDetail(report)}
+	if report.Summary.Errors > 0 {
+		return checkResult{"agnix", checkStatusFail, detail}
+	}
+	return checkResult{"agnix", checkStatusPass, detail}
+}
+
+// scopeAgnixToCanonical drops findings from external/ upstream clones: that
+// content is not authored here, and external sources get their own audit
+// check. Summary counts are recomputed from the kept diagnostics.
+func scopeAgnixToCanonical(report agnixReport) (agnixReport, int) {
+	kept := report.Diagnostics[:0]
+	ignored := 0
+	var summary agnixSummary
+	for _, diagnostic := range report.Diagnostics {
+		normalized := filepath.ToSlash(diagnostic.File)
+		if strings.HasPrefix(normalized, "external/") || strings.Contains(normalized, "/external/") {
+			ignored++
+			continue
+		}
+		kept = append(kept, diagnostic)
+		switch diagnostic.Level {
+		case "error":
+			summary.Errors++
+		case "warning":
+			summary.Warnings++
+		default:
+			summary.Info++
+		}
+	}
+	report.Diagnostics = kept
+	report.Summary = summary
+	return report, ignored
 }
 
 func runAgnix(repoRoot string) ([]byte, error) {
