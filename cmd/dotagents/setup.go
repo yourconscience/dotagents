@@ -86,9 +86,41 @@ func runSetup(opts runOptions) error {
 		fmt.Fprintf(streams.out, "memory hooks: removed previous managed commands from %d native config file(s)\n\n", cleaned)
 	}
 
+	offerGitInit(repoRoot, streams)
+
 	syncOpts := opts
 	syncOpts.ConfigPath = configPath
 	return runSync(syncOpts)
+}
+
+// offerGitInit proposes versioning a fresh config root. Skipped when the root
+// is already inside a git work tree, git is unavailable, or stdin gives no
+// answer (non-interactive runs).
+func offerGitInit(repoRoot string, streams setupIO) {
+	if _, err := exec.LookPath("git"); err != nil {
+		return
+	}
+	inside := exec.Command("git", "-C", repoRoot, "rev-parse", "--is-inside-work-tree")
+	if out, err := inside.Output(); err == nil && strings.TrimSpace(string(out)) == "true" {
+		return
+	}
+	if !promptYesNo(streams, fmt.Sprintf("Initialize a git repository in %s to version your configuration?", repoRoot)) {
+		return
+	}
+	if out, err := exec.Command("git", "-C", repoRoot, "init").CombinedOutput(); err != nil {
+		fmt.Fprintf(streams.out, "git init failed: %v: %s\n", err, strings.TrimSpace(string(out)))
+		return
+	}
+	if out, err := exec.Command("git", "-C", repoRoot, "add", "-A").CombinedOutput(); err != nil {
+		fmt.Fprintf(streams.out, "git add failed: %v: %s\n", err, strings.TrimSpace(string(out)))
+		return
+	}
+	if out, err := exec.Command("git", "-C", repoRoot, "commit", "-m", "initialize agent configuration").CombinedOutput(); err != nil {
+		fmt.Fprintf(streams.out, "git commit skipped: %v: %s\n", err, strings.TrimSpace(string(out)))
+		fmt.Fprintln(streams.out, "commit manually once git user.name/user.email are configured")
+		return
+	}
+	fmt.Fprintf(streams.out, "initialized git repository in %s; add a private remote to sync across machines\n\n", repoRoot)
 }
 
 func patchAgentConfig(agent agentConfig, home string, repoRoot string, cfg config) (bool, error) {

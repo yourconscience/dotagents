@@ -11,18 +11,12 @@ hooks:
   - name: memory-session-start
     enabled: true
     event: SessionStart
-    command: ~/.agents/memory/hooks/session-start.sh
-    timeout: 15
-    agents: [claude-code]
-  - name: memory-stop
-    enabled: true
-    event: Stop
-    command: ~/.agents/memory/hooks/stop.sh
+    command: python3 ~/.agents/memory/hooks/basic-session-start.py
     timeout: 15
     agents: [claude-code]
   - name: memory-session-end
     enabled: true
     event: SessionEnd
-    command: ~/.agents/memory/hooks/session-end.sh
+    command: python3 ~/.agents/memory/hooks/basic-session-end.py
     timeout: 30
     agents: [claude-code]
