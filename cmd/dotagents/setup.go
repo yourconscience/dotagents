@@ -44,6 +44,16 @@ func runSetup(opts runOptions) error {
 		return err
 	}
 
+	if opts.JSONOutput {
+		detection, err := runDetection(cfg, detected, repoRoot, home)
+		if err != nil {
+			return err
+		}
+		enc := json.NewEncoder(streams.out)
+		enc.SetIndent("", "  ")
+		return enc.Encode(detection)
+	}
+
 	skills, roles, mcps, err := scanNativeImports(cfg, detected, repoRoot, home)
 	if err != nil {
 		return err
