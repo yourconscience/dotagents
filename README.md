@@ -6,6 +6,8 @@ One private `~/.agents` git repository holds your skills, MCP servers, hooks, an
 
 **[Overview & comparison →](https://yourconscience.github.io/dotagents/)** · [Releases](https://github.com/yourconscience/dotagents/releases)
 
+<p align="center"><img src="docs/status-preview.png" alt="dotagents status" width="720"></p>
+
 ## Why
 
 If you use more than one coding agent, you maintain the same four things — skills, MCP servers, hooks, subagent roles — in a different place and format for each harness. Copying them by hand drifts within a week. Shell config solved this decades ago with dotfiles: one versioned repo, rendered into place. dotagents applies that pattern to agent config.
