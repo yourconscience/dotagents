@@ -6,7 +6,7 @@ One private `~/.agents` git repository holds your skills, MCP servers, hooks, an
 
 **[Overview & comparison →](https://yourconscience.github.io/dotagents/)** · [Releases](https://github.com/yourconscience/dotagents/releases)
 
-<p align="center"><img src="docs/status-preview.png" alt="dotagents status" width="720"></p>
+<p align="center"><img src="docs/status-preview.png" alt="Screenshot of dotagents status showing skills, MCP servers, hooks, and agent roles synced across Claude Code, Codex, Hermes, and Droid" width="720"></p>
 
 ## Why
 
