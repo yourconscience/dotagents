@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>dotagents status preview</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: #0d1117;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 32px;
+  }
+  .terminal {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    max-width: 780px;
+    width: 100%;
+    box-shadow: 0 16px 48px rgba(0,0,0,.4);
+    overflow: hidden;
+    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
+  }
+  .titlebar {
+    background: #1c2128;
+    border-bottom: 1px solid #30363d;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-red { background: #ff5f57; }
+  .dot-yellow { background: #febc2e; }
+  .dot-green { background: #28c840; }
+  .titlebar-text {
+    flex: 1;
+    text-align: center;
+    color: #8b949e;
+    font-size: 12px;
+    margin-right: 52px;
+  }
+  .content {
+    padding: 20px 24px 24px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #c9d1d9;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .prompt { color: #7ee787; }
+  .cmd { color: #f0f6fc; font-weight: 600; }
+  .dim { color: #6e7681; }
+  .heading { color: #f0f6fc; font-weight: 600; }
+  .label { color: #8b949e; }
+  .ok { color: #7ee787; }
+  .val { color: #c9d1d9; }
+  .skill { color: #d2a8ff; }
+  .mcp { color: #79c0ff; }
+  .hook { color: #ffa657; }
+  .agent { color: #7ee787; }
+  .ext { color: #6e7681; }
+  .pass { color: #7ee787; font-weight: 600; }
+  .warn { color: #d29922; }
+</style>
+</head>
+<body>
+<div class="terminal">
+  <div class="titlebar">
+    <div class="dot dot-red"></div>
+    <div class="dot dot-yellow"></div>
+    <div class="dot dot-green"></div>
+    <div class="titlebar-text">dotagents status</div>
+  </div>
+  <div class="content"><span class="prompt">$</span> <span class="cmd">dotagents status</span>
+
+<span class="heading">dotagents status</span>
+<span class="label">repo:</span> <span class="val">~/.agents</span>
+
+<span class="label">external sources:</span>
+  <span class="label">skills</span>  github.com/mattpocock/skills  <span class="ok">synced</span> <span class="dim">(d574778)</span>
+
+<span class="heading">claude-code</span>
+  <span class="label">sync:</span> <span class="ok">synced</span>
+  <span class="label">managed</span> <span class="dim">(16):</span> <span class="skill">dotagents, grill-me, grilling, gws, humanizer,
+              jobs, pr-triage, remote-access, repo-eval, spawn,
+              spec, tech-search, tg, tmux, x-cli, x-sim</span>
+  <span class="label">agent managed</span> <span class="dim">(4):</span> <span class="agent">architect, builder, researcher, reviewer</span>
+  <span class="label">mcp managed</span> <span class="dim">(2):</span> <span class="mcp">linkedin, tavily</span>
+  <span class="label">hook managed</span> <span class="dim">(4):</span> <span class="hook">memory-session-end, memory-session-start,
+                       memory-stop, pr-triage-stop</span>
+
+<span class="heading">codex</span>
+  <span class="label">sync:</span> <span class="ok">synced</span>
+  <span class="label">managed</span> <span class="dim">(16):</span> <span class="skill">dotagents, grill-me, grilling, gws, humanizer,
+              jobs, pr-triage, remote-access, repo-eval, spawn,
+              spec, tech-search, tg, tmux, x-cli, x-sim</span>
+  <span class="label">agent managed</span> <span class="dim">(4):</span> <span class="agent">architect, builder, researcher, reviewer</span>
+  <span class="label">mcp managed</span> <span class="dim">(2):</span> <span class="mcp">linkedin, tavily</span>
+
+<span class="heading">hermes</span>
+  <span class="label">sync:</span> <span class="ok">synced</span>
+  <span class="label">managed</span> <span class="dim">(16):</span> <span class="skill">dotagents, grill-me, grilling, gws, humanizer, ...</span>
+  <span class="label">mcp managed</span> <span class="dim">(2):</span> <span class="mcp">linkedin, tavily</span>
+  <span class="label">hook managed</span> <span class="dim">(1):</span> <span class="hook">memory-session-end</span>
+
+<span class="heading">droid</span>
+  <span class="label">sync:</span> <span class="ok">synced</span>
+  <span class="label">managed</span> <span class="dim">(16):</span> <span class="skill">dotagents, grill-me, grilling, gws, humanizer, ...</span>
+  <span class="label">agent managed</span> <span class="dim">(4):</span> <span class="agent">architect, builder, researcher, reviewer</span>
+  <span class="label">mcp managed</span> <span class="dim">(2):</span> <span class="mcp">linkedin, tavily</span>
+
+<span class="pass">external lock:</span> pass <span class="dim">(1 source pinned and in sync)</span>
+<span class="pass">memsearch:</span>     pass <span class="dim">(collection ai has 3224 chunks)</span></div>
+</div>
+</body>
+</html>
