@@ -42,8 +42,14 @@ func TestHashDirDiffersOnContent(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir2, "a.txt"), []byte("world"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	h1, _ := hashDir(dir1)
-	h2, _ := hashDir(dir2)
+	h1, err := hashDir(dir1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, err := hashDir(dir2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if h1 == h2 {
 		t.Fatal("different content produced the same hash")
 	}
@@ -54,8 +60,8 @@ func TestMarkIdenticalSingleSource(t *testing.T) {
 		Sources: []DetectedSource{{Hash: "abc123"}},
 	}
 	markIdentical(item)
-	if !item.Identical {
-		t.Fatal("single source should be marked identical")
+	if item.Identical {
+		t.Fatal("single source should not be marked identical")
 	}
 }
 
@@ -131,15 +137,30 @@ func TestRunDetectionAutoResolvesIdentical(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	content := []byte("---\nname: shared-skill\n---\nShared content\n")
+	identical := []byte("---\nname: shared-skill\n---\nShared content\n")
+	different := []byte("---\nname: unique-skill\n---\nDifferent content\n")
 
-	// Two harnesses with identical skill content.
+	// Two harnesses: one skill identical across both, one skill differs.
 	harness1Skills := filepath.Join(home, ".claude", "skills")
 	harness2Skills := filepath.Join(home, ".codex", "skills")
 	for _, dir := range []string{harness1Skills, harness2Skills} {
 		skillDir := filepath.Join(dir, "shared-skill")
 		if err := os.MkdirAll(skillDir, 0o755); err != nil {
 			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), identical, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// "unique-skill" exists in both but with different content.
+	for i, dir := range []string{harness1Skills, harness2Skills} {
+		skillDir := filepath.Join(dir, "unique-skill")
+		if err := os.MkdirAll(skillDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		content := different
+		if i == 1 {
+			content = []byte("---\nname: unique-skill\n---\nOther version\n")
 		}
 		if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), content, 0o644); err != nil {
 			t.Fatal(err)
@@ -157,10 +178,13 @@ func TestRunDetectionAutoResolvesIdentical(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.AutoResolved != 1 {
-		t.Fatalf("expected 1 auto-resolved, got %d", result.AutoResolved)
+		t.Fatalf("expected 1 auto-resolved (shared-skill), got %d", result.AutoResolved)
 	}
-	if len(result.Items) != 0 {
-		t.Fatalf("expected 0 review items, got %d", len(result.Items))
+	if len(result.Items) != 1 {
+		t.Fatalf("expected 1 review item (unique-skill), got %d", len(result.Items))
+	}
+	if result.Items[0].Name != "unique-skill" {
+		t.Fatalf("expected unique-skill in review, got %s", result.Items[0].Name)
 	}
 }
 

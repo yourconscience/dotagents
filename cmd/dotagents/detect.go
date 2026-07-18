@@ -141,6 +141,9 @@ type detectedEntry struct {
 }
 
 func detectNativeSkills(agent agentConfig, skillRoot string, canonicalSkills string) ([]detectedEntry, error) {
+	if skillRoot == "" {
+		return nil, nil
+	}
 	entries, err := os.ReadDir(skillRoot)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -235,7 +238,7 @@ func detectNativeMCPServers(agent agentConfig, cfg config, home string) ([]detec
 
 func markIdentical(item *DetectedItem) {
 	if len(item.Sources) < 2 {
-		item.Identical = true
+		item.Identical = false
 		return
 	}
 	first := item.Sources[0].Hash
