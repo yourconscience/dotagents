@@ -15,6 +15,8 @@ const (
 	actionShare reviewAction = iota
 	actionKeep
 	actionSkip
+
+	numReviewActions = int(actionSkip) + 1
 )
 
 func (a reviewAction) String() string {
@@ -100,7 +102,7 @@ func (m reviewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case " ":
 		if len(m.rows) > 0 {
-			m.rows[m.cursor].action = (m.rows[m.cursor].action + 1) % 3
+			m.rows[m.cursor].action = reviewAction((int(m.rows[m.cursor].action) + 1) % numReviewActions)
 		}
 	case "a":
 		for i := range m.rows {
