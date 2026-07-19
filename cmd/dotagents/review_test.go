@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -144,9 +145,9 @@ func TestReviewModelAbort(t *testing.T) {
 func TestReviewDecisionsIncludeResolved(t *testing.T) {
 	detection := testDetection()
 	m := newReviewModel(detection)
-	m = press(t, m, " ", "enter") // first row -> keep, apply
+	m = press(t, m, " ", "enter", "enter") // first row -> keep, apply via confirm
 	if !m.applied {
-		t.Fatal("enter should apply")
+		t.Fatal("enter through confirm should apply")
 	}
 	decisions := m.decisions(detection)
 	if len(decisions) != 3 {
@@ -158,6 +159,51 @@ func TestReviewDecisionsIncludeResolved(t *testing.T) {
 	last := decisions[len(decisions)-1]
 	if last.Name != "shared" || last.Action != actionShare {
 		t.Fatalf("resolved item should be auto-shared, got %s/%s", last.Name, last.Action)
+	}
+}
+
+func TestReviewModelConfirmGate(t *testing.T) {
+	m := newReviewModel(testDetection())
+	m = press(t, m, "enter")
+	if m.applied || !m.confirming {
+		t.Fatal("first enter should enter confirm state, not apply")
+	}
+	m = press(t, m, "esc")
+	if m.confirming || m.aborted {
+		t.Fatal("esc in confirm state should return to review, not abort")
+	}
+	m = press(t, m, "enter", "y")
+	if !m.applied {
+		t.Fatal("y in confirm state should apply")
+	}
+}
+
+func TestShareAllDecisions(t *testing.T) {
+	detection := testDetection()
+	decisions := shareAllDecisions(detection)
+	if len(decisions) != 3 {
+		t.Fatalf("expected 3 decisions, got %d", len(decisions))
+	}
+	for _, d := range decisions {
+		if d.Action != actionShare {
+			t.Fatalf("%s should be share, got %s", d.Name, d.Action)
+		}
+	}
+	if decisions[0].Source.Harness != "claude-code" {
+		t.Fatalf("differing item should pick first source, got %s", decisions[0].Source.Harness)
+	}
+}
+
+func TestRenderDetectionSummary(t *testing.T) {
+	out := renderDetectionSummary(testDetection())
+	for _, want := range []string{"needs review:", "linter", "(differ)", "identical everywhere", "shared"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("summary missing %q:\n%s", want, out)
+		}
+	}
+	empty := renderDetectionSummary(&DetectionResult{})
+	if !strings.Contains(empty, "no import candidates") {
+		t.Fatalf("empty summary unexpected: %s", empty)
 	}
 }
 

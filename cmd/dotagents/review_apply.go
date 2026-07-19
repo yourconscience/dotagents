@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-isatty"
@@ -97,6 +98,55 @@ func applyReviewDecisions(root string, cfg *config, decisions []reviewDecision, 
 		}
 	}
 	return shared, nil
+}
+
+// renderDetectionSummary is the plain-text detection view used by --dry-run.
+func renderDetectionSummary(detection *DetectionResult) string {
+	var b strings.Builder
+	if len(detection.Items) == 0 && len(detection.Resolved) == 0 {
+		b.WriteString("no import candidates detected\n")
+		return b.String()
+	}
+	if len(detection.Items) > 0 {
+		b.WriteString("needs review:\n")
+		for _, item := range detection.Items {
+			b.WriteString("  " + formatDetectedItem(item) + "\n")
+		}
+	}
+	if len(detection.Resolved) > 0 {
+		b.WriteString("identical everywhere (would be shared automatically):\n")
+		for _, item := range detection.Resolved {
+			b.WriteString("  " + formatDetectedItem(item) + "\n")
+		}
+	}
+	return b.String()
+}
+
+func formatDetectedItem(item DetectedItem) string {
+	harnesses := make([]string, 0, len(item.Sources))
+	for _, src := range item.Sources {
+		harnesses = append(harnesses, src.Harness)
+	}
+	line := fmt.Sprintf("%-7s %s  [%s]", item.Surface, item.Name, strings.Join(harnesses, " "))
+	if len(item.Sources) > 1 && !item.Identical {
+		line += " (differ)"
+	}
+	return line
+}
+
+// shareAllDecisions marks every detected item for sharing, picking the first
+// source when content differs. Used by --yes non-interactive imports.
+func shareAllDecisions(detection *DetectionResult) []reviewDecision {
+	out := make([]reviewDecision, 0, len(detection.Items)+len(detection.Resolved))
+	for _, item := range append(append([]DetectedItem(nil), detection.Items...), detection.Resolved...) {
+		out = append(out, reviewDecision{
+			Surface: item.Surface,
+			Name:    item.Name,
+			Action:  actionShare,
+			Source:  item.Sources[0],
+		})
+	}
+	return out
 }
 
 func findRoleCandidate(roles []nativeRoleCandidate, name string, harness string) (nativeRoleCandidate, bool) {

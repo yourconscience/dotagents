@@ -48,12 +48,13 @@ type reviewDecision struct {
 }
 
 type reviewModel struct {
-	harnesses []string
-	rows      []reviewRow
-	resolved  int
-	cursor    int
-	applied   bool
-	aborted   bool
+	harnesses  []string
+	rows       []reviewRow
+	resolved   int
+	cursor     int
+	confirming bool
+	applied    bool
+	aborted    bool
 }
 
 var (
@@ -85,13 +86,26 @@ func (m reviewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	if m.confirming {
+		switch keyMsg.String() {
+		case "enter", "y":
+			m.applied = true
+			return m, tea.Quit
+		case "ctrl+c":
+			m.aborted = true
+			return m, tea.Quit
+		case "esc", "n", "q":
+			m.confirming = false
+		}
+		return m, nil
+	}
 	switch keyMsg.String() {
 	case "ctrl+c", "q", "esc":
 		m.aborted = true
 		return m, tea.Quit
 	case "enter":
-		m.applied = true
-		return m, tea.Quit
+		m.confirming = true
+		return m, nil
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
@@ -159,8 +173,28 @@ func (m reviewModel) View() string {
 		b.WriteString(line + "\n")
 	}
 
-	b.WriteString("\n" + reviewDimStyle.Render("↑↓ move  space cycle action  ←→ pick source  a share-all  s skip-all  enter apply  q abort") + "\n")
+	if m.confirming {
+		share, keep, skip := m.tally()
+		summary := fmt.Sprintf("apply %d share, %d keep, %d skip", share+m.resolved, keep, skip)
+		b.WriteString("\n" + reviewHeaderStyle.Render(summary) + reviewDimStyle.Render("  — enter/y confirm, esc back") + "\n")
+	} else {
+		b.WriteString("\n" + reviewDimStyle.Render("↑↓ move  space cycle action  ←→ pick source  a share-all  s skip-all  enter apply  q abort") + "\n")
+	}
 	return b.String()
+}
+
+func (m reviewModel) tally() (share, keep, skip int) {
+	for _, row := range m.rows {
+		switch row.action {
+		case actionShare:
+			share++
+		case actionKeep:
+			keep++
+		case actionSkip:
+			skip++
+		}
+	}
+	return share, keep, skip
 }
 
 // presence renders one glyph column per detected harness plus a differ marker.

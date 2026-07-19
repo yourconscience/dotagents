@@ -18,7 +18,7 @@ Never infer configuration from the current project. Never replace a user's confi
 ## Commands
 
 ```bash
-dotagents setup [--memory off|basic|memsearch] [--agents ...]
+dotagents setup [--memory off|basic|memsearch] [--agents ...] [--yes] [--dry-run] [--json]
 dotagents status [--agents ...]
 dotagents sync [--pull] [--agents ...]
 dotagents doctor [--e2e] [--agents ...]
@@ -38,8 +38,8 @@ First-run setup:
 2. Extracts missing public starter assets without overwriting user files.
 3. Detects supported harness binaries.
 4. Scans native skill, role, and MCP locations.
-5. Offers to import content by copy or conversion. Originals remain untouched.
-6. Resolves duplicate names as keep-left, keep-right, or skip; it never merges silently.
+5. Shows an interactive review screen: share, keep harness-specific, or skip per item; items identical across harnesses are shared automatically. Imports are copy or conversion only; originals remain untouched.
+6. In non-interactive runs it falls back to sequential prompts; `--yes` imports everything without prompting, `--dry-run` prints candidates and exits without changes, `--json` emits the detection result and exits.
 7. Registers the chosen memory tier.
 8. Patches only the required native harness settings.
 9. Runs the first sync.

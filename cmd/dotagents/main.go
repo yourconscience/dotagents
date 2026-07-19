@@ -106,6 +106,8 @@ type runOptions struct {
 	SkipPackageAge bool
 	MemoryTier     string
 	JSONOutput     bool
+	DryRun         bool
+	AssumeYes      bool
 	Stdin          io.Reader
 	Stdout         io.Writer
 	// ConfirmRemovals makes sync preview per-harness removals and role
@@ -401,6 +403,8 @@ func parseSetupFlags(args []string) (runOptions, error) {
 	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names to use for this run")
 	fs.StringVar(&opts.MemoryTier, "memory", memoryTierBasic, "Memory tier: off, basic, or memsearch")
 	fs.BoolVar(&opts.JSONOutput, "json", false, "Emit detection result as JSON and exit")
+	fs.BoolVar(&opts.DryRun, "dry-run", false, "Show detected import candidates and exit without changes (overrides --yes)")
+	fs.BoolVar(&opts.AssumeYes, "yes", false, "Import all detected items without prompting")
 	if err := fs.Parse(args); err != nil {
 		return runOptions{}, err
 	}
@@ -480,7 +484,7 @@ func printAllUsage() {
 	printUsage()
 	fmt.Println()
 	fmt.Println("Canonical forms:")
-	fmt.Println("  dotagents setup [--memory off|basic|memsearch] [--agents ...]")
+	fmt.Println("  dotagents setup [--memory off|basic|memsearch] [--agents ...] [--yes] [--dry-run] [--json]")
 	fmt.Println("  dotagents status [--agents ...]")
 	fmt.Println("  dotagents sync [--pull] [--agents ...]")
 	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
