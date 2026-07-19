@@ -51,6 +51,15 @@ func runSetup(opts runOptions) error {
 		return enc.Encode(detection)
 	}
 
+	if opts.DryRun {
+		detection, err := runDetection(cfg, detected, repoRoot, home)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(streams.out, renderDetectionSummary(detection))
+		return nil
+	}
+
 	fmt.Fprintln(streams.out, "dotagents setup")
 	fmt.Fprintf(streams.out, "config root: %s\n\n", repoRoot)
 
@@ -58,7 +67,19 @@ func runSetup(opts runOptions) error {
 	if err != nil {
 		return err
 	}
-	if reviewTTYAvailable(streams) {
+	if opts.AssumeYes {
+		detection, err := runDetection(cfg, detected, repoRoot, home)
+		if err != nil {
+			return err
+		}
+		shared, err := applyReviewDecisions(repoRoot, &cfg, shareAllDecisions(detection), skills, roles, mcps)
+		if err != nil {
+			return err
+		}
+		if shared > 0 {
+			fmt.Fprintf(streams.out, "imported %d item(s) without prompting (--yes)\n\n", shared)
+		}
+	} else if reviewTTYAvailable(streams) {
 		detection, err := runDetection(cfg, detected, repoRoot, home)
 		if err != nil {
 			return err
