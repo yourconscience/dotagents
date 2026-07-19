@@ -4,6 +4,6 @@ external_skills:
   - name: skills
     url: https://github.com/mattpocock/skills
     branch: main
-    commit: d574778f94cf620fcc8ce741584093bc650a61d3
+    commit: 9603c1cc8118d08bc1b3bf34cf714f62178dea3b
     materialized:
       - grilling
