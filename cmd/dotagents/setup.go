@@ -58,7 +58,18 @@ func runSetup(opts runOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := importNativeContent(repoRoot, &cfg, skills, roles, mcps, streams); err != nil {
+	if reviewTTYAvailable(streams) {
+		detection, err := runDetection(cfg, detected, repoRoot, home)
+		if err != nil {
+			return err
+		}
+		if err := runReviewImport(repoRoot, &cfg, detection, skills, roles, mcps, streams); err != nil {
+			if !errors.Is(err, errReviewAborted) {
+				return err
+			}
+			fmt.Fprintln(streams.out, "import review aborted; continuing setup without importing")
+		}
+	} else if err := importNativeContent(repoRoot, &cfg, skills, roles, mcps, streams); err != nil {
 		return err
 	}
 	if err := ensureStarterAssets(repoRoot, configPath); err != nil {

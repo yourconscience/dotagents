@@ -180,6 +180,12 @@ func TestRunDetectionAutoResolvesIdentical(t *testing.T) {
 	if result.AutoResolved != 1 {
 		t.Fatalf("expected 1 auto-resolved (shared-skill), got %d", result.AutoResolved)
 	}
+	if len(result.Resolved) != 1 || result.Resolved[0].Name != "shared-skill" {
+		t.Fatalf("expected shared-skill in Resolved, got %+v", result.Resolved)
+	}
+	if result.AutoResolved != len(result.Resolved) {
+		t.Fatalf("AutoResolved (%d) must equal len(Resolved) (%d)", result.AutoResolved, len(result.Resolved))
+	}
 	if len(result.Items) != 1 {
 		t.Fatalf("expected 1 review item (unique-skill), got %d", len(result.Items))
 	}

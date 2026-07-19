@@ -32,9 +32,12 @@ type DetectedItem struct {
 }
 
 // DetectionResult is the output of runDetection, suitable for JSON serialization.
+// Resolved holds items identical across all sources; they are auto-promoted to
+// shared without review. AutoResolved is len(Resolved), kept for JSON consumers.
 type DetectionResult struct {
 	Harnesses    []string       `json:"harnesses"`
 	Items        []DetectedItem `json:"items"`
+	Resolved     []DetectedItem `json:"resolved,omitempty"`
 	AutoResolved int            `json:"auto_resolved"`
 }
 
@@ -125,6 +128,7 @@ func runDetection(cfg config, detected []agentConfig, repoRoot string, home stri
 	for _, k := range keys {
 		item := itemIndex[k]
 		if item.Identical {
+			result.Resolved = append(result.Resolved, *item)
 			result.AutoResolved++
 			continue
 		}
