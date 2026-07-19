@@ -42,7 +42,7 @@ dotagents setup
 
 1. Creates `~/.agents` if it does not exist and copies in the starter content (two skills, five roles, memory hooks, a minimal `dotagents.yaml`).
 2. Detects which harnesses are installed and records their native paths.
-3. Scans each harness for skills, roles, and MCP servers you already have, and offers to import them into `~/.agents` — copy-only, originals untouched, name conflicts prompted one by one.
+3. Scans each harness for skills, roles, and MCP servers you already have and shows a review screen: one row per item, share/keep/skip per row, items identical across harnesses shared automatically. Copy-only, originals untouched. Non-interactive runs fall back to sequential prompts; `--yes` imports everything without prompting, `--dry-run` prints the candidates and exits without changes.
 4. Before its first sync touches a harness that already has content, shows exactly what would be removed or overwritten there and asks per harness. Declining keeps that harness's files.
 5. Offers to `git init` the new repository, and runs the first sync.
 
@@ -158,7 +158,7 @@ Memory data lives in your knowledge directory (default `~/Workspace/knowledge`, 
 ## Command reference
 
 ```bash
-dotagents setup    [--memory off|basic|memsearch] [--agents ...]   # first run, import, memory tier, first sync
+dotagents setup    [--memory off|basic|memsearch] [--agents ...] [--yes] [--dry-run] [--json]   # first run, import review, memory tier, first sync
 dotagents status   [--agents ...]                                  # per-harness sync state
 dotagents sync     [--pull] [--agents ...]                         # reconcile all harnesses (--pull: git pull first)
 dotagents doctor   [--e2e] [--agents ...]                          # health checks and audits

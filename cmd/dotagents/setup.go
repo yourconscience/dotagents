@@ -37,10 +37,9 @@ func runSetup(opts runOptions) error {
 	}
 	priorCfg := cfg
 	upsertSetupAgents(&cfg, detected)
-	if err := applyMemoryTier(&cfg, opts.MemoryTier, repoRoot, home); err != nil {
-		return err
-	}
 
+	// --json and --dry-run must exit before any mutation, including the
+	// memory-tier setup below which creates directories and config files.
 	if opts.JSONOutput {
 		detection, err := runDetection(cfg, detected, repoRoot, home)
 		if err != nil {
@@ -58,6 +57,10 @@ func runSetup(opts runOptions) error {
 		}
 		fmt.Fprint(streams.out, renderDetectionSummary(detection))
 		return nil
+	}
+
+	if err := applyMemoryTier(&cfg, opts.MemoryTier, repoRoot, home); err != nil {
+		return err
 	}
 
 	fmt.Fprintln(streams.out, "dotagents setup")
