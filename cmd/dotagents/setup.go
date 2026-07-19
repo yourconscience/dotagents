@@ -24,9 +24,6 @@ func runSetup(opts runOptions) error {
 	repoRoot := filepath.Dir(configPath)
 	streams := setupStreams(opts)
 
-	fmt.Fprintln(streams.out, "dotagents setup")
-	fmt.Fprintf(streams.out, "config root: %s\n\n", repoRoot)
-
 	cfg, err := loadSetupConfig(configPath, home)
 	if err != nil {
 		return err
@@ -53,6 +50,9 @@ func runSetup(opts runOptions) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(detection)
 	}
+
+	fmt.Fprintln(streams.out, "dotagents setup")
+	fmt.Fprintf(streams.out, "config root: %s\n\n", repoRoot)
 
 	skills, roles, mcps, err := scanNativeImports(cfg, detected, repoRoot, home)
 	if err != nil {
