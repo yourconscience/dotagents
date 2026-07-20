@@ -2,7 +2,7 @@
 
 Dotfiles for your AI agents.
 
-One private `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs each of those into the native format of every coding agent you use — Claude Code, Codex, Factory Droid, Hermes, OpenCode, Pi — and follows you across machines the way dotfiles do. External skills are commit-pinned and audited before any agent loads them.
+One `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs them into the native format of every coding agent you use and follows you across machines the way dotfiles do. External skills are commit-pinned and audited before any agent loads them.
 
 **[Overview & comparison →](https://yourconscience.github.io/dotagents/)** · [Releases](https://github.com/yourconscience/dotagents/releases)
 
@@ -10,25 +10,19 @@ One private `~/.agents` git repository holds your skills, MCP servers, hooks, an
 
 ## Why
 
-If you use more than one coding agent, you maintain the same four things — skills, MCP servers, hooks, subagent roles — in a different place and format for each harness. Copying them by hand drifts within a week. Shell config solved this decades ago with dotfiles: one versioned repo, rendered into place. dotagents applies that pattern to agent config.
-
-Two design choices worth knowing up front:
-
-- **User-level, not project-level.** Your setup lives in `~/.agents` and applies everywhere you work. Tools like rulesync and ruler generate per-project config instead; see [How it differs](#how-it-differs).
-- **The tool and your config are separate.** Installing dotagents never installs anyone else's prompts. Your `~/.agents` is yours, private, and versioned by you.
+If you use more than one coding agent, you maintain the same skills, MCP servers, hooks, and roles in a different place and format for each one. Copying them by hand drifts within a week. dotagents applies the dotfiles pattern to agent config: one versioned repo, rendered into each harness's native format.
 
 ## Quick start
 
 Install the CLI (macOS or Linux):
 
 ```bash
-# Prebuilt release binary
+brew install yourconscience/tap/dotagents
+
+# or: prebuilt binary
 curl -fsSL https://raw.githubusercontent.com/yourconscience/dotagents/main/scripts/install.sh | sh
 
-# or via mise
-mise use -g github:yourconscience/dotagents
-
-# or with Go
+# or: from source
 go install github.com/yourconscience/dotagents/cmd/dotagents@latest
 ```
 
@@ -42,9 +36,21 @@ dotagents setup
 
 1. Creates `~/.agents` if it does not exist and copies in the starter content (two skills, five roles, memory hooks, a minimal `dotagents.yaml`).
 2. Detects which harnesses are installed and records their native paths.
-3. Scans each harness for skills, roles, and MCP servers you already have and shows a review screen: one row per item, share/keep/skip per row, items identical across harnesses shared automatically. Copy-only, originals untouched. Non-interactive runs fall back to sequential prompts; `--yes` imports everything without prompting, `--dry-run` prints the candidates and exits without changes.
+3. Scans each harness for skills, roles, and MCP servers you already have and shows a review screen: one row per item, share/keep/skip per row, items identical across harnesses shared automatically. Copy-only, originals untouched. Non-interactive runs fall back to sequential prompts; `--yes` imports everything without prompting, `--dry-run` prints the candidates and exits without changes, `--json` emits the detection result for scripting and exits.
 4. Before its first sync touches a harness that already has content, shows exactly what would be removed or overwritten there and asks per harness. Declining keeps that harness's files.
 5. Offers to `git init` the new repository, and runs the first sync.
+
+The review screen in step 3 looks like this — `space` cycles share/keep/skip per row, `enter` applies:
+
+```
+dotagents setup — review 3 item(s)  (2 identical, shared automatically)
+
+  skill   grilling   claude-code✓ codex✓ droid·   [share]
+  skill   my-notes   claude-code✓ codex· droid✓   [share] (differ) from claude-code
+  role    reviewer   claude-code✓ codex✓ droid✓   [skip]
+
+↑↓ move  space cycle action  ←→ pick source  a share-all  s skip-all  enter apply  q abort
+```
 
 To carry the same setup to other machines, add a private remote:
 
@@ -187,15 +193,11 @@ external_skills:
 - `dotagents.local.yaml` next to the main config overlays machine-local entries (kept out of git) on top of the shared ones.
 - Managed entries are marked as such in native configs; anything dotagents did not create is left untouched.
 
-## Public starter content
-
 <!-- BEGIN GENERATED SKILLS -->
 2 skills ship with this repo:
 
 `dotagents` `grilling`
 <!-- END GENERATED SKILLS -->
-
-`dotagents` is the self-management skill (agents can run status/sync/doctor for you). `grilling` is a live example of a materialized, commit-pinned external skill from [`mattpocock/skills`](https://github.com/mattpocock/skills). First-run setup copies starter files only where you don't already have them.
 
 ## Troubleshooting
 
@@ -205,7 +207,14 @@ external_skills:
 
 ## How it differs
 
-[rulesync](https://github.com/dyoshikawa/rulesync) and [ruler](https://github.com/intellectronica/ruler) are project-level: they generate per-tool configuration inside a repository and win on tool breadth. dotagents is user-level: one private config follows you across projects and machines, and it goes deeper per harness — native role rendering, hook registration, and commit-pinned, audited external skills. [openskills](https://github.com/numman-ali/openskills) installs skills; dotagents manages all four user-level surfaces together.
+| Tool | Scope | What it does |
+|---|---|---|
+| [rulesync](https://github.com/dyoshikawa/rulesync), [ruler](https://github.com/intellectronica/ruler) | per-project | Generate agent config inside a repo |
+| [openskills](https://github.com/numman-ali/openskills) | user-level | Install skills |
+| [dot-agents](https://github.com/dot-agents/dot-agents) | user-level | Symlink rules and MCP config once |
+| [dotagent](https://github.com/johnlindquist/dotagent) | one-shot | Convert between agent config formats |
+| `AGENTS.md` | per-project | Project-level agent instructions |
+| **dotagents** | user-level | Sync skills, MCP, hooks, and roles across harnesses continuously |
 
 ## License
 
