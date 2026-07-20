@@ -2,7 +2,7 @@
 
 Dotfiles for your AI agents — a living sync tool for your **user-level** `~/.agents` config, not a one-shot converter and not a per-project `AGENTS.md`.
 
-One private `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs each of those into the native format of every coding agent you use — Claude Code, Codex, Factory Droid, Hermes, OpenCode, Pi — and follows you across machines the way dotfiles do. Edit `~/.agents` once, run `dotagents sync`, and every harness stays convergent — this keeps running as your config evolves, it doesn't just convert files once. External skills are commit-pinned and audited before any agent loads them.
+One private `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs each of those into the native format of every coding agent you use — Claude Code, Codex, Factory Droid, Hermes, OpenCode, Pi — and follows you across machines the way dotfiles do. Edit `~/.agents` once, run `dotagents sync`, and every harness stays convergent — this keeps running as your config evolves. It doesn't just convert files once. External skills are commit-pinned and audited before any agent loads them.
 
 **[Overview & comparison →](https://yourconscience.github.io/dotagents/)** · [Releases](https://github.com/yourconscience/dotagents/releases)
 
@@ -223,7 +223,7 @@ Similarly named projects solve different problems:
 
 - **[dot-agents/dot-agents](https://github.com/dot-agents/dot-agents)** symlinks rules and MCP config into place once. dotagents keeps reconciling skills, MCP, hooks, and roles on every `sync`, and surfaces drift with `status`/`doctor`.
 - **[johnlindquist/dotagent](https://github.com/johnlindquist/dotagent)** is a one-shot converter: point it at files and it rewrites them into another agent's format. dotagents is a standing CLI over a living `~/.agents` repo — there's no "convert once and you're done."
-- **`AGENTS.md`** is per-project instructions read by whichever agent opens that repo. `~/.agents` is your personal, cross-project skills/MCP/hooks/roles config; the two are orthogonal, and dotagents only ever touches the latter.
+- **`AGENTS.md`** contains per-project instructions read by whichever agent opens that repo. `~/.agents` is your personal, cross-project skills/MCP/hooks/roles config; the two are orthogonal, and dotagents only ever touches the latter.
 
 ## License
 
