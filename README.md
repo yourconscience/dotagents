@@ -17,13 +17,12 @@ If you use more than one coding agent, you maintain the same skills, MCP servers
 Install the CLI (macOS or Linux):
 
 ```bash
-# Prebuilt release binary
+brew install yourconscience/tap/dotagents
+
+# or: prebuilt binary
 curl -fsSL https://raw.githubusercontent.com/yourconscience/dotagents/main/scripts/install.sh | sh
 
-# or via mise
-mise use -g github:yourconscience/dotagents
-
-# or with Go
+# or: from source
 go install github.com/yourconscience/dotagents/cmd/dotagents@latest
 ```
 
