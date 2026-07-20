@@ -1,8 +1,8 @@
 # dotagents
 
-Dotfiles for your AI agents.
+Dotfiles for your AI agents — a living sync tool for your **user-level** `~/.agents` config, not a one-shot converter and not a per-project `AGENTS.md`.
 
-One private `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs each of those into the native format of every coding agent you use — Claude Code, Codex, Factory Droid, Hermes, OpenCode, Pi — and follows you across machines the way dotfiles do. External skills are commit-pinned and audited before any agent loads them.
+One private `~/.agents` git repository holds your skills, MCP servers, hooks, and agent roles. The `dotagents` CLI syncs each of those into the native format of every coding agent you use — Claude Code, Codex, Factory Droid, Hermes, OpenCode, Pi — and follows you across machines the way dotfiles do. Edit `~/.agents` once, run `dotagents sync`, and every harness stays convergent — this keeps running as your config evolves, it doesn't just convert files once. External skills are commit-pinned and audited before any agent loads them.
 
 **[Overview & comparison →](https://yourconscience.github.io/dotagents/)** · [Releases](https://github.com/yourconscience/dotagents/releases)
 
@@ -42,9 +42,21 @@ dotagents setup
 
 1. Creates `~/.agents` if it does not exist and copies in the starter content (two skills, five roles, memory hooks, a minimal `dotagents.yaml`).
 2. Detects which harnesses are installed and records their native paths.
-3. Scans each harness for skills, roles, and MCP servers you already have and shows a review screen: one row per item, share/keep/skip per row, items identical across harnesses shared automatically. Copy-only, originals untouched. Non-interactive runs fall back to sequential prompts; `--yes` imports everything without prompting, `--dry-run` prints the candidates and exits without changes.
+3. Scans each harness for skills, roles, and MCP servers you already have and shows a review screen: one row per item, share/keep/skip per row, items identical across harnesses shared automatically. Copy-only, originals untouched. Non-interactive runs fall back to sequential prompts; `--yes` imports everything without prompting, `--dry-run` prints the candidates and exits without changes, `--json` emits the detection result for scripting and exits.
 4. Before its first sync touches a harness that already has content, shows exactly what would be removed or overwritten there and asks per harness. Declining keeps that harness's files.
 5. Offers to `git init` the new repository, and runs the first sync.
+
+The review screen in step 3 looks like this — `space` cycles share/keep/skip per row, `enter` applies:
+
+```
+dotagents setup — review 3 item(s)  (2 identical, shared automatically)
+
+  skill   grilling   claude-code✓ codex✓ droid·   [share]
+  skill   my-notes   claude-code✓ codex· droid✓   [share] (differ) from claude-code
+  role    reviewer   claude-code✓ codex✓ droid✓   [skip]
+
+↑↓ move  space cycle action  ←→ pick source  a share-all  s skip-all  enter apply  q abort
+```
 
 To carry the same setup to other machines, add a private remote:
 
@@ -206,6 +218,12 @@ external_skills:
 ## How it differs
 
 [rulesync](https://github.com/dyoshikawa/rulesync) and [ruler](https://github.com/intellectronica/ruler) are project-level: they generate per-tool configuration inside a repository and win on tool breadth. dotagents is user-level: one private config follows you across projects and machines, and it goes deeper per harness — native role rendering, hook registration, and commit-pinned, audited external skills. [openskills](https://github.com/numman-ali/openskills) installs skills; dotagents manages all four user-level surfaces together.
+
+Similarly named projects solve different problems:
+
+- **[dot-agents/dot-agents](https://github.com/dot-agents/dot-agents)** symlinks rules and MCP config into place once. dotagents keeps reconciling skills, MCP, hooks, and roles on every `sync`, and surfaces drift with `status`/`doctor`.
+- **[johnlindquist/dotagent](https://github.com/johnlindquist/dotagent)** is a one-shot converter: point it at files and it rewrites them into another agent's format. dotagents is a standing CLI over a living `~/.agents` repo — there's no "convert once and you're done."
+- **`AGENTS.md`** is per-project instructions read by whichever agent opens that repo. `~/.agents` is your personal, cross-project skills/MCP/hooks/roles config; the two are orthogonal, and dotagents only ever touches the latter.
 
 ## License
 
