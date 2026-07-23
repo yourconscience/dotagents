@@ -811,11 +811,18 @@ func endTOMLSection(content string, start int, header string) int {
 	if searchStart < len(content) && content[searchStart] == '\n' {
 		searchStart++
 	}
-	endRel := indexNextTOMLHeader(content[searchStart:])
-	if endRel == -1 {
-		return len(content)
+	descendantPrefix := strings.TrimSuffix(header, "]") + "."
+	for {
+		endRel := indexNextTOMLHeader(content[searchStart:])
+		if endRel == -1 {
+			return len(content)
+		}
+		end := searchStart + endRel
+		if !strings.HasPrefix(content[end:], descendantPrefix) {
+			return end
+		}
+		searchStart = end + 1
 	}
-	return searchStart + endRel
 }
 
 func findTOMLInsertPoint(content string) int {

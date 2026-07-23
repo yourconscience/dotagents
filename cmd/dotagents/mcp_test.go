@@ -261,6 +261,9 @@ command = "uvx"
 args = ["wrong"]
 env = { UV_HTTP_TIMEOUT = "30" }
 
+[mcp_servers.linkedin.env]
+UV_HTTP_TIMEOUT = "300"
+
 [profiles.default]
 model = "gpt-5"
 `)
@@ -282,6 +285,9 @@ model = "gpt-5"
 	}
 	if strings.Contains(content, `command = "old"`) || strings.Contains(content, `args = ["wrong"]`) {
 		t.Fatalf("stale linkedin section was not removed:\n%s", content)
+	}
+	if strings.Contains(content, "[mcp_servers.linkedin.env]") {
+		t.Fatalf("stale linkedin env subsection was not removed:\n%s", content)
 	}
 	if !strings.Contains(content, "[mcp_servers.other]") || !strings.Contains(content, "[profiles.default]") {
 		t.Fatalf("unrelated sections were not preserved:\n%s", content)
