@@ -463,6 +463,27 @@ func TestDroidHookPatchWritesNestedHooks(t *testing.T) {
 	}
 }
 
+func TestUpsertCodexHooksFeaturePreservesNestedFeatureKeys(t *testing.T) {
+	content := `[features]
+unified_exec = true
+
+[features.custom]
+hooks = false
+
+[profiles.default]
+model = "gpt-5"
+`
+
+	updated := upsertCodexHooksFeature(content)
+	parent, ok := extractTOMLSection(updated, "[features]")
+	if !ok || !strings.Contains(parent, "hooks = true") {
+		t.Fatalf("parent [features] section was not enabled:\n%s", updated)
+	}
+	if !strings.Contains(updated, "[features.custom]\nhooks = false") {
+		t.Fatalf("nested feature table was changed:\n%s", updated)
+	}
+}
+
 func TestHermesNativeCmuxHookEventsAreSupported(t *testing.T) {
 	for _, event := range []string{
 		"on_session_start",

@@ -559,7 +559,7 @@ func patchCodexMCPServer(target mcpTarget, server mcpServerConfig, home string) 
 	}
 	header := fmt.Sprintf("[mcp_servers.%s]", server.Name)
 	section := renderCodexMCPSection(server)
-	updated := upsertTOMLSection(content, header, section)
+	updated := upsertTOMLSectionIncludingDescendants(content, header, section)
 	if updated == content {
 		return nil
 	}
@@ -751,6 +751,15 @@ func upsertTOMLSection(content string, header string, section string) string {
 	return cleaned[:start] + ensureTrailingBlankLine(section) + cleaned[start:]
 }
 
+func upsertTOMLSectionIncludingDescendants(content string, header string, section string) string {
+	start := indexTOMLSectionHeader(content, header)
+	if start == -1 {
+		return upsertTOMLSection(content, header, section)
+	}
+	cleaned := removeTOMLSectionsIncludingDescendants(content, header)
+	return cleaned[:start] + ensureTrailingBlankLine(section) + cleaned[start:]
+}
+
 func removeTOMLSections(content string, header string) string {
 	var out strings.Builder
 	cursor := 0
@@ -763,6 +772,21 @@ func removeTOMLSections(content string, header string) string {
 		start := cursor + startRel
 		out.WriteString(content[cursor:start])
 		cursor = endTOMLSection(content, start, header)
+	}
+}
+
+func removeTOMLSectionsIncludingDescendants(content string, header string) string {
+	var out strings.Builder
+	cursor := 0
+	for {
+		startRel := indexTOMLSectionHeader(content[cursor:], header)
+		if startRel == -1 {
+			out.WriteString(content[cursor:])
+			return out.String()
+		}
+		start := cursor + startRel
+		out.WriteString(content[cursor:start])
+		cursor = endTOMLSectionIncludingDescendants(content, start, header)
 	}
 }
 
@@ -804,6 +828,21 @@ func tomlSectionHeaderSuffixMatches(content string, start int) bool {
 }
 
 func endTOMLSection(content string, start int, header string) int {
+	searchStart := start + len(header)
+	if searchStart < len(content) && content[searchStart] == '\r' {
+		searchStart++
+	}
+	if searchStart < len(content) && content[searchStart] == '\n' {
+		searchStart++
+	}
+	endRel := indexNextTOMLHeader(content[searchStart:])
+	if endRel == -1 {
+		return len(content)
+	}
+	return searchStart + endRel
+}
+
+func endTOMLSectionIncludingDescendants(content string, start int, header string) int {
 	searchStart := start + len(header)
 	if searchStart < len(content) && content[searchStart] == '\r' {
 		searchStart++
