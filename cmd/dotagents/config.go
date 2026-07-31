@@ -236,6 +236,9 @@ func validateConfig(cfg *config, home string, expand bool) error {
 		if cfg.Hooks[i].Command == "" {
 			return fmt.Errorf("config hook %s is missing command", cfg.Hooks[i].Name)
 		}
+		if cfg.Hooks[i].Timeout < 0 {
+			return fmt.Errorf("config hook %s has negative timeout", cfg.Hooks[i].Name)
+		}
 		if _, ok := seenHooks[cfg.Hooks[i].Name]; ok {
 			return fmt.Errorf("config hook %s is duplicated", cfg.Hooks[i].Name)
 		}

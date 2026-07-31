@@ -133,20 +133,23 @@ def ai_index_paths(ai_dir: Path):
 
 
 def reindex(notes_dir: str, profile_dir: str, ai_dir: Path, collection: str):
-    subprocess.run(
-        [
-            "memsearch",
-            "index",
-            notes_dir,
-            profile_dir,
-            *ai_index_paths(ai_dir),
-            "--collection",
-            collection,
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
+    try:
+        subprocess.run(
+            [
+                "memsearch",
+                "index",
+                notes_dir,
+                profile_dir,
+                *ai_index_paths(ai_dir),
+                "--collection",
+                collection,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except OSError:
+        pass
 
 
 def main():

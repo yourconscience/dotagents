@@ -80,7 +80,7 @@ Pi has a managed skill root only. OMP is a separate target with skills, roles, a
 
 For MCP servers, sync patches only named canonical entries and preserves unrelated native servers. Import redacts literal environment values to `${KEY}` references; list output never prints values.
 
-For hooks, sync registers only declared entries on harnesses with verified hook support. First-use approval and reapproval after script changes remain host-local user actions.
+For hooks, sync registers only declared entries on harnesses with verified hook support. Host-local review and approval state remains outside dotagents; Hermes keys first-use consent by the exact event and command and reports script mtime drift through `hermes hooks doctor`.
 
 `sync --pull` runs `git pull --ff-only` in the private canonical repository before reconciliation.
 

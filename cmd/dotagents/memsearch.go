@@ -205,6 +205,7 @@ func migrateLegacyMemoryHookPaths(home string, roots ...string) (int, error) {
 
 	paths := []string{
 		filepath.Join(home, ".claude", "settings.json"),
+		filepath.Join(home, ".factory", "hooks.json"),
 		filepath.Join(home, ".factory", "settings.json"),
 		filepath.Join(home, ".hermes", "config.yaml"),
 	}
@@ -215,6 +216,7 @@ func migrateLegacyMemoryHookPaths(home string, roots ...string) (int, error) {
 		paths = append(paths,
 			filepath.Join(root, ".claude", "settings.json"),
 			filepath.Join(root, ".claude", "settings.local.json"),
+			filepath.Join(root, ".factory", "hooks.json"),
 			filepath.Join(root, ".factory", "settings.json"),
 			filepath.Join(root, ".factory", "settings.local.json"),
 		)

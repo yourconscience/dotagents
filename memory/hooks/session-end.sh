@@ -41,13 +41,13 @@ PY
 
 case "$kind" in
   amp-json)
-    exec python3 "$MEMORY_DIR/lib/amp_digest.py" <"$payload"
+    python3 "$MEMORY_DIR/lib/amp_digest.py" <"$payload"
     ;;
   factory-jsonl)
-    exec python3 "$MEMORY_DIR/lib/factory_digest.py" <"$payload"
+    python3 "$MEMORY_DIR/lib/factory_digest.py" <"$payload"
     ;;
   hermes-json)
-    exec python3 "$MEMORY_DIR/lib/hermes_digest.py" <"$payload"
+    python3 "$MEMORY_DIR/lib/hermes_digest.py" <"$payload"
     ;;
   *)
     plugin_dir="$(resolve_claude_memory_plugin || true)"

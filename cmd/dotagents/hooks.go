@@ -129,7 +129,9 @@ func patchClaudeHook(hook hookConfig, home string) error {
 	} else if err := parseJSONConfig(configPath, data, &raw); err != nil {
 		return fmt.Errorf("parse %s: %w", configPath, err)
 	}
-	upsertClaudeHookMap(raw, hook)
+	if err := upsertClaudeHookMap(raw, hook); err != nil {
+		return fmt.Errorf("patch %s: %w", configPath, err)
+	}
 	out, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", configPath, err)
@@ -149,6 +151,7 @@ func inspectHermesHook(hook hookConfig, home string) (string, error) {
 	if !ok {
 		return stateUnsupported, nil
 	}
+	hook = nativeHermesHook(hook)
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -169,6 +172,7 @@ func patchHermesHook(hook hookConfig, home string) error {
 	if !ok {
 		return fmt.Errorf("unsupported hermes hook event %q for %s", hook.Event, hook.Name)
 	}
+	hook = nativeHermesHook(hook)
 	configPath := filepath.Join(home, ".hermes", "config.yaml")
 	data, err := os.ReadFile(configPath)
 	raw := map[string]interface{}{}
@@ -179,7 +183,9 @@ func patchHermesHook(hook hookConfig, home string) error {
 	} else if err := yaml.Unmarshal(data, &raw); err != nil {
 		return fmt.Errorf("parse %s: %w", configPath, err)
 	}
-	upsertSimpleHookMap(raw, "hooks", nativeEvent, hook)
+	if err := upsertSimpleHookMap(raw, "hooks", nativeEvent, hook); err != nil {
+		return fmt.Errorf("patch %s: %w", configPath, err)
+	}
 	out, err := yaml.Marshal(raw)
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", configPath, err)
@@ -192,8 +198,16 @@ func patchHermesHook(hook hookConfig, home string) error {
 	}
 	return nil
 }
+
+func nativeHermesHook(hook hookConfig) hookConfig {
+	if hook.Timeout > 300 {
+		hook.Timeout = 300
+	}
+	return hook
+}
+
 func inspectCodexHook(hook hookConfig, home string) (string, error) {
-	state, err := inspectNestedJSONHook(codexHooksConfigPath(home), hook)
+	state, err := inspectNestedJSONHook(codexHooksConfigPath(home), nativeCodexHook(hook))
 	if err != nil || state != stateSynced {
 		return state, err
 	}
@@ -204,18 +218,28 @@ func inspectCodexHook(hook hookConfig, home string) (string, error) {
 }
 
 func patchCodexHook(hook hookConfig, home string) error {
-	if err := patchNestedJSONHook(codexHooksConfigPath(home), hook); err != nil {
+	if err := patchNestedJSONHook(codexHooksConfigPath(home), nativeCodexHook(hook)); err != nil {
 		return err
 	}
 	return patchCodexHooksFeature(home)
 }
 
+func nativeCodexHook(hook hookConfig) hookConfig {
+	// Codex gives SessionEnd hooks at most three seconds, even when a larger
+	// timeout is configured. Render the effective value so status does not
+	// report permanent drift from an impossible desired timeout.
+	if hook.Event == "SessionEnd" && hook.Timeout > 3 {
+		hook.Timeout = 3
+	}
+	return hook
+}
+
 func inspectDroidHook(hook hookConfig, home string) (string, error) {
-	return inspectNestedJSONHook(droidHooksConfigPath(home), hook)
+	return inspectNestedJSONHook(activeDroidHooksConfigPath(home), hook)
 }
 
 func patchDroidHook(hook hookConfig, home string) error {
-	return patchNestedJSONHook(droidHooksConfigPath(home), hook)
+	return patchNestedJSONHook(activeDroidHooksConfigPath(home), hook)
 }
 
 func removeNativeManagedMemoryHooks(home string, root string, prior config, current config) (int, error) {
@@ -233,6 +257,9 @@ func removeNativeManagedMemoryHooks(home string, root string, prior config, curr
 		},
 		func(home string, commands []string) (bool, error) {
 			return removeGroupedJSONHookCommands(droidHooksConfigPath(home), commands)
+		},
+		func(home string, commands []string) (bool, error) {
+			return removeGroupedJSONHookCommands(droidLegacyHooksConfigPath(home), commands)
 		},
 		func(home string, commands []string) (bool, error) {
 			return removeSimpleYAMLHookCommands(filepath.Join(home, ".hermes", "config.yaml"), commands)
@@ -335,7 +362,23 @@ func codexHooksConfigPath(home string) string {
 }
 
 func droidHooksConfigPath(home string) string {
+	return filepath.Join(home, ".factory", "hooks.json")
+}
+
+func droidLegacyHooksConfigPath(home string) string {
 	return filepath.Join(home, ".factory", "settings.json")
+}
+
+func activeDroidHooksConfigPath(home string) string {
+	primary := droidHooksConfigPath(home)
+	if hasFile(primary) {
+		return primary
+	}
+	legacy := droidLegacyHooksConfigPath(home)
+	if hasFile(legacy) {
+		return legacy
+	}
+	return primary
 }
 
 func inspectNestedJSONHook(configPath string, hook hookConfig) (string, error) {
@@ -363,7 +406,9 @@ func patchNestedJSONHook(configPath string, hook hookConfig) error {
 	} else if err := parseJSONConfig(configPath, data, &raw); err != nil {
 		return fmt.Errorf("parse %s: %w", configPath, err)
 	}
-	upsertNestedJSONHookMap(raw, hook)
+	if err := upsertNestedJSONHookMap(raw, hook); err != nil {
+		return fmt.Errorf("patch %s: %w", configPath, err)
+	}
 	out, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", configPath, err)
@@ -426,46 +471,64 @@ func inspectGroupedHookMap(raw map[string]interface{}, hook hookConfig, requireT
 	return stateMissing
 }
 
-func upsertClaudeHookMap(raw map[string]interface{}, hook hookConfig) {
-	upsertGroupedHookMap(raw, hook, renderHookEntry)
+func upsertClaudeHookMap(raw map[string]interface{}, hook hookConfig) error {
+	return upsertGroupedHookMap(raw, hook, renderHookEntry)
 }
 
-func upsertNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) {
-	upsertGroupedHookMap(raw, hook, renderNestedHookEntry)
+func upsertNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) error {
+	return upsertGroupedHookMap(raw, hook, renderNestedHookEntry)
 }
 
-func upsertGroupedHookMap(raw map[string]interface{}, hook hookConfig, render func(hookConfig) map[string]interface{}) {
-	hooksRoot, _ := raw["hooks"].(map[string]interface{})
-	if hooksRoot == nil {
+func upsertGroupedHookMap(raw map[string]interface{}, hook hookConfig, render func(hookConfig) map[string]interface{}) error {
+	hooksValue, hooksExist := raw["hooks"]
+	hooksRoot, hooksValid := hooksValue.(map[string]interface{})
+	if hooksExist && hooksValue != nil && !hooksValid {
+		return fmt.Errorf("hooks must be an object")
+	}
+	if !hooksExist || hooksValue == nil {
 		hooksRoot = map[string]interface{}{}
 		raw["hooks"] = hooksRoot
 	}
-	groups, _ := hooksRoot[hook.Event].([]interface{})
-	if len(groups) == 0 {
-		groups = []interface{}{map[string]interface{}{"hooks": []interface{}{}}}
+	groupsValue, groupsExist := hooksRoot[hook.Event]
+	groups, groupsValid := groupsValue.([]interface{})
+	if groupsExist && groupsValue != nil && !groupsValid {
+		return fmt.Errorf("hooks.%s must be an array", hook.Event)
 	}
-	targetIndex := 0
+
+	targetIndex := -1
 	for i, groupRaw := range groups {
 		group, ok := groupRaw.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		items, _ := group["hooks"].([]interface{})
+		items, ok := group["hooks"].([]interface{})
+		if !ok {
+			continue
+		}
 		if containsHookCommand(items, hook.Command) {
 			targetIndex = i
 			break
 		}
 	}
+	if targetIndex == -1 {
+		// A new unfiltered hook must get its own matcher-free group. Appending
+		// it to an existing matcher group would silently narrow when it runs.
+		groups = append(groups, map[string]interface{}{
+			"hooks": []interface{}{render(hook)},
+		})
+		hooksRoot[hook.Event] = groups
+		return nil
+	}
+
 	for i, groupRaw := range groups {
-		group, _ := groupRaw.(map[string]interface{})
-		if group == nil {
-			if i != targetIndex {
-				continue
-			}
-			group = map[string]interface{}{}
-			groups[i] = group
+		group, ok := groupRaw.(map[string]interface{})
+		if !ok {
+			continue
 		}
-		items, _ := group["hooks"].([]interface{})
+		items, ok := group["hooks"].([]interface{})
+		if !ok {
+			continue
+		}
 		items = removeHookCommand(items, hook.Command)
 		if i == targetIndex {
 			items = append(items, render(hook))
@@ -473,6 +536,7 @@ func upsertGroupedHookMap(raw map[string]interface{}, hook hookConfig, render fu
 		group["hooks"] = items
 	}
 	hooksRoot[hook.Event] = groups
+	return nil
 }
 
 func inspectSimpleHookMap(raw map[string]interface{}, rootKey string, event string, hook hookConfig) string {
@@ -501,16 +565,25 @@ func inspectSimpleHookMap(raw map[string]interface{}, rootKey string, event stri
 	return stateMissing
 }
 
-func upsertSimpleHookMap(raw map[string]interface{}, rootKey string, event string, hook hookConfig) {
-	root, _ := raw[rootKey].(map[string]interface{})
-	if root == nil {
+func upsertSimpleHookMap(raw map[string]interface{}, rootKey string, event string, hook hookConfig) error {
+	rootValue, rootExists := raw[rootKey]
+	root, rootValid := rootValue.(map[string]interface{})
+	if rootExists && rootValue != nil && !rootValid {
+		return fmt.Errorf("%s must be an object", rootKey)
+	}
+	if !rootExists || rootValue == nil {
 		root = map[string]interface{}{}
 		raw[rootKey] = root
 	}
-	items, _ := root[event].([]interface{})
+	itemsValue, itemsExist := root[event]
+	items, itemsValid := itemsValue.([]interface{})
+	if itemsExist && itemsValue != nil && !itemsValid {
+		return fmt.Errorf("%s.%s must be an array", rootKey, event)
+	}
 	items = removeHookCommand(items, hook.Command)
 	items = append(items, renderHookEntry(hook))
 	root[event] = items
+	return nil
 }
 
 func renderHookEntry(hook hookConfig) map[string]interface{} {
@@ -659,12 +732,18 @@ func hookCommandMatches(actual interface{}, expected string) bool {
 
 func normalizeHookCommand(command string) string {
 	command = strings.TrimSpace(command)
-	if strings.HasPrefix(command, "~/") {
-		if home, err := os.UserHomeDir(); err == nil && home != "" {
-			command = filepath.Join(home, strings.TrimPrefix(command, "~/"))
-		}
+	if !strings.HasPrefix(command, "~/") {
+		return command
 	}
-	return filepath.Clean(command)
+	pathEnd := strings.IndexAny(command, " \t\r\n")
+	if pathEnd == -1 {
+		pathEnd = len(command)
+	}
+	pathToken := command[:pathEnd]
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		pathToken = filepath.Join(home, strings.TrimPrefix(pathToken, "~/"))
+	}
+	return pathToken + command[pathEnd:]
 }
 
 func hookTimeoutMatches(item map[string]interface{}, timeout int) bool {
@@ -676,9 +755,9 @@ func hookTimeoutMatches(item map[string]interface{}, timeout int) bool {
 	case int:
 		return value == timeout
 	case int64:
-		return int(value) == timeout
+		return value == int64(timeout)
 	case float64:
-		return int(value) == timeout
+		return value == float64(timeout)
 	default:
 		return false
 	}
@@ -693,13 +772,20 @@ func hermesHookEvent(event string) (string, bool) {
 	case "on_session_start",
 		"pre_llm_call",
 		"post_llm_call",
+		"pre_verify",
 		"pre_approval_request",
 		"post_approval_response",
 		"on_session_end",
 		"on_session_finalize",
 		"on_session_reset",
+		"subagent_start",
+		"subagent_stop",
+		"pre_gateway_dispatch",
 		"pre_tool_call",
-		"post_tool_call":
+		"post_tool_call",
+		"transform_tool_result",
+		"transform_terminal_output",
+		"transform_llm_output":
 		return event, true
 	default:
 		return "", false

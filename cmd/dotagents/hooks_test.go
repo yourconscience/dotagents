@@ -104,7 +104,9 @@ func TestClaudeHookPatchUpdatesExistingHookInLaterGroup(t *testing.T) {
 		},
 	}
 
-	upsertClaudeHookMap(raw, testHook())
+	if err := upsertClaudeHookMap(raw, testHook()); err != nil {
+		t.Fatal(err)
+	}
 
 	groups := raw["hooks"].(map[string]interface{})["Stop"].([]interface{})
 	managedCount := 0
@@ -151,7 +153,9 @@ func TestHookCommandMatchingNormalizesHomePaths(t *testing.T) {
 	if state := inspectClaudeHookMap(raw, testHook()); state != stateDrifted {
 		t.Fatalf("inspectClaudeHookMap with absolute home path = %q, want drifted", state)
 	}
-	upsertClaudeHookMap(raw, testHook())
+	if err := upsertClaudeHookMap(raw, testHook()); err != nil {
+		t.Fatal(err)
+	}
 
 	groups := raw["hooks"].(map[string]interface{})["Stop"].([]interface{})
 	items := groups[0].(map[string]interface{})["hooks"].([]interface{})
@@ -161,6 +165,96 @@ func TestHookCommandMatchingNormalizesHomePaths(t *testing.T) {
 	item := items[0].(map[string]interface{})
 	if item["command"] != "~/.agents/memory/hooks/stop.sh" || item["timeout"].(int) != 15 {
 		t.Fatalf("managed hook was not updated in place: %#v", item)
+	}
+}
+
+func TestHookPatchAddsMatcherFreeGroupWithoutOverwritingExistingGroups(t *testing.T) {
+	raw := map[string]interface{}{
+		"hooks": map[string]interface{}{
+			"SessionStart": []interface{}{
+				map[string]interface{}{
+					"matcher": "resume",
+					"hooks": []interface{}{
+						map[string]interface{}{"command": "echo keep", "timeout": 1},
+					},
+				},
+				"future-native-group",
+				map[string]interface{}{
+					"matcher": "startup",
+					"hooks":   map[string]interface{}{"future": true},
+				},
+			},
+		},
+	}
+	groupsBefore := raw["hooks"].(map[string]interface{})["SessionStart"].([]interface{})
+	existingBefore, err := json.Marshal(groupsBefore)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hook := hookConfig{
+		Name:    "memory-session-start",
+		Enabled: true,
+		Event:   "SessionStart",
+		Command: "~/.agents/memory/hooks/session-start.sh",
+		Timeout: 15,
+	}
+
+	if err := upsertClaudeHookMap(raw, hook); err != nil {
+		t.Fatal(err)
+	}
+
+	groups := raw["hooks"].(map[string]interface{})["SessionStart"].([]interface{})
+	if len(groups) != 4 {
+		t.Fatalf("group count = %d, want 4: %#v", len(groups), groups)
+	}
+	existingAfter, err := json.Marshal(groups[:3])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(existingAfter) != string(existingBefore) {
+		t.Fatalf("existing groups changed:\nbefore: %s\nafter:  %s", existingBefore, existingAfter)
+	}
+	added := groups[3].(map[string]interface{})
+	if _, hasMatcher := added["matcher"]; hasMatcher {
+		t.Fatalf("new global hook inherited a matcher: %#v", added)
+	}
+	items := added["hooks"].([]interface{})
+	if len(items) != 1 || items[0].(map[string]interface{})["command"] != hook.Command {
+		t.Fatalf("new hook group = %#v", added)
+	}
+}
+
+func TestHookPatchRejectsMalformedHooksRootWithoutOverwritingIt(t *testing.T) {
+	home := t.TempDir()
+	configPath := filepath.Join(home, ".claude", "settings.json")
+	writeSyncTestFile(t, configPath, []byte("{\"hooks\":[\"keep\"]}\n"))
+	before, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := patchClaudeHook(testHook(), home); err == nil || !strings.Contains(err.Error(), "hooks must be an object") {
+		t.Fatalf("patch error = %v, want malformed hooks error", err)
+	}
+	after, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("malformed native config was overwritten:\nbefore: %s\nafter: %s", before, after)
+	}
+}
+
+func TestHookTimeoutDoesNotTruncateFractionalNativeValue(t *testing.T) {
+	item := map[string]interface{}{"timeout": 15.5}
+	if hookTimeoutMatches(item, 15) {
+		t.Fatal("fractional native timeout 15.5 matched desired integer timeout 15")
+	}
+}
+
+func TestHookCommandMatchingDoesNotCleanShellArgumentsAsPaths(t *testing.T) {
+	if hookCommandMatches("echo bar", "echo foo/../bar") {
+		t.Fatal("different shell arguments matched after path cleaning")
 	}
 }
 
@@ -262,6 +356,37 @@ func TestHermesHookPatchSessionEnd(t *testing.T) {
 	items := root["on_session_finalize"].([]interface{})
 	if len(items) != 2 {
 		t.Fatalf("unexpected hermes hooks: %#v", items)
+	}
+}
+
+func TestHermesHookClampsTimeoutToNativeMaximum(t *testing.T) {
+	home := t.TempDir()
+	hook := hookConfig{
+		Name:    "long-hermes-hook",
+		Enabled: true,
+		Event:   "post_llm_call",
+		Command: "~/.agents/hooks/long-running.sh",
+		Timeout: 5000,
+		Agents:  []string{agentHermes},
+	}
+	if err := patchHermesHook(hook, home); err != nil {
+		t.Fatal(err)
+	}
+	if state, err := inspectHermesHook(hook, home); err != nil || state != stateSynced {
+		t.Fatalf("inspect after patch = %q, %v; want synced, nil", state, err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".hermes", "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	items := raw["hooks"].(map[string]interface{})["post_llm_call"].([]interface{})
+	if got := items[0].(map[string]interface{})["timeout"]; got != 300 {
+		t.Fatalf("Hermes timeout = %#v, want 300", got)
 	}
 }
 
@@ -442,6 +567,37 @@ func TestCodexHookPatchEnablesCommentedFeaturesHeader(t *testing.T) {
 	}
 }
 
+func TestCodexSessionEndHookClampsTimeoutToNativeMaximum(t *testing.T) {
+	home := t.TempDir()
+	hook := hookConfig{
+		Name:    "memory-session-end",
+		Enabled: true,
+		Event:   "SessionEnd",
+		Command: "~/.agents/memory/hooks/basic-session-end.py",
+		Timeout: 30,
+		Agents:  []string{agentCodex},
+	}
+	if err := patchCodexHook(hook, home); err != nil {
+		t.Fatal(err)
+	}
+	if state, err := inspectCodexHook(hook, home); err != nil || state != stateSynced {
+		t.Fatalf("inspect after patch = %q, %v; want synced, nil", state, err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".codex", "hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	items := raw["hooks"].(map[string]interface{})["SessionEnd"].([]interface{})[0].(map[string]interface{})["hooks"].([]interface{})
+	if got := items[0].(map[string]interface{})["timeout"]; got != float64(3) {
+		t.Fatalf("Codex SessionEnd timeout = %#v, want 3", got)
+	}
+}
+
 func TestDroidHookPatchWritesNestedHooks(t *testing.T) {
 	home := t.TempDir()
 	hook := hookConfig{
@@ -457,6 +613,9 @@ func TestDroidHookPatchWritesNestedHooks(t *testing.T) {
 	}
 	if err := patchDroidHook(hook, home); err != nil {
 		t.Fatal(err)
+	}
+	if !hasFile(filepath.Join(home, ".factory", "hooks.json")) {
+		t.Fatal("new Droid hook config was not written to ~/.factory/hooks.json")
 	}
 	if state, err := inspectDroidHook(hook, home); err != nil || state != stateSynced {
 		t.Fatalf("inspect after patch = %q, %v; want synced, nil", state, err)
@@ -484,18 +643,72 @@ model = "gpt-5"
 	}
 }
 
+func TestDroidHookPatchUsesLegacySettingsWithoutShadowingUnrelatedHooks(t *testing.T) {
+	home := t.TempDir()
+	legacyPath := filepath.Join(home, ".factory", "settings.json")
+	writeSyncTestFile(t, legacyPath, []byte(`{
+  "model": "keep",
+  "hooks": {
+    "Stop": [{"hooks": [{"type": "command", "command": "echo keep"}]}]
+  }
+}`))
+	hook := hookConfig{
+		Name:    "memory-session-end",
+		Enabled: true,
+		Event:   "SessionEnd",
+		Command: "~/.agents/memory/hooks/session-end.sh",
+		Timeout: 30,
+		Agents:  []string{agentDroid},
+	}
+
+	if err := patchDroidHook(hook, home); err != nil {
+		t.Fatal(err)
+	}
+	if hasFile(filepath.Join(home, ".factory", "hooks.json")) {
+		t.Fatal("patch created hooks.json and shadowed unrelated legacy settings hooks")
+	}
+	data, err := os.ReadFile(legacyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if !strings.Contains(text, `"model": "keep"`) || !strings.Contains(text, "echo keep") || !strings.Contains(text, hook.Command) {
+		t.Fatalf("legacy Droid settings were not preserved and patched:\n%s", text)
+	}
+}
+
+func TestValidateConfigRejectsNegativeHookTimeout(t *testing.T) {
+	cfg := config{Hooks: []hookConfig{{
+		Name:    "invalid-timeout",
+		Enabled: true,
+		Event:   "SessionStart",
+		Command: "echo nope",
+		Timeout: -1,
+	}}}
+	if err := validateConfig(&cfg, t.TempDir(), false); err == nil || !strings.Contains(err.Error(), "negative timeout") {
+		t.Fatalf("validateConfig error = %v, want negative timeout error", err)
+	}
+}
+
 func TestHermesNativeCmuxHookEventsAreSupported(t *testing.T) {
 	for _, event := range []string{
 		"on_session_start",
 		"pre_llm_call",
 		"post_llm_call",
+		"pre_verify",
 		"pre_approval_request",
 		"post_approval_response",
 		"on_session_end",
 		"on_session_finalize",
 		"on_session_reset",
+		"subagent_start",
+		"subagent_stop",
+		"pre_gateway_dispatch",
 		"pre_tool_call",
 		"post_tool_call",
+		"transform_tool_result",
+		"transform_terminal_output",
+		"transform_llm_output",
 	} {
 		if got, ok := hermesHookEvent(event); !ok || got != event {
 			t.Fatalf("hermesHookEvent(%q) = %q, %v; want same event, true", event, got, ok)

@@ -152,6 +152,11 @@ func TestMigrateLegacyMemoryHookPaths(t *testing.T) {
     "SessionEnd": [{"hooks": [{"command": "` + filepath.Join(agents, "bin", "memsearch", "finalize.sh") + `"}]}]
   }
 }`,
+		filepath.Join(home, ".factory", "hooks.json"): `{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"command": "~/.agents/bin/memsearch/hook.sh session-start"}]}]
+  }
+}`,
 		filepath.Join(home, ".hermes", "config.yaml"): `hooks:
   on_session_finalize:
   - command: ~/.agents/bin/memsearch/finalize.sh
@@ -183,8 +188,8 @@ func TestMigrateLegacyMemoryHookPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if migrated != 5 {
-		t.Fatalf("migrated = %d, want 5", migrated)
+	if migrated != 6 {
+		t.Fatalf("migrated = %d, want 6", migrated)
 	}
 
 	for path := range files {
