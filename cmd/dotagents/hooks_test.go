@@ -245,10 +245,25 @@ func TestHookPatchRejectsMalformedHooksRootWithoutOverwritingIt(t *testing.T) {
 	}
 }
 
-func TestHookTimeoutDoesNotTruncateFractionalNativeValue(t *testing.T) {
-	item := map[string]interface{}{"timeout": 15.5}
-	if hookTimeoutMatches(item, 15) {
-		t.Fatal("fractional native timeout 15.5 matched desired integer timeout 15")
+func TestHookTimeoutMatchesExactNumericValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		value  interface{}
+		target int
+		want   bool
+	}{
+		{name: "int64 exact", value: int64(15), target: 15, want: true},
+		{name: "int64 mismatch", value: int64(16), target: 15, want: false},
+		{name: "float64 exact", value: float64(15), target: 15, want: true},
+		{name: "float64 fractional", value: 15.5, target: 15, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			item := map[string]interface{}{"timeout": test.value}
+			if got := hookTimeoutMatches(item, test.target); got != test.want {
+				t.Fatalf("hookTimeoutMatches(%#v, %d) = %v, want %v", test.value, test.target, got, test.want)
+			}
+		})
 	}
 }
 
@@ -385,8 +400,8 @@ func TestHermesHookClampsTimeoutToNativeMaximum(t *testing.T) {
 		t.Fatal(err)
 	}
 	items := raw["hooks"].(map[string]interface{})["post_llm_call"].([]interface{})
-	if got := items[0].(map[string]interface{})["timeout"]; got != 300 {
-		t.Fatalf("Hermes timeout = %#v, want 300", got)
+	if got := items[0].(map[string]interface{})["timeout"]; got != hermesMaxHookTimeout {
+		t.Fatalf("Hermes timeout = %#v, want %d", got, hermesMaxHookTimeout)
 	}
 }
 
@@ -593,8 +608,8 @@ func TestCodexSessionEndHookClampsTimeoutToNativeMaximum(t *testing.T) {
 		t.Fatal(err)
 	}
 	items := raw["hooks"].(map[string]interface{})["SessionEnd"].([]interface{})[0].(map[string]interface{})["hooks"].([]interface{})
-	if got := items[0].(map[string]interface{})["timeout"]; got != float64(3) {
-		t.Fatalf("Codex SessionEnd timeout = %#v, want 3", got)
+	if got := items[0].(map[string]interface{})["timeout"]; got != float64(codexSessionEndMaxTimeout) {
+		t.Fatalf("Codex SessionEnd timeout = %#v, want %d", got, codexSessionEndMaxTimeout)
 	}
 }
 

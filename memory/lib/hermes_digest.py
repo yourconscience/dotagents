@@ -148,8 +148,8 @@ def reindex(notes_dir: str, profile_dir: str, ai_dir: Path, collection: str):
             stderr=subprocess.DEVNULL,
             check=False,
         )
-    except OSError:
-        pass
+    except OSError as exc:
+        print(f"memsearch reindex warning: {exc}", file=sys.stderr)
 
 
 def main():

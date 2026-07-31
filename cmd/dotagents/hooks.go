@@ -25,6 +25,11 @@ type hookTarget struct {
 	patch     func(hookConfig, string) error
 }
 
+const (
+	codexSessionEndMaxTimeout = 3
+	hermesMaxHookTimeout      = 300
+)
+
 func desiredHooksForAgent(cfg config, agentName string) ([]hookConfig, bool) {
 	agentName = normalizeAgentName(agentName)
 	var hooks []hookConfig
@@ -200,8 +205,8 @@ func patchHermesHook(hook hookConfig, home string) error {
 }
 
 func nativeHermesHook(hook hookConfig) hookConfig {
-	if hook.Timeout > 300 {
-		hook.Timeout = 300
+	if hook.Timeout > hermesMaxHookTimeout {
+		hook.Timeout = hermesMaxHookTimeout
 	}
 	return hook
 }
@@ -228,8 +233,8 @@ func nativeCodexHook(hook hookConfig) hookConfig {
 	// Codex gives SessionEnd hooks at most three seconds, even when a larger
 	// timeout is configured. Render the effective value so status does not
 	// report permanent drift from an impossible desired timeout.
-	if hook.Event == "SessionEnd" && hook.Timeout > 3 {
-		hook.Timeout = 3
+	if hook.Event == "SessionEnd" && hook.Timeout > codexSessionEndMaxTimeout {
+		hook.Timeout = codexSessionEndMaxTimeout
 	}
 	return hook
 }

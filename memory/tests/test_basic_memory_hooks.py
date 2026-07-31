@@ -239,7 +239,7 @@ class BasicMemoryHookTests(unittest.TestCase):
                 "sk-proj-abcdefghijklmnopqrstuvwx",
                 "ghp_abcdefghijklmnopqrstuvwxyz123456",
                 "github_pat_abcdefghijklmnopqrstuvwxyz123456",
-                "glpat-abcdefghijklmnopqrstuvwxyz123456",
+                "glpat-" + "abcdefghijklmnopqrstuvwxyz123456",
                 "xoxb-" + "123456789012-abcdefghijklmnop",
             ]
             payload = {
@@ -346,6 +346,9 @@ class BasicMemoryHookTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)["action"], "continue")
             self.assertEqual(list(temp_dir.iterdir()), [])
+            session_note = knowledge / "sessions" / "2026-07-16.md"
+            self.assertTrue(session_note.is_file())
+            self.assertIn("Clean the payload file.", session_note.read_text(encoding="utf-8"))
 
     def test_concurrent_same_and_different_session_writes_do_not_duplicate_or_drop(self):
         with tempfile.TemporaryDirectory() as tmp:
