@@ -380,10 +380,23 @@ func activeDroidHooksConfigPath(home string) string {
 		return primary
 	}
 	legacy := droidLegacyHooksConfigPath(home)
-	if hasFile(legacy) {
+	if hasDroidLegacyHooks(legacy) {
 		return legacy
 	}
 	return primary
+}
+
+func hasDroidLegacyHooks(configPath string) bool {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return false
+	}
+	var raw map[string]interface{}
+	if err := parseJSONConfig(configPath, data, &raw); err != nil {
+		return false
+	}
+	_, ok := raw["hooks"].(map[string]interface{})
+	return ok
 }
 
 func inspectNestedJSONHook(configPath string, hook hookConfig) (string, error) {

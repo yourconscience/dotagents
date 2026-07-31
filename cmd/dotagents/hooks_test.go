@@ -692,6 +692,35 @@ func TestDroidHookPatchUsesLegacySettingsWithoutShadowingUnrelatedHooks(t *testi
 	}
 }
 
+func TestDroidHookPatchUsesPrimaryConfigWhenLegacySettingsHaveNoHooks(t *testing.T) {
+	home := t.TempDir()
+	legacyPath := filepath.Join(home, ".factory", "settings.json")
+	legacy := []byte("{\"model\":\"keep\"}\n")
+	writeSyncTestFile(t, legacyPath, legacy)
+	hook := hookConfig{
+		Name:    "memory-session-end",
+		Enabled: true,
+		Event:   "SessionEnd",
+		Command: "~/.agents/memory/hooks/session-end.sh",
+		Timeout: 30,
+		Agents:  []string{agentDroid},
+	}
+
+	if err := patchDroidHook(hook, home); err != nil {
+		t.Fatal(err)
+	}
+	if !hasFile(filepath.Join(home, ".factory", "hooks.json")) {
+		t.Fatal("patch did not create the primary Droid hooks.json")
+	}
+	data, err := os.ReadFile(legacyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(legacy) {
+		t.Fatalf("ordinary Droid settings changed:\nbefore: %s\nafter: %s", legacy, data)
+	}
+}
+
 func TestValidateConfigRejectsNegativeHookTimeout(t *testing.T) {
 	cfg := config{Hooks: []hookConfig{{
 		Name:    "invalid-timeout",
