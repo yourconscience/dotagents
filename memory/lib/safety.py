@@ -19,6 +19,11 @@ _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
         r"(?i)\b((?:api[_-]?key|secret|token|password|authorization|auth)\s*[:=]\s*)(?:\"[^\"]+\"|'[^']+'|[^\s`'\"\\]+)"
     ),
     re.compile(r"(?i)((?:[?&])(?:api[_-]?key|secret|token|password|auth)=)[^&\s`'\"\\]+"),
+    re.compile(r"(?i)\b(sk-(?:ant-|proj-|svcacct-)?)[A-Za-z0-9_-]{16,}"),
+    re.compile(r"(?i)\b(github_pat_)[A-Za-z0-9_]{20,}"),
+    re.compile(r"(?i)\b(gh[pousr]_)[A-Za-z0-9]{20,}"),
+    re.compile(r"(?i)\b(glpat-)[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)\b(xox[baprs]-)[A-Za-z0-9-]{16,}"),
 )
 
 

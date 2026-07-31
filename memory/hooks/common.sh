@@ -26,9 +26,15 @@ load_memory_config() {
 }
 
 resolve_claude_memory_plugin() {
-  plugin_dir="${MEMSEARCH_PLUGIN_DIR:-$(dirname "$(command -v memsearch 2>/dev/null || echo "")")/plugins/claude-code}"
-  if [ ! -d "$plugin_dir" ]; then
-    plugin_dir="$(python3 -c 'import memsearch; import os; print(os.path.join(os.path.dirname(memsearch.__file__), "plugins", "claude-code"))' 2>/dev/null || echo "")"
+  plugin_dir="${MEMSEARCH_PLUGIN_DIR:-}"
+  if [ -z "$plugin_dir" ]; then
+    memsearch_bin="$(command -v memsearch 2>/dev/null || true)"
+    if [ -n "$memsearch_bin" ]; then
+      plugin_dir="$(dirname "$memsearch_bin")/plugins/claude-code"
+    fi
+  fi
+  if [ -z "$plugin_dir" ] || [ ! -d "$plugin_dir" ]; then
+    plugin_dir="$(python3 -c 'import memsearch; import os; print(os.path.join(os.path.dirname(memsearch.__file__), "plugins", "claude-code"))' 2>/dev/null || true)"
   fi
   [ -d "$plugin_dir" ] && printf '%s\n' "$plugin_dir"
 }

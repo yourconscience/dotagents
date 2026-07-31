@@ -50,8 +50,8 @@ for f in new_facts:
 ## Hook approval loop
 
 - Hook scripts at `~/.agents/memory/hooks/` require first-use TTY approval.
-- `hermes hooks doctor` reports `script modified since approval` when mtime drifts — requires `hermes hooks revoke <command>`, then re-approve at next session-end TTY prompt.
-- `--accept-hooks` flag applies only to the current `hermes hooks test` invocation, does NOT persist approval.
+- Consent is keyed by the exact `(event, command)` pair. Script edits remain trusted; `hermes hooks doctor` reports mtime drift for review but does not require reapproval.
+- `--accept-hooks` bypasses the interactive prompt for that Hermes invocation. Use interactive approval when the consent should be recorded normally.
 - Hook approval is stored in `~/.hermes/shell-hooks-allowlist.json`.
 - The allowlist matches the **exact command string** from `config.yaml`.
 
@@ -96,13 +96,13 @@ cat ~/.hermes/shell-hooks-allowlist.json
 Important distinction:
 - Live hook execution still spawns the script; invalid JSON means Hermes ignores the hook response payload, not that the side effect necessarily failed.
 - Doctor remains red and should not be ignored long-term.
-- Fixing wrapper stdout after approval changes the script mtime/hash, so Hermes will require hook re-approval. From Telegram/mobile this is a bad time to patch unless `hooks_auto_accept` is intentionally enabled or the user can approve from a TTY.
+- Fixing wrapper stdout after approval changes the script mtime, so `hermes hooks doctor` will flag drift for review; the exact approved event and command remain trusted.
 
-Preferred repair when a TTY is available:
+Preferred repair:
 1. Make the sync wrapper capture `sync.py` logs to stderr or a log file and print one JSON object to stdout, e.g. `{"action":"continue","message":"memory sync complete"}`.
-2. Run `hermes hooks revoke <command>` if doctor reports modified-since-approval.
-3. Trigger or test hooks from a TTY and approve, or update the allowlist deliberately only when the command/path is unchanged and the user has explicitly asked for that local repair.
-4. Verify `hermes hooks doctor` is fully green.
+2. Review the script diff when doctor reports modified-since-approval.
+3. Run `hermes hooks revoke <command>` only when you intentionally want to discard the existing consent and approve the exact command again.
+4. Trigger or test the hook and verify `hermes hooks doctor` is fully green.
 
 Known-good wrapper shape:
 - `set -u`, not `set -eu`, so the wrapper can serialize a non-zero child exit into JSON before exiting with that status.

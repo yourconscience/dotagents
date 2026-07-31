@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -14,7 +15,9 @@ MEMORY_DIR = Path(__file__).resolve().parents[1]
 END_HOOK = MEMORY_DIR / "hooks" / "basic-session-end.py"
 START_HOOK = MEMORY_DIR / "hooks" / "basic-session-start.py"
 AMP_DIGEST = MEMORY_DIR / "lib" / "amp_digest.py"
+FACTORY_DIGEST = MEMORY_DIR / "lib" / "factory_digest.py"
 HERMES_DIGEST = MEMORY_DIR / "lib" / "hermes_digest.py"
+SESSION_END_HOOK = MEMORY_DIR / "hooks" / "session-end.sh"
 
 
 class BasicMemoryHookTests(unittest.TestCase):
@@ -228,6 +231,124 @@ class BasicMemoryHookTests(unittest.TestCase):
             self.assertNotIn(path_secret, content)
             self.assertNotIn(hermes_secret, content)
             self.assertIn("[REDACTED]", content)
+
+    def test_basic_digest_redacts_unlabelled_provider_tokens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            knowledge = Path(tmp) / "knowledge"
+            secrets = [
+                "sk-proj-abcdefghijklmnopqrstuvwx",
+                "ghp_abcdefghijklmnopqrstuvwxyz123456",
+                "github_pat_abcdefghijklmnopqrstuvwxyz123456",
+                "glpat-" + "abcdefghijklmnopqrstuvwxyz123456",
+                "xoxb-" + "123456789012-abcdefghijklmnop",
+            ]
+            payload = {
+                "hook_event_name": "SessionEnd",
+                "session_id": "bare-token-redaction",
+                "session_start": "2026-07-16T03:04:05Z",
+                "messages": [{"role": "user", "content": " ".join(secrets)}],
+            }
+
+            result = self.run_hook(END_HOOK, payload, env=self.env_with_knowledge(knowledge))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            content = (knowledge / "sessions" / "2026-07-16.md").read_text(encoding="utf-8")
+            for secret in secrets:
+                self.assertNotIn(secret, content)
+            self.assertIn("[REDACTED]", content)
+
+    def test_provider_digests_persist_when_memsearch_binary_disappears(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            env = self.env_with_knowledge(knowledge, {"PATH": ""})
+
+            factory_transcript = tmp_path / "factory-session.jsonl"
+            factory_transcript.write_text(
+                "\n".join(
+                    [
+                        json.dumps({"type": "session_start", "id": "factory-no-memsearch", "timestamp": "2026-07-16T05:06:07Z"}),
+                        json.dumps(
+                            {
+                                "type": "message",
+                                "timestamp": "2026-07-16T05:07:08Z",
+                                "message": {"role": "user", "content": "Persist the Factory digest."},
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            factory = self.run_hook(
+                FACTORY_DIGEST,
+                {"session_id": "factory-no-memsearch", "transcript_path": str(factory_transcript)},
+                env=env,
+            )
+            self.assertEqual(factory.returncode, 0, factory.stderr)
+            self.assertTrue(json.loads(factory.stdout)["continue"])
+
+            hermes_home = tmp_path / "hermes"
+            hermes_sessions = hermes_home / "sessions"
+            hermes_sessions.mkdir(parents=True)
+            hermes_data = {
+                "session_id": "hermes-no-memsearch",
+                "session_start": "2026-07-16T06:07:08",
+                "messages": [{"role": "user", "content": "Persist the Hermes digest."}],
+            }
+            (hermes_sessions / "session_hermes-no-memsearch.json").write_text(json.dumps(hermes_data), encoding="utf-8")
+            hermes = self.run_hook(
+                HERMES_DIGEST,
+                {"session_id": "hermes-no-memsearch"},
+                env={**env, "HERMES_HOME": str(hermes_home)},
+            )
+            self.assertEqual(hermes.returncode, 0, hermes.stderr)
+            self.assertEqual(json.loads(hermes.stdout)["action"], "continue")
+
+            content = (knowledge / "sessions" / "2026-07-16.md").read_text(encoding="utf-8")
+            self.assertIn("Persist the Factory digest.", content)
+            self.assertIn("Persist the Hermes digest.", content)
+
+    def test_session_end_dispatch_cleans_temporary_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            fake_bin = tmp_path / "bin"
+            fake_bin.mkdir()
+            for command in ("cat", "dirname", "mkdir", "mktemp", "rm"):
+                resolved = shutil.which(command)
+                self.assertIsNotNone(resolved)
+                (fake_bin / command).symlink_to(resolved)
+            (fake_bin / "python3").symlink_to(sys.executable)
+
+            temp_dir = tmp_path / "tmp"
+            temp_dir.mkdir()
+            knowledge = tmp_path / "knowledge"
+            env = self.env_with_knowledge(
+                knowledge,
+                {
+                    "PATH": str(fake_bin),
+                    "TMPDIR": str(temp_dir),
+                },
+            )
+            payload = {
+                "platform": "amp",
+                "session_id": "cleanup-temp",
+                "session_start": "2026-07-16T07:08:09Z",
+                "messages": [{"role": "user", "content": "Clean the payload file."}],
+            }
+            result = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)],
+                input=json.dumps(payload),
+                text=True,
+                capture_output=True,
+                env=env,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["action"], "continue")
+            self.assertEqual(list(temp_dir.iterdir()), [])
+            session_note = knowledge / "sessions" / "2026-07-16.md"
+            self.assertTrue(session_note.is_file())
+            self.assertIn("Clean the payload file.", session_note.read_text(encoding="utf-8"))
 
     def test_concurrent_same_and_different_session_writes_do_not_duplicate_or_drop(self):
         with tempfile.TemporaryDirectory() as tmp:

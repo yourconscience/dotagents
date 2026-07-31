@@ -177,12 +177,16 @@ def ai_index_paths(ai_dir: Path):
 
 def reindex(notes_dir: str, profile_dir: str, ai_dir: Path, collection: str):
     paths = [notes_dir, profile_dir, *ai_index_paths(ai_dir)]
-    result = subprocess.run(
-        ["memsearch", "index", *paths, "--collection", collection],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["memsearch", "index", *paths, "--collection", collection],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        print(f"memsearch reindex warning: {exc}", file=sys.stderr)
+        return
     if result.returncode != 0:
         print(f"memsearch reindex warning: {result.stderr.strip()}", file=sys.stderr)
 
