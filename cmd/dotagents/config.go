@@ -27,6 +27,8 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 		return "", "", config{}, nil, err
 	}
 
+	injectPluginMCPServers(&cfg, home)
+
 	selected, err := selectAgents(cfg, opts.Agents)
 	if err != nil {
 		return "", "", config{}, nil, err
@@ -183,6 +185,27 @@ func validateConfig(cfg *config, home string, expand bool) error {
 			return fmt.Errorf("config external_skills repo %q is duplicated", name)
 		}
 		seenExt[name] = struct{}{}
+
+		if src.MCP && len(src.MCPAgents) > 0 {
+			kept := src.MCPAgents[:0]
+			for _, agentName := range src.MCPAgents {
+				agentName = normalizeAgentName(agentName)
+				if agentName == "" {
+					continue
+				}
+				if len(seen) > 0 {
+					if _, ok := seen[agentName]; !ok {
+						return fmt.Errorf("config external_skills repo %q mcp_agents targets unknown agent %q", name, agentName)
+					}
+				}
+				if !hasMCPSupport(agentName) {
+					fmt.Fprintf(os.Stderr, "warning: config external_skills repo %q mcp_agents targets agent %q without MCP support; target ignored\n", name, agentName)
+					continue
+				}
+				kept = append(kept, agentName)
+			}
+			src.MCPAgents = kept
+		}
 	}
 
 	seenMCP := make(map[string]struct{})
