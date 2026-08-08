@@ -322,6 +322,7 @@ func discoverExternalSourceSkills(src externalSkillSource, home string) ([]disco
 	allowed := skillAllowlist(src)
 	discovered := make(map[string]discoveredSkill)
 	found := make(map[string]bool)
+	pluginRelaxed := isPluginRelaxedSource(src, cachePath)
 	for _, relDir := range externalSkillDirs(src) {
 		clean, err := cleanExternalSkillDir(relDir)
 		if err != nil {
@@ -329,6 +330,9 @@ func discoverExternalSourceSkills(src externalSkillSource, home string) ([]disco
 		}
 		skillBase := filepath.Join(cachePath, filepath.FromSlash(clean))
 		if !hasDir(skillBase) {
+			if pluginRelaxed {
+				continue
+			}
 			return nil, fmt.Errorf("skill directory %q not found in cloned external source %s", clean, src.URL)
 		}
 		resolvedBase, err := filepath.EvalSymlinks(skillBase)
@@ -358,7 +362,7 @@ func discoverExternalSourceSkills(src externalSkillSource, home string) ([]disco
 			return nil, fmt.Errorf("external source %s: allowlisted skill %q not found in configured skill directories", src.URL, skill)
 		}
 	}
-	if len(discovered) == 0 {
+	if len(discovered) == 0 && !pluginRelaxed {
 		return nil, fmt.Errorf("external source %s: no skills found in configured skill directories", src.URL)
 	}
 	return discoveredSkillValues(discovered), nil
@@ -777,6 +781,16 @@ func externalSkillCommit(cachePath string) string {
 		return "unknown"
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// isPluginRelaxedSource returns true when the source has a plugin.json and uses
+// the default skill location, so a missing or empty skills/ directory is not an
+// error (the source may only provide MCP servers).
+func isPluginRelaxedSource(src externalSkillSource, cachePath string) bool {
+	if !hasPluginManifest(cachePath) {
+		return false
+	}
+	return src.SkillDir == "skills" && len(src.SkillDirs) == 0
 }
 
 func isExternalSkillLink(linkPath string, rawTarget string, home string) bool {

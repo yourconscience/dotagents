@@ -14,6 +14,7 @@ func runStatus(opts runOptions) error {
 	if err != nil {
 		return err
 	}
+	injectPluginMCPServers(&cfg, home)
 
 	repoReport, err := inspectRepoLink(repoRoot, home)
 	if err != nil {
@@ -64,6 +65,8 @@ func runSync(opts runOptions) error {
 	if err := syncExternalRepos(cfg.ExternalSkills, home, repoRoot); err != nil {
 		return err
 	}
+	// Re-inject after clone so first sync picks up newly fetched plugins.
+	injectPluginMCPServers(&cfg, home)
 	if err := renderCommittedArtifacts(repoRoot); err != nil {
 		return err
 	}

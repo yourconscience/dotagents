@@ -563,6 +563,17 @@ func TestSetupOffersGitInitOnFreshRoot(t *testing.T) {
 		t.Skip("git not available")
 	}
 	home := t.TempDir()
+	t.Cleanup(func() {
+		// Git clone creates read-only objects; fix perms so TempDir can remove them.
+		extDir := filepath.Join(home, ".agents", "external")
+		_ = filepath.Walk(extDir, func(p string, info os.FileInfo, _ error) error {
+			if info != nil {
+				_ = os.Chmod(p, 0o777)
+			}
+			return nil
+		})
+		_ = os.RemoveAll(extDir)
+	})
 	t.Setenv("HOME", home)
 	dir := fakePath(t, "claude")
 	if err := os.Symlink(gitPath, filepath.Join(dir, "git")); err != nil {

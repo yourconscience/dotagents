@@ -19,11 +19,13 @@ type lockFile struct {
 }
 
 type externalLockEntry struct {
-	Name         string                 `yaml:"name"`
-	URL          string                 `yaml:"url"`
-	Branch       string                 `yaml:"branch"`
-	Commit       string                 `yaml:"commit"`
-	Materialized materializedSkillNames `yaml:"materialized,omitempty"`
+	Name          string                 `yaml:"name"`
+	URL           string                 `yaml:"url"`
+	Branch        string                 `yaml:"branch"`
+	Commit        string                 `yaml:"commit"`
+	Materialized  materializedSkillNames `yaml:"materialized,omitempty"`
+	PluginName    string                 `yaml:"plugin_name,omitempty"`
+	PluginVersion string                 `yaml:"plugin_version,omitempty"`
 }
 
 // materializedSkillNames stores a sorted set in a comparable string so lock
@@ -137,12 +139,22 @@ func rebuildLockEntries(sources []externalSkillSource, home string, lock lockFil
 				materialized = pin.Materialized
 			}
 		}
+		var pluginName, pluginVersion string
+		cachePath := filepath.Join(cacheRoot, name)
+		if hasPluginManifest(cachePath) {
+			if manifest, _, ok, parseErr := parsePluginManifest(cachePath); parseErr == nil && ok {
+				pluginName = manifest.Name
+				pluginVersion = manifest.Version
+			}
+		}
 		entries = append(entries, externalLockEntry{
-			Name:         name,
-			URL:          src.URL,
-			Branch:       src.Branch,
-			Commit:       commit,
-			Materialized: materialized,
+			Name:          name,
+			URL:           src.URL,
+			Branch:        src.Branch,
+			Commit:        commit,
+			Materialized:  materialized,
+			PluginName:    pluginName,
+			PluginVersion: pluginVersion,
 		})
 	}
 	// Keep the lock file order-stable so reordering config sources does not
