@@ -14,8 +14,8 @@ const pluginMCPSchemaID = "https://agent-plugins.org/schemas/1.0.0/mcp.schema.js
 var pluginMCPServerNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
 type pluginMCPFile struct {
-	Schema     string                          `json:"$schema"`
-	MCPServers map[string]json.RawMessage      `json:"mcpServers"`
+	Schema     string                     `json:"$schema"`
+	MCPServers map[string]json.RawMessage `json:"mcpServers"`
 }
 
 type pluginMCPServerRaw struct {
