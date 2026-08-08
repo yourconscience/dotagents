@@ -70,21 +70,22 @@ dotagents doctor   # health checks: frontmatter, lock pins, audits, hooks
 
 ## What it syncs
 
-Exactly four surfaces, each rendered into the harness's own format — dotagents does not invent compatibility files a harness cannot consume:
+Five surfaces, each rendered into the harness's own format — dotagents does not invent compatibility files a harness cannot consume:
 
 1. **Skills** — `SKILL.md` directories, symlinked or copied to each harness's skill root.
 2. **MCP servers** — one YAML entry, rendered into each supported native config (JSON, TOML, or YAML as the harness requires).
 3. **Hooks** — lifecycle hooks registered only where the harness exposes a verified hook surface.
 4. **Agent roles** — Markdown role definitions rendered to native formats (Claude Markdown, Codex TOML, Droid).
+5. **Plugins** — external sources with an [agent-plugins-spec](https://agent-plugins.org) `plugin.json` get their skills and MCP servers discovered automatically. Native plugin projection (Codex `.codex-plugin/`) is planned.
 
-| Harness | Skills | Roles | MCP | Hooks |
-|---|---|---|---|---|
-| Claude Code | yes | yes | yes | yes |
-| Codex | yes | yes | yes | yes |
-| Factory Droid | yes | yes | yes | yes |
-| Hermes | yes | -- | yes | yes |
-| OpenCode | yes† | yes | yes | -- |
-| Pi* | yes | --* | --* | -- |
+| Harness | Skills | Roles | MCP | Hooks | Plugins |
+|---|---|---|---|---|---|
+| Claude Code | yes | yes | yes | yes | -- |
+| Codex | yes | yes | yes | yes | planned |
+| Factory Droid | yes | yes | yes | yes | -- |
+| Hermes | yes | -- | yes | yes | -- |
+| OpenCode | yes† | yes | yes | -- | -- |
+| Pi* | yes | --* | --* | -- | -- |
 
 \* Vanilla [pi](https://github.com/earendil-works/pi) is skills-only by design. If you run the OMP fork instead, dotagents detects it separately and additionally manages roles and MCP servers there — the two never conflict.
 
