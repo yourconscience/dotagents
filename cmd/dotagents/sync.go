@@ -14,6 +14,7 @@ func runStatus(opts runOptions) error {
 	if err != nil {
 		return err
 	}
+	injectPluginMCPServers(&cfg, home)
 
 	repoReport, err := inspectRepoLink(repoRoot, home)
 	if err != nil {

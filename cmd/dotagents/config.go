@@ -27,8 +27,6 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 		return "", "", config{}, nil, err
 	}
 
-	injectPluginMCPServers(&cfg, home)
-
 	selected, err := selectAgents(cfg, opts.Agents)
 	if err != nil {
 		return "", "", config{}, nil, err
