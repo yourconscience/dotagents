@@ -570,5 +570,26 @@ class DreamMemoryReviewTests(unittest.TestCase):
             self.assertEqual(candidate["occurrence_count"], 2)
             self.assertEqual(len(candidate["evidence"]), 2)
 
+    def test_dream_truncates_legacy_evidence_beyond_twenty_occurrences(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            knowledge = Path(tmp) / "knowledge"
+            sessions = knowledge / "sessions"
+            sessions.mkdir(parents=True)
+            fact = "- User prefers pnpm for Node work."
+            body = []
+            for day in range(1, 22):  # 21 distinct sync sections repeat the same fact
+                body += [f"## Sync 2026-05-{day:02d} 10:00 UTC", "", fact, ""]
+            (sessions / "knowledge.md").write_text("\n".join(body) + "\n", encoding="utf-8")
+
+            output = knowledge / "reviews" / "review.json"
+            result = self.run_dream(knowledge, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(output.read_text(encoding="utf-8"))
+            candidate = report["candidates"][0]
+            self.assertEqual(candidate["kind"], "stale_duplicate_record")
+            self.assertEqual(candidate["occurrence_count"], 21)
+            self.assertEqual(len(candidate["evidence"]), 20)
+            self.assertEqual(candidate["evidence_omitted"], 1)
+
 if __name__ == "__main__":
     unittest.main()

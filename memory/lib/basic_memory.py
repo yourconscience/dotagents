@@ -695,7 +695,9 @@ def stale_dream_candidates(records: list[DreamRecord]) -> list[dict[str, Any]]:
         canonical = [item for item in ordered if Path(item.path).name == f"{expected_date}.md"]
         if len(blocks) == 1 and len(canonical) == 1:
             kind = "stale_duplicate_record"
-            reason = "Byte-equivalent session block exists outside its unique UTC-dated canonical file."
+            # `block` is line-rstripped when parsed, so equal blocks match apart
+            # from trailing whitespace / CRLF, not necessarily byte-for-byte.
+            reason = "Session block is identical apart from trailing whitespace and exists outside its unique UTC-dated canonical file."
             action = "consolidate_for_review"
             normalized = session_id
         else:

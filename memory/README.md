@@ -48,8 +48,8 @@ Candidates are deliberately conservative:
 
 - Repeated preferences and corrections require the same explicit statement in
   at least two distinct session IDs.
-- A stale duplicate requires a byte-equivalent session block outside its
-  unique UTC-dated canonical file.
+- A stale duplicate requires an identical session block (ignoring trailing
+  whitespace) outside its unique UTC-dated canonical file.
 - Legacy cleanup reports only exact facts repeated across distinct `## Sync`
   records; it does not infer staleness from age.
 - Reused session IDs with differing content are reported as conflicts, without
