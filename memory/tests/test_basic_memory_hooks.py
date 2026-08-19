@@ -14,6 +14,7 @@ from pathlib import Path
 MEMORY_DIR = Path(__file__).resolve().parents[1]
 END_HOOK = MEMORY_DIR / "hooks" / "basic-session-end.py"
 START_HOOK = MEMORY_DIR / "hooks" / "basic-session-start.py"
+DREAM_SCRIPT = MEMORY_DIR / "lib" / "basic_memory.py"
 AMP_DIGEST = MEMORY_DIR / "lib" / "amp_digest.py"
 FACTORY_DIGEST = MEMORY_DIR / "lib" / "factory_digest.py"
 HERMES_DIGEST = MEMORY_DIR / "lib" / "hermes_digest.py"
@@ -414,6 +415,160 @@ class BasicMemoryHookTests(unittest.TestCase):
             self.assertEqual(start.returncode, 0, start.stderr)
             self.assertFalse(marker.exists(), "basic hooks invoked memsearch")
 
+
+class DreamMemoryReviewTests(unittest.TestCase):
+    def env_with_knowledge(self, knowledge_dir: Path) -> dict[str, str]:
+        env = os.environ.copy()
+        env["KNOWLEDGE_DIR"] = str(knowledge_dir)
+        return env
+
+    def digest(self, session_id: str, captured: str, request: str, *, assistant: str = "Done.") -> str:
+        return "\n".join(
+            [
+                f"<!-- basic-memory-session:{session_id}:start -->",
+                f"## Session {captured} UTC - {session_id}",
+                "",
+                "- source: claude-code",
+                f"- first request: {request}",
+                f"- final assistant output: {assistant}",
+                "",
+                f"<!-- basic-memory-session:{session_id}:end -->",
+                "",
+            ]
+        )
+
+    def run_dream(self, knowledge: Path, output: Path) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(DREAM_SCRIPT), "dream", "--output", str(output)],
+            text=True,
+            capture_output=True,
+            env=self.env_with_knowledge(knowledge),
+            check=False,
+        )
+
+    def test_dream_reports_exact_repeated_preferences_deterministically(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            knowledge = Path(tmp) / "knowledge"
+            sessions = knowledge / "sessions"
+            reviews = knowledge / "reviews"
+            sessions.mkdir(parents=True)
+            (sessions / "2026-07-01.md").write_text(
+                self.digest("one", "2026-07-01 10:00", "I prefer concise reports."),
+                encoding="utf-8",
+            )
+            (sessions / "2026-07-02.md").write_text(
+                self.digest("two", "2026-07-02 10:00", "I prefer concise reports!"),
+                encoding="utf-8",
+            )
+
+            first_path = reviews / "first.json"
+            second_path = reviews / "second.json"
+            first = self.run_dream(knowledge, first_path)
+            second = self.run_dream(knowledge, second_path)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
+
+            report = json.loads(first_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["mode"], "review-only")
+            self.assertEqual(report["summary"]["repeated_preferences"], 1)
+            candidate = report["candidates"][0]
+            self.assertEqual(candidate["kind"], "repeated_preference")
+            self.assertEqual([item["session_id"] for item in candidate["evidence"]], ["one", "two"])
+
+    def test_dream_ignores_non_user_incomplete_and_non_exact_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            knowledge = Path(tmp) / "knowledge"
+            sessions = knowledge / "sessions"
+            sessions.mkdir(parents=True)
+            (sessions / "2026-07-01.md").write_text(
+                "\n".join(
+                    [
+                        self.digest("one", "2026-07-01 10:00", "I prefer concise replies."),
+                        self.digest("two", "2026-07-01 11:00", "I prefer short replies."),
+                        self.digest("three", "2026-07-01 12:00", "I prefer concise replies…"),
+                        "- first request: I prefer concise replies.",
+                        "<!-- basic-memory-session:incomplete:start -->",
+                        "## Session 2026-07-01 13:00 UTC - incomplete",
+                        "- first request: I prefer concise replies.",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            output = knowledge / "reviews" / "review.json"
+            result = self.run_dream(knowledge, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(report["summary"]["repeated_preferences"], 0)
+            self.assertEqual(report["candidates"], [])
+
+    def test_dream_finds_objective_duplicates_and_never_mutates_canonical_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            knowledge = Path(tmp) / "knowledge"
+            sessions = knowledge / "sessions"
+            profile = knowledge / "profile"
+            sessions.mkdir(parents=True)
+            profile.mkdir()
+            block = self.digest("duplicate", "2026-07-01 10:00", "Keep this record.")
+            canonical = sessions / "2026-07-01.md"
+            stale = sessions / "2026-07-02.md"
+            canonical.write_text(block, encoding="utf-8")
+            stale.write_text(block, encoding="utf-8")
+            user = profile / "USER.md"
+            user.write_text("- I prefer profile text to remain untouched.\n", encoding="utf-8")
+            before = {path: path.read_bytes() for path in (canonical, stale, user)}
+
+            output = knowledge / "reviews" / "review.json"
+            result = self.run_dream(knowledge, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(report["summary"]["stale_records"], 1)
+            self.assertEqual(report["candidates"][0]["kind"], "stale_duplicate_record")
+            self.assertEqual({path: path.read_bytes() for path in before}, before)
+
+            replay = self.run_dream(knowledge, output)
+            self.assertNotEqual(replay.returncode, 0)
+            self.assertIn("already exists", replay.stderr)
+            outside = self.run_dream(knowledge, Path(tmp) / "outside.json")
+            self.assertNotEqual(outside.returncode, 0)
+            self.assertIn("must be under", outside.stderr)
+
+
+    def test_dream_reports_exact_legacy_sync_duplicates_without_guessing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            knowledge = Path(tmp) / "knowledge"
+            sessions = knowledge / "sessions"
+            sessions.mkdir(parents=True)
+            (sessions / "knowledge.md").write_text(
+                "\n".join(
+                    [
+                        "# Legacy export",
+                        "",
+                        "## Sync 2026-05-01 10:00 UTC",
+                        "",
+                        "- User prefers pnpm for Node work.",
+                        "- Similar but distinct fact.",
+                        "",
+                        "## Sync 2026-05-02 10:00 UTC",
+                        "",
+                        "- User prefers pnpm for Node work.",
+                        "- Similar but different fact.",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            output = knowledge / "reviews" / "review.json"
+            result = self.run_dream(knowledge, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(report["summary"]["stale_records"], 1)
+            candidate = report["candidates"][0]
+            self.assertEqual(candidate["kind"], "stale_duplicate_record")
+            self.assertEqual(candidate["occurrence_count"], 2)
+            self.assertEqual(len(candidate["evidence"]), 2)
 
 if __name__ == "__main__":
     unittest.main()

@@ -14,14 +14,20 @@ var ompToolMapping = map[string]string{
 }
 
 func renderOMPAgentRole(role agentRole) string {
+	model := strings.TrimSpace(role.OMP.Model)
+	if model == "" {
+		model = strings.TrimSpace(role.Model)
+	}
+
 	var b strings.Builder
 	b.WriteString("---\n")
 	writeYAMLScalar(&b, "name", role.Name)
 	writeYAMLScalar(&b, "description", role.Description)
-	if model := strings.TrimSpace(role.Model); model != "" {
+	if model != "" {
 		b.WriteString("model:\n")
 		writeYAMLListItem(&b, model)
 	}
+	writeYAMLScalar(&b, "thinking-level", role.OMP.ThinkingLevel)
 	if tools := ompToolsFor(role.Tools); len(tools) > 0 {
 		b.WriteString("tools:\n")
 		for _, tool := range tools {
