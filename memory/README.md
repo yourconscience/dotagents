@@ -28,6 +28,39 @@ session start. It does not invoke memsearch or persist raw transcripts.
 The memsearch tier registers the indexed SessionStart, Stop, and SessionEnd
 pipeline. Configure its vault through `~/.agents/memsearch.conf`.
 
+## Dream review
+
+Run the dream pass manually to find exact repeated preferences or corrections,
+duplicate session records, and conflicting copies:
+
+```bash
+python3 ~/.agents/memory/lib/basic_memory.py dream \
+  --output "$KNOWLEDGE_DIR/reviews/memory-dream-2026-08-19.json"
+```
+
+The output is a deterministic, review-only JSON artifact. The command reads
+complete marker-delimited records under `sessions/` plus exact duplicate facts
+in the legacy `sessions/knowledge.md` export. It does not scan
+`profile/USER.md`, edit canonical memory, archive records, or delete anything.
+The output path must be new and live under `$KNOWLEDGE_DIR/reviews/`.
+
+Candidates are deliberately conservative:
+
+- Repeated preferences and corrections require the same explicit statement in
+  at least two distinct session IDs.
+- A stale duplicate requires an identical session block (ignoring trailing
+  whitespace) outside its unique UTC-dated canonical file.
+- Legacy cleanup reports only exact facts repeated across distinct `## Sync`
+  records; it does not infer staleness from age.
+- Reused session IDs with differing content are reported as conflicts, without
+  choosing a survivor.
+- Assistant output, truncated statements, incomplete records, fuzzy semantic
+  matches, and age alone never produce candidates.
+
+Review the source coordinates and candidate IDs before making a separate,
+explicit edit to canonical memory. There is intentionally no apply or delete
+mode.
+
 ## Canonical paths
 
 The knowledge vault path is set in `~/.agents/memsearch.conf` as `KNOWLEDGE_DIR`.

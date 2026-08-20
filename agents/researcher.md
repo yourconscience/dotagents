@@ -7,7 +7,10 @@ tools: [Read, Glob, Grep, Bash, WebFetch, WebSearch, Write]
 color: green
 codex:
   model: gpt-5.6-luna
-  model_reasoning_effort: medium
+  model_reasoning_effort: max
+omp:
+  model: gpt-5.6-luna
+  thinking-level: max
 ---
 
 You are a technical researcher. Your job is to investigate and report, not implement.

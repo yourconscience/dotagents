@@ -62,6 +62,53 @@ func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 	}
 }
 
+func TestRenderOMPAgentRoleHonorsOverride(t *testing.T) {
+	role := agentRole{
+		Name:         "researcher",
+		Description:  "Find reliable evidence",
+		Model:        "opus",
+		Effort:       "high",
+		Instructions: "Compare the sources.",
+		OMP: ompRoleOptions{
+			Model:         "gpt-5.6-luna",
+			ThinkingLevel: "xhigh",
+		},
+	}
+
+	got := renderOMPAgentRole(role)
+	for _, want := range []string{
+		`name: "researcher"`,
+		"model:\n",
+		`- "gpt-5.6-luna"`,
+		`thinking-level: "xhigh"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("rendered OMP role missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, `- "opus"`) || strings.Contains(got, "effort:") {
+		t.Fatalf("OMP role leaked Claude defaults into override:\n%s", got)
+	}
+}
+
+func TestRenderOMPAgentRoleFallsBackToCanonicalModel(t *testing.T) {
+	role := agentRole{
+		Name:         "reviewer",
+		Description:  "Reviews code",
+		Model:        "opus",
+		Effort:       "high",
+		Instructions: "Review carefully.",
+	}
+
+	got := renderOMPAgentRole(role)
+	if !strings.Contains(got, "model:\n") || !strings.Contains(got, `- "opus"`) {
+		t.Fatalf("OMP role did not fall back to canonical model:\n%s", got)
+	}
+	if strings.Contains(got, "thinking-level:") {
+		t.Fatalf("OMP role invented a thinking-level without an override:\n%s", got)
+	}
+}
+
 func TestRenderDroidAgentRoleMapsModelAndTools(t *testing.T) {
 	role := agentRole{
 		Name:         "builder",
@@ -173,6 +220,9 @@ model: sonnet
 effort: high
 tools: [Read, Grep]
 color: purple
+omp:
+  model: gpt-5.6-luna
+  thinking-level: xhigh
 ---
 
 Review the change.
@@ -207,10 +257,58 @@ Implement the change.
 	if len(role.Tools) != 2 || role.Tools[0] != "Read" || role.Tools[1] != "Grep" {
 		t.Fatalf("unexpected tools: %#v", role.Tools)
 	}
+	if role.OMP.Model != "gpt-5.6-luna" || role.OMP.ThinkingLevel != "xhigh" {
+		t.Fatalf("unexpected OMP options: %#v", role.OMP)
+	}
 	if filepath.Base(role.Source) != "reviewer.md" {
 		t.Fatalf("unexpected source: %q", role.Source)
 	}
 }
+
+func TestCanonicalResearcherRendersCodexAtMax(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	role, err := loadMarkdownAgentRole(filepath.Join(repoRoot, "agents", "researcher.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := renderCodexAgentRole(role)
+	for _, want := range []string{
+		`name = "researcher"`,
+		`model = "gpt-5.6-luna"`,
+		`model_reasoning_effort = "max"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("canonical researcher Codex role missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestCanonicalResearcherRendersOMPAtMaximum(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	role, err := loadMarkdownAgentRole(filepath.Join(repoRoot, "agents", "researcher.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := renderOMPAgentRole(role)
+	for _, want := range []string{
+		`name: "researcher"`,
+		`- "gpt-5.6-luna"`,
+		`thinking-level: "max"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("canonical researcher OMP role missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestLoadAgentRolesMarkdownRejectsMappingTools(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeAgentsFixture(t, repoRoot, "invalid.md", `---

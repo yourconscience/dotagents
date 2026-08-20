@@ -35,6 +35,7 @@ type agentRole struct {
 	Instructions string              `yaml:"-"`
 	Source       string              `yaml:"-"`
 	Codex        codexRoleOptions    `yaml:"codex"`
+	OMP          ompRoleOptions      `yaml:"omp"`
 	Droid        droidRoleOptions    `yaml:"droid"`
 	Opencode     opencodeRoleOptions `yaml:"opencode"`
 }
@@ -69,6 +70,10 @@ func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
 			}
 		case "codex":
 			if err := node.Decode(&role.Codex); err != nil {
+				return err
+			}
+		case "omp":
+			if err := node.Decode(&role.OMP); err != nil {
 				return err
 			}
 		case "droid":
@@ -114,6 +119,11 @@ func decodeRoleTools(node *yaml.Node) ([]string, error) {
 type codexRoleOptions struct {
 	Model                string `yaml:"model"`
 	ModelReasoningEffort string `yaml:"model_reasoning_effort"`
+}
+
+type ompRoleOptions struct {
+	Model         string `yaml:"model"`
+	ThinkingLevel string `yaml:"thinking-level"`
 }
 
 type droidRoleOptions struct {
