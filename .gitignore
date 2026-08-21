@@ -13,6 +13,7 @@ memory/apply-local.sh
 mcp/*/.env
 mcp/*/.*.session
 mcp/*/.venv/
+npm/node_modules/
 
 # Local development binary
 /dotagents
@@ -21,3 +22,5 @@ mcp/*/.venv/
 /SPEC.md
 /GROWTH-PLAN.md
 /ANYWHERE-AGENTS-ANALYSIS.md
+npm/bin/*
+!npm/bin/dotagents.js
