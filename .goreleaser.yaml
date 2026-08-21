@@ -26,6 +26,16 @@ archives:
 checksum:
   name_template: checksums.txt
 
+brews:
+  - repository:
+      owner: yourconscience
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    description: "Sync skills, MCP servers, hooks, and roles across coding agents"
+    homepage: "https://github.com/yourconscience/dotagents"
+    license: MIT
+
 changelog:
   use: github
   filters:
