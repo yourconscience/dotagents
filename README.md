@@ -144,6 +144,10 @@ mcp_servers:
 
 A role is a Markdown file in `~/.agents/agents/` with frontmatter (`name`, `description`, `model`, `effort`, `tools`, optional per-harness overrides) and the system prompt as body. dotagents renders it into each harness's native format — e.g. TOML for Codex. Five generic starter roles ship with the tool: `architect` `builder` `researcher` `reviewer` `tester`. A same-name file in your `~/.agents/agents/` always wins over the starter.
 
+### Root instructions
+
+`~/.agents/AGENTS.md` is your single root instruction file. During sync, dotagents links it into each harness's native memory path — `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex, `~/.factory/AGENTS.md` for Droid — so an edit in one place reaches every agent. `dotagents status` reports drift, and a file that exists but is not a symlink is never touched without your confirmation.
+
 ## Hooks and memory
 
 Hooks are lifecycle commands (session start/end, stop) registered per harness in `dotagents.yaml`. dotagents ships a memory integration built on them — pick a tier during setup:
