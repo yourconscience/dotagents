@@ -65,6 +65,13 @@ func writeSyncTestFile(t *testing.T, path string, data []byte) {
 func TestInspectAgentAcceptsMatchingNativeCopyAndRejectsDifferentContent(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := t.TempDir()
+	writeSyncTestFile(t, filepath.Join(repoRoot, "AGENTS.md"), []byte("# Shared\n"))
+	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(repoRoot, "AGENTS.md"), filepath.Join(home, ".claude", "CLAUDE.md")); err != nil {
+		t.Fatal(err)
+	}
 	canonical := filepath.Join(repoRoot, "skills", "existing")
 	native := filepath.Join(home, ".claude", "skills", "existing")
 	content := []byte("---\nname: existing\n---\n")

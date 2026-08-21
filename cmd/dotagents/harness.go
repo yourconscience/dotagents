@@ -133,6 +133,10 @@ func initHarnesses() {
 				inspect:   inspectClaudeHook,
 				patch:     patchClaudeHook,
 			},
+			RootInstructions: &RootInstructionsCapability{
+				Path:     func(home string) string { return filepath.Join(home, ".claude", "CLAUDE.md") },
+				Expected: func(repoRoot string) string { return filepath.Join(repoRoot, "AGENTS.md") },
+			},
 			TrailerExample: "Co-authored-by: claude[bot] <claude[bot]@users.noreply.github.com>",
 		},
 
@@ -150,6 +154,10 @@ func initHarnesses() {
 				agentName: "codex",
 				inspect:   inspectCodexHook,
 				patch:     patchCodexHook,
+			},
+			RootInstructions: &RootInstructionsCapability{
+				Path:     func(home string) string { return filepath.Join(home, ".codex", "AGENTS.md") },
+				Expected: func(repoRoot string) string { return filepath.Join(repoRoot, "AGENTS.md") },
 			},
 			TrailerExample: "Co-Authored-By: codex[bot] <codex[bot]@users.noreply.github.com>",
 		},
