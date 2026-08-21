@@ -16,3 +16,8 @@ mcp/*/.venv/
 
 # Local development binary
 /dotagents
+
+# Private strategy memos (never publish)
+/SPEC.md
+/GROWTH-PLAN.md
+/ANYWHERE-AGENTS-ANALYSIS.md
