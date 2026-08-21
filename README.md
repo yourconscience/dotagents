@@ -19,6 +19,9 @@ Install the CLI (macOS or Linux):
 ```bash
 brew install yourconscience/tap/dotagents
 
+# or: npm
+npm install -g dotagents
+
 # or: prebuilt binary
 curl -fsSL https://raw.githubusercontent.com/yourconscience/dotagents/main/scripts/install.sh | sh
 
