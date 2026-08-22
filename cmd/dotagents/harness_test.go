@@ -123,7 +123,8 @@ func TestOMPRendererProducesNativeRoleAndPiSkipsRoles(t *testing.T) {
 	role := agentRole{
 		Name:         "researcher",
 		Description:  "Find reliable evidence",
-		Model:        "gpt-5.5",
+		Model:        "opus",
+		OMP:          ompRoleOptions{Model: "gpt-5.6-luna-high"},
 		Tools:        []string{"Read", "WebSearch", "Write", "NotebookEdit", "read"},
 		Instructions: "Compare the sources.",
 	}
@@ -157,7 +158,7 @@ func TestOMPRendererProducesNativeRoleAndPiSkipsRoles(t *testing.T) {
 	if frontmatter.Name != role.Name || frontmatter.Description != role.Description {
 		t.Fatalf("OMP identity frontmatter = %#v", frontmatter)
 	}
-	if !reflect.DeepEqual(frontmatter.Model, []string{"gpt-5.5"}) {
+	if !reflect.DeepEqual(frontmatter.Model, []string{"gpt-5.6-luna-high"}) {
 		t.Fatalf("OMP model = %#v", frontmatter.Model)
 	}
 	if !reflect.DeepEqual(frontmatter.Tools, []string{"read", "web_search", "write"}) {

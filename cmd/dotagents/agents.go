@@ -34,6 +34,7 @@ type agentRole struct {
 	Color        string              `yaml:"color"`
 	Instructions string              `yaml:"-"`
 	Source       string              `yaml:"-"`
+	Claude       claudeRoleOptions   `yaml:"claude"`
 	Codex        codexRoleOptions    `yaml:"codex"`
 	OMP          ompRoleOptions      `yaml:"omp"`
 	Droid        droidRoleOptions    `yaml:"droid"`
@@ -66,6 +67,10 @@ func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
 			}
 		case "color":
 			if err := node.Decode(&role.Color); err != nil {
+				return err
+			}
+		case "claude":
+			if err := node.Decode(&role.Claude); err != nil {
 				return err
 			}
 		case "codex":
@@ -114,6 +119,10 @@ func decodeRoleTools(node *yaml.Node) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("tools must be a YAML sequence or comma-separated string")
 	}
+}
+
+type claudeRoleOptions struct {
+	Model string `yaml:"model"`
 }
 
 type codexRoleOptions struct {
@@ -388,11 +397,16 @@ func renderAgentRole(role agentRole, agent agentConfig) (string, string, bool) {
 }
 
 func renderClaudeAgentRole(role agentRole) string {
+	model := strings.TrimSpace(role.Claude.Model)
+	if model == "" {
+		model = strings.TrimSpace(role.Model)
+	}
+
 	var b strings.Builder
 	b.WriteString("---\n")
 	writeYAMLScalar(&b, "name", role.Name)
 	writeYAMLScalar(&b, "description", role.Description)
-	writeYAMLScalar(&b, "model", role.Model)
+	writeYAMLScalar(&b, "model", model)
 	writeYAMLScalar(&b, "effort", role.Effort)
 	if len(role.Tools) > 0 {
 		b.WriteString("tools: ")
