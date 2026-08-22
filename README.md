@@ -147,6 +147,20 @@ mcp_servers:
 
 A role is a Markdown file in `~/.agents/agents/` with frontmatter (`name`, `description`, `model`, `effort`, `tools`, optional per-harness overrides) and the system prompt as body. dotagents renders it into each harness's native format — e.g. TOML for Codex. Five generic starter roles ship with the tool: `architect` `builder` `researcher` `reviewer` `tester`. A same-name file in your `~/.agents/agents/` always wins over the starter.
 
+The generic `model` value is a capability tier (`haiku`, `sonnet`, or `opus`). Claude Code, Codex, and Droid render it natively in their own model family. Harnesses without a native tier concept (OMP, OpenCode) render the value verbatim, so set a per-harness override there whenever you need an exact identifier or want to omit the model and inherit the active session model:
+
+```yaml
+model: opus
+claude:
+  model: claude-opus-4-6
+codex:
+  model: gpt-5.6-sol
+omp:
+  model: gpt-5.6-luna-high
+opencode:
+  model: openai/gpt-5.6
+```
+
 ### Root instructions
 
 `~/.agents/AGENTS.md` is your single root instruction file. During sync, dotagents links it into each harness's native memory path — `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex, `~/.factory/AGENTS.md` for Droid — so an edit in one place reaches every agent. `dotagents status` reports drift, and a file that exists but is not a symlink is never touched without your confirmation.

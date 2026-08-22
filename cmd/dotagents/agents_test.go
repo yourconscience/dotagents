@@ -34,6 +34,48 @@ func TestRenderClaudeAgentRoleQuotesFrontmatter(t *testing.T) {
 	}
 }
 
+func TestRenderClaudeAgentRoleAllowsArbitraryOverride(t *testing.T) {
+	role := agentRole{
+		Name:         "builder",
+		Description:  "Builds features",
+		Model:        "opus",
+		Claude:       claudeRoleOptions{Model: "claude-custom-model"},
+		Instructions: "Implement the change.",
+	}
+
+	got := renderClaudeAgentRole(role)
+	if !strings.Contains(got, `model: "claude-custom-model"`) {
+		t.Fatalf("rendered Claude role did not use explicit model override:\n%s", got)
+	}
+	if strings.Contains(got, `model: "opus"`) {
+		t.Fatalf("rendered Claude role retained family default after override:\n%s", got)
+	}
+}
+
+func TestParseAgentRoleMarkdownPreservesHarnessModelOverrides(t *testing.T) {
+	role, err := parseAgentRoleMarkdown("agents/builder.md", []byte(`---
+name: builder
+description: Builds features
+model: opus
+claude:
+  model: claude-custom-model
+omp:
+  model: gpt-custom-model
+---
+
+Implement the change.
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if role.Claude.Model != "claude-custom-model" {
+		t.Fatalf("Claude override = %q", role.Claude.Model)
+	}
+	if role.OMP.Model != "gpt-custom-model" {
+		t.Fatalf("OMP override = %q", role.OMP.Model)
+	}
+}
+
 func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 	role := agentRole{
 		Name:         "researcher",
