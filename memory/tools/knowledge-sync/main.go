@@ -39,20 +39,12 @@ func main() {
 	if err != nil {
 		fatal("open lock", err, "")
 	}
-	defer func() {
-		if err := lock.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "knowledge-sync: close lock failed: %v\n", err)
-		}
-	}()
+	defer func() { _ = lock.Close() }()
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		fmt.Println("knowledge-sync: another sync is running")
 		return
 	}
-	defer func() {
-		if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); err != nil {
-			fmt.Fprintf(os.Stderr, "knowledge-sync: unlock failed: %v\n", err)
-		}
-	}()
+	defer func() { _ = syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) }()
 
 	if out, err := git(repo, "status", "--short"); err != nil {
 		fatal("git status", err, out)
@@ -70,6 +62,12 @@ func main() {
 			fmt.Print(out)
 		}
 	}
+	if out, err := git(repo, "rev-parse", "--abbrev-ref", "HEAD"); err != nil {
+		fatal("current branch", err, out)
+	} else if current := strings.TrimSpace(out); current != branch {
+		fatal("branch guard", fmt.Errorf("checkout is on %q, not %q", current, branch),
+			"knowledge-sync: refusing to sync: worktree checked out on "+current+", expected "+branch+"\n")
+	}
 
 	if out, err := git(repo, "fetch", remote, branch); err != nil {
 		fatal("git fetch", err, out)
@@ -77,12 +75,8 @@ func main() {
 	if out, err := git(repo, "merge", "--no-edit", remote+"/"+branch); err != nil {
 		fmt.Print(out)
 		conflict := "sync-conflict-" + time.Now().UTC().Format("20060102T150405Z")
-		if branchOut, branchErr := git(repo, "branch", conflict); branchErr != nil {
-			fatal("git conflict branch", branchErr, branchOut)
-		}
-		if abortOut, abortErr := git(repo, "merge", "--abort"); abortErr != nil {
-			fatal("git merge abort", abortErr, abortOut)
-		}
+		_, _ = git(repo, "branch", conflict)
+		_, _ = git(repo, "merge", "--abort")
 		fatal("git merge", err, "created conflict branch "+conflict+"\n")
 	}
 	if out, err := git(repo, "push", remote, branch); err != nil {
