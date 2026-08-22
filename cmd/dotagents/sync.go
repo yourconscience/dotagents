@@ -71,6 +71,14 @@ func runSync(opts runOptions) error {
 		return err
 	}
 
+	toolInstalls, err := installMemoryTools(repoRoot)
+	if err != nil {
+		return err
+	}
+	if len(toolInstalls) > 0 {
+		fmt.Printf("memory tools installed: %s\n", strings.Join(toolInstalls, ", "))
+	}
+
 	expected, err := expectedSkills(repoRoot, home, cfg)
 	if err != nil {
 		return err
@@ -108,14 +116,6 @@ func runSync(opts runOptions) error {
 	}
 	if err := applyAgentRootInstructionSync(reports); err != nil {
 		return err
-	}
-
-	toolInstalls, err := installMemoryTools(repoRoot)
-	if err != nil {
-		return err
-	}
-	if len(toolInstalls) > 0 {
-		fmt.Printf("memory tools installed: %s\n", strings.Join(toolInstalls, ", "))
 	}
 
 	repoReport, err = inspectRepoLink(repoRoot, home)
