@@ -110,6 +110,14 @@ func runSync(opts runOptions) error {
 		return err
 	}
 
+	toolInstalls, err := installMemoryTools(repoRoot)
+	if err != nil {
+		return err
+	}
+	if len(toolInstalls) > 0 {
+		fmt.Printf("memory tools installed: %s\n", strings.Join(toolInstalls, ", "))
+	}
+
 	repoReport, err = inspectRepoLink(repoRoot, home)
 	if err != nil {
 		return err

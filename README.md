@@ -167,6 +167,9 @@ opencode:
 
 ## Hooks and memory
 
+`memory/tools/` ships Go helper binaries for the memory system (currently `rem`, the capture/consolidation CLI, and `knowledge-sync`, the vault git sync). During `sync`, each tool is built and installed to `$GOBIN` or `~/.local/bin`; rebuilds happen only when sources change, and machines without a Go toolchain skip this step.
+
+
 Hooks are lifecycle commands (session start/end, stop) registered per harness in `dotagents.yaml`. dotagents ships a memory integration built on them — pick a tier during setup:
 
 ```bash
