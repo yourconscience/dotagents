@@ -10,7 +10,7 @@ One `~/.agents` git repository holds your skills, MCP servers, hooks, and agent 
 
 ## Why
 
-If you use more than one coding agent, you maintain the same skills, MCP servers, hooks, and roles in a different place and format for each one. Copying them by hand drifts within a week. dotagents applies the dotfiles pattern to agent config: one versioned repo, rendered into each harness's native format.
+If you use more than one coding agent, you maintain the same skills, MCP servers, hooks, and roles in a different place and format for each one. Copying them by hand drifts within a week. Skills have converged on one open convention ([agentskills.io](https://agentskills.io)), plugins on [agent-plugins-spec](https://agent-plugins.org), and root instructions on `AGENTS.md` — but every harness still stores and renders config in its own native format. dotagents applies the dotfiles pattern to that last mile: one versioned repo, rendered natively per harness, with memory tooling built in.
 
 ## Quick start
 
@@ -37,7 +37,7 @@ dotagents setup
 
 `setup` does everything a first run needs, interactively:
 
-1. Creates `~/.agents` if it does not exist and copies in the starter content (two skills, five roles, memory hooks, a minimal `dotagents.yaml`).
+1. Creates `~/.agents` if it does not exist and copies in the starter content (two skills, six roles, memory hooks, a minimal `dotagents.yaml`).
 2. Detects which harnesses are installed and records their native paths.
 3. Scans each harness for skills, roles, and MCP servers you already have and shows a review screen: one row per item, share/keep/skip per row, items identical across harnesses shared automatically. Copy-only, originals untouched. Non-interactive runs fall back to sequential prompts; `--yes` imports everything without prompting, `--dry-run` prints the candidates and exits without changes, `--json` emits the detection result for scripting and exits.
 4. Before its first sync touches a harness that already has content, shows exactly what would be removed or overwritten there and asks per harness. Declining keeps that harness's files.
@@ -88,11 +88,14 @@ Five surfaces, each rendered into the harness's own format — dotagents does no
 | Factory Droid | yes | yes | yes | yes | -- |
 | Hermes | yes | -- | yes | yes | -- |
 | OpenCode | yes† | yes | yes | -- | -- |
+| OMP (pi fork) | yes | yes | yes | --‡ | -- |
 | Pi* | yes | --* | --* | -- | -- |
 
-\* Vanilla [pi](https://github.com/earendil-works/pi) is skills-only by design. If you run the OMP fork instead, dotagents detects it separately and additionally manages roles and MCP servers there — the two never conflict.
+\* Vanilla [pi](https://github.com/earendil-works/pi) is skills-only by design; if you run the OMP fork it is detected separately as its own target.
 
 † OpenCode reads `~/.agents/skills/` natively, so dotagents delivers skills without a mirror when the config root is `~/.agents`; a custom config root mirrors into `~/.config/opencode/skills/` like other harnesses. OpenCode's only hook surface is a JS plugin API, so hooks stay unsupported.
+
+‡ OMP exposes no managed hook surface in `dotagents.yaml` yet; its lifecycle integration runs through memory hooks registered manually.
 
 Amp and OpenClaw can read the repo's skills through standard conventions but are not managed; a surface gets a "yes" above only after its native behavior is verified end to end.
 
@@ -185,6 +188,17 @@ dotagents setup --memory memsearch
 | `memsearch` | full-text indexed search over the knowledge vault | `memsearch` on PATH (`uv tool install memsearch`) |
 
 Memory data lives in your knowledge directory (default `~/Workspace/knowledge`, configurable via `KNOWLEDGE_DIR`), never in the tool repository.
+
+On top of the tiers, `sync` installs the `rem` CLI — one command surface over the vault:
+
+```bash
+rem add -src claude "prefers pnpm for Node work"   # capture a candidate fact anywhere
+rem dream                                          # consolidate candidates into review reports
+rem dream --apply                                  # collapse exact-duplicate records (backup + commit)
+rem search "quota preferences"                     # semantic search over captured memory
+```
+
+Candidates are inert until you promote them into durable instructions — consolidation is report-first by design, because automatically rewriting memory is how agents quietly corrupt their own instructions.
 
 ## Command reference
 
