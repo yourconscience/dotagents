@@ -21,7 +21,7 @@ case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "tag must look like v0.7.0"; ex
 
 branch=$(git rev-parse --abbrev-ref HEAD)
 [ "$branch" = "main" ] || { echo "must be on main (on $branch)"; exit 1; }
-[ -z "$(git status --porcelain)" ] || { echo "working tree not clean"; exit 1; }
+[ -z "$(git status --porcelain | grep '^[ MARC]')" ] || { echo "working tree has uncommitted changes"; exit 1; }
 git fetch origin --tags -q
 [ "$(git rev-parse main)" = "$(git rev-parse origin/main)" ] || { echo "main not in sync with origin/main"; exit 1; }
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && { echo "$TAG already exists"; exit 1; }
