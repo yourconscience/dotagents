@@ -13,7 +13,7 @@ If you use more than one coding agent, you maintain the same skills, MCP servers
 ## Quick start
 
 ```bash
-brew install yourconscience/tap/dotagents   # or: npm i -g dotagents
+brew install yourconscience/tap/dotagents   # or: npm i -g @your_conscience/dotagents
 dotagents setup                             # detect harnesses, import, first sync
 ```
 
