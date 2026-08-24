@@ -2,7 +2,14 @@
 
 Dotfiles for your AI agents.
 
-One `~/.agents` git repository holds your skills, MCP servers, hooks, agent roles, root instructions, and memory tooling. The `dotagents` CLI syncs them into the native format of every coding agent you use and follows you across machines the way dotfiles do. External skills are commit-pinned and audited before any agent loads them.
+
+[![Release](https://img.shields.io/github/v/release/yourconscience/dotagents)](https://github.com/yourconscience/dotagents/releases) [![brew](https://img.shields.io/badge/brew-yourconscience%2Ftap-orange)](https://github.com/yourconscience/homebrew-tap) [![npm](https://img.shields.io/npm/v/@your_conscience/dotagents)](https://www.npmjs.com/package/@your_conscience/dotagents) [![CI](https://github.com/yourconscience/dotagents/actions/workflows/ci.yml/badge.svg)](https://github.com/yourconscience/dotagents/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+
+```bash
+brew install yourconscience/tap/dotagents
+```
+
+> Not affiliated with the unscoped npm `dotagents` package — this repo publishes as [`@your_conscience/dotagents`](https://www.npmjs.com/package/@your_conscience/dotagents).
 
 **[Overview & comparison →](https://yourconscience.github.io/dotagents/)** · [Releases](https://github.com/yourconscience/dotagents/releases) · [Docs](docs/)
 
