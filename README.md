@@ -49,18 +49,11 @@ Five surfaces, each rendered into the harness's own format — dotagents does no
 † OpenCode reads `~/.agents/skills/` natively; its only hook surface is a JS plugin API.
 ‡ OMP has no managed hook surface yet; register memory hooks manually if needed.
 
-Amp and OpenClaw can read the repo's skills through standard conventions but are not managed; a surface gets a "yes" above only after its native behavior is verified end to end.
+Amp and OpenClaw read the repo's skills via standard conventions but are not managed. A "yes" above only appears after end-to-end verification.
 
 ## Skills
 
-A skill is a directory under `~/.agents/skills/` with a `SKILL.md` ([agentskills.io](https://agentskills.io) convention). Create once, appears everywhere:
-
-```bash
-dotagents skill new review-checklist --description "Pre-merge review checklist"
-dotagents sync
-```
-
-External skills from other people's repos are treated like dependencies: pinned to an exact commit in `dotagents.lock`, materialized into your repo for diffing, audited by `dotagents doctor`. See [docs/skills.md](docs/skills.md).
+A skill is a directory under `~/.agents/skills/` with a `SKILL.md` ([agentskills.io](https://agentskills.io) convention) — create once, appears everywhere. External skills are treated like dependencies: pinned in `dotagents.lock`, materialized for diffing, audited by `dotagents doctor`. Details in [docs/skills.md](docs/skills.md).
 
 ## Memory
 
@@ -109,9 +102,7 @@ scripts/release.sh v0.7.0    # verify + tag; CI publishes binaries, brew tap, np
 - [docs/comparison.md](docs/comparison.md) — how dotagents differs from rulesync, ruler, openskills
 - [Troubleshooting](docs/troubleshooting.md)
 
-## How it differs
-
-Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level: one private repo that follows you across machines, seven targets deep, with pinned and audited external skills and a review-first memory workflow. Full table in [docs/comparison.md](docs/comparison.md).
+Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level — one private repo, seven targets deep, pinned externals, review-first memory. Full table in [docs/comparison.md](docs/comparison.md).
 
 ## License
 

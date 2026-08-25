@@ -397,14 +397,16 @@
         </tbody>
       </table>
       </div>
-      <p class="section-sub" style="margin-top:10px">* Vanilla pi is skills-only by design; the OMP fork is detected as its own target. &#8225; OMP has no managed hook surface in dotagents.yaml yet. &dagger; OpenCode reads <code>~/.agents/skills/</code> natively, so skills need no mirror when the config root is <code>~/.agents</code>; hooks are a JS plugin surface only.</p>
+      <p class="section-sub" style="margin-top:10px">* Vanilla pi is skills-only by design; the OMP fork is detected as its own target.</p>
+      <p class="section-sub" style="margin:4px 24px 4px; font-size: 13px">&dagger; OpenCode reads <code>~/.agents/skills/</code> natively — skills need no mirror when the config root is <code>~/.agents</code>. Its only hook surface is a JS plugin API.</p>
+      <p class="section-sub" style="margin:4px 24px 12px; font-size: 13px">&#8225; OMP has no managed hook surface in <code>dotagents.yaml</code> yet; register memory hooks manually if needed.</p>
     </div>
   </section>
 
   <!-- Landscape -->
   <section>
     <h2>Landscape</h2>
-    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo that follows you across machines, six harnesses deep, with pinned and audited external skills — and a review-first memory workflow (<code>rem</code>) built in.</p>
+    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo across machines, seven targets deep, pinned and audited externals, review-first memory (<code>rem</code>) built in.</p>
 
     <div class="panel">
       <h3>How it compares</h3>
