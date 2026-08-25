@@ -17,6 +17,7 @@ Usage:
   python sync.py both              # bidirectional
 """
 
+import hashlib
 import os
 import re
 import sys
@@ -62,6 +63,25 @@ def normalize(entry: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def exported_entry_fingerprints(text: str, memory_entries: list[str]) -> set[bytes]:
+    """Find exact serialized entries, preferring longer overlapping matches."""
+    occupied: list[tuple[int, int]] = []
+    fingerprints: set[bytes] = set()
+    for entry in sorted(memory_entries, key=len, reverse=True):
+        pattern = re.compile(
+            rf"(?m)^- {re.escape(entry)}\n(?=- |\n## Sync |\Z)"
+        )
+        for match in pattern.finditer(text):
+            start, end = match.span()
+            if any(start < used_end and used_start < end for used_start, used_end in occupied):
+                continue
+            occupied.append((start, end))
+            fingerprint = hashlib.sha256(normalize(entry).encode("utf-8")).digest()
+            fingerprints.add(fingerprint)
+            break
+    return fingerprints
+
+
 # -- Direction 1: Memory -> Vault ------------------------------------------
 def memory_to_vault(paths: dict):
     """Export Hermes memory facts to the knowledge vault."""
@@ -71,17 +91,17 @@ def memory_to_vault(paths: dict):
     memory_entries = parse_hermes_memory(paths["hermes_memory"])
     knowledge_path = paths["vault_knowledge"]
 
-    existing_knowledge = set()
+    existing_knowledge: set[bytes] = set()
     if knowledge_path.exists():
-        for line in knowledge_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip().lstrip("- ").strip()
-            if line:
-                existing_knowledge.add(normalize(line))
+        knowledge_text = knowledge_path.read_text(encoding="utf-8")
+        existing_knowledge = exported_entry_fingerprints(knowledge_text, memory_entries)
 
     new_entries = []
     for entry in memory_entries:
-        if normalize(entry) not in existing_knowledge:
+        fingerprint = hashlib.sha256(normalize(entry).encode("utf-8")).digest()
+        if fingerprint not in existing_knowledge:
             new_entries.append(entry)
+            existing_knowledge.add(fingerprint)
 
     if new_entries:
         knowledge_path.parent.mkdir(parents=True, exist_ok=True)
