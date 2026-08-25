@@ -186,7 +186,7 @@ def inline_messages(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 def read_transcript(path: Path) -> tuple[list[dict[str, Any]], datetime | None, str | None]:
     if not path.exists():
-        raise HookError(f"transcript_path does not exist: {path}")
+        return [], None, None
     if not path.is_file():
         raise HookError(f"transcript_path is not a file: {path}")
 
