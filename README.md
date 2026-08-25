@@ -3,7 +3,7 @@
 Dotfiles for your AI agents.
 
 
-[![Release](https://img.shields.io/github/v/release/yourconscience/dotagents)](https://github.com/yourconscience/dotagents/releases) [![brew](https://img.shields.io/badge/brew-yourconscience%2Ftap-orange)](https://github.com/yourconscience/homebrew-tap) [![npm](https://img.shields.io/npm/v/@your_conscience/dotagents)](https://www.npmjs.com/package/@your_conscience/dotagents) [![CI](https://github.com/yourconscience/dotagents/actions/workflows/ci.yml/badge.svg)](https://github.com/yourconscience/dotagents/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/yourconscience/dotagents)](https://github.com/yourconscience/dotagents/releases) [![brew](https://img.shields.io/badge/brew-yourconscience%2Ftap-orange)](https://github.com/yourconscience/homebrew-tap) [![npm](https://img.shields.io/npm/v/@your_conscience%2fdotagents)](https://www.npmjs.com/package/@your_conscience/dotagents) [![CI](https://github.com/yourconscience/dotagents/actions/workflows/ci.yml/badge.svg)](https://github.com/yourconscience/dotagents/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 ```bash
 brew install yourconscience/tap/dotagents
