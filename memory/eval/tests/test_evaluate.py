@@ -90,6 +90,27 @@ class ScoringTests(unittest.TestCase):
 
 
 class BuiltinAdapterTests(unittest.TestCase):
+    def test_builtin_capture_persists_user_turns_within_budget(self):
+        fixture = two_doc_fixture()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            adapter = EVAL.BuiltinAdapter(root, char_limit=400)
+            adapter.ingest(fixture["documents"])
+            outcome = adapter.capture(
+                {
+                    "id": "c01",
+                    "session_id": "fixture-redaction",
+                    "turns": [
+                        {"role": "user", "content": "Persist this note while testing."},
+                        {"role": "assistant", "content": "Stored."},
+                    ],
+                }
+            )
+            self.assertTrue(outcome["supported"])
+            self.assertEqual(outcome["captured"], 1)
+            self.assertIn("Persist this note", outcome["texts"][0])
+            self.assertTrue(any("fixture-redaction" in entry["text"] for entry in adapter.entries))
+
     def test_builtin_adapter_is_bounded_and_uses_no_live_home(self):
         fixture = two_doc_fixture()
         with tempfile.TemporaryDirectory() as tmp:
@@ -131,9 +152,15 @@ class BuiltinAdapterTests(unittest.TestCase):
 
 class MemsearchAdapterTests(unittest.TestCase):
     def test_memsearch_adapter_requires_eval_collection_prefix(self):
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaisesRegex(ValueError, "dotagents_eval_"):
+            EVAL.MemsearchAdapter(Path(tmp), collection="ai")
+
+    def test_memsearch_adapter_declares_unsupported_lifecycle_operations(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaisesRegex(ValueError, "dotagents_eval_"):
-                EVAL.MemsearchAdapter(Path(tmp), collection="ai")
+            adapter = EVAL.MemsearchAdapter(Path(tmp))
+            self.assertFalse(adapter.update({"evidence_id": "ev-1"})["supported"])
+            self.assertFalse(adapter.forget({"evidence_id": "ev-1"})["supported"])
+            self.assertFalse(adapter.capture({"turns": []})["supported"])
 
 
 class RunnerTests(unittest.TestCase):

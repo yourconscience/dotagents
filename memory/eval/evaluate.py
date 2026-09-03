@@ -12,7 +12,6 @@ import argparse
 import hashlib
 import json
 import math
-import os
 import re
 import shutil
 import statistics
@@ -63,6 +62,54 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return records
 
 
+def _validate_document(document: dict[str, Any], document_ids: set[str], evidence_ids: set[str]) -> None:
+    doc_id = str(document.get("id", "")).strip()
+    text = document.get("text")
+    if not doc_id or doc_id in document_ids or not isinstance(text, str) or not text.strip():
+        raise ValueError("documents require unique non-empty id and text")
+    document_ids.add(doc_id)
+    evidence = document.get("evidence")
+    if not isinstance(evidence, list) or not evidence:
+        raise ValueError(f"document {doc_id} requires evidence")
+    for item in evidence:
+        if not isinstance(item, dict) or not str(item.get("id", "")).strip() or not str(item.get("text", "")).strip():
+            raise ValueError(f"document {doc_id} has invalid evidence")
+        evidence_id = str(item["id"])
+        if evidence_id in evidence_ids:
+            raise ValueError(f"duplicate evidence id: {evidence_id}")
+        evidence_ids.add(evidence_id)
+
+
+def _validate_query(query: dict[str, Any], query_ids: set[str], evidence_ids: set[str]) -> None:
+    query_id = str(query.get("id", "")).strip()
+    if not query_id or query_id in query_ids or not str(query.get("query", "")).strip():
+        raise ValueError("queries require unique non-empty id and query")
+    query_ids.add(query_id)
+    expected = query.get("expected_evidence_ids", [])
+    if not isinstance(expected, list):
+        raise ValueError(f"query {query_id} expected_evidence_ids must be a list")
+    unknown = sorted({str(value) for value in expected} - evidence_ids)
+    if unknown:
+        raise ValueError(f"query {query_id} references unknown evidence: {', '.join(unknown)}")
+
+
+def _validate_mutation(mutation: dict[str, Any], evidence_ids: set[str], query_ids: set[str]) -> None:
+    mutation_id = str(mutation.get("id", "")).strip()
+    if not mutation_id:
+        raise ValueError("mutations require a non-empty id")
+    action = str(mutation.get("action", "")).strip()
+    if action not in ("update", "forget"):
+        raise ValueError(f"mutation {mutation_id} has unsupported action: {action or '(empty)'}")
+    evidence_key = str(mutation.get("evidence_id", "")).strip()
+    if evidence_key not in evidence_ids:
+        raise ValueError(f"mutation {mutation_id} references unknown evidence: {evidence_key or '(empty)'}")
+    base_query = str(mutation.get("base_query_id", "")).strip()
+    if base_query and base_query not in query_ids:
+        raise ValueError(f"mutation {mutation_id} references unknown query: {base_query}")
+    if action == "update" and not str(mutation.get("new_text", "")).strip():
+        raise ValueError(f"mutation {mutation_id} update requires new_text")
+
+
 def load_fixture(root: Path) -> dict[str, list[dict[str, Any]]]:
     fixture = {
         "documents": read_jsonl(root / "documents.jsonl"),
@@ -73,48 +120,12 @@ def load_fixture(root: Path) -> dict[str, list[dict[str, Any]]]:
     document_ids: set[str] = set()
     evidence_ids: set[str] = set()
     for document in fixture["documents"]:
-        doc_id = str(document.get("id", "")).strip()
-        text = document.get("text")
-        if not doc_id or doc_id in document_ids or not isinstance(text, str) or not text.strip():
-            raise ValueError("documents require unique non-empty id and text")
-        document_ids.add(doc_id)
-        evidence = document.get("evidence")
-        if not isinstance(evidence, list) or not evidence:
-            raise ValueError(f"document {doc_id} requires evidence")
-        for item in evidence:
-            if not isinstance(item, dict) or not str(item.get("id", "")).strip() or not str(item.get("text", "")).strip():
-                raise ValueError(f"document {doc_id} has invalid evidence")
-            evidence_id = str(item["id"])
-            if evidence_id in evidence_ids:
-                raise ValueError(f"duplicate evidence id: {evidence_id}")
-            evidence_ids.add(evidence_id)
+        _validate_document(document, document_ids, evidence_ids)
     query_ids: set[str] = set()
     for query in fixture["queries"]:
-        query_id = str(query.get("id", "")).strip()
-        if not query_id or query_id in query_ids or not str(query.get("query", "")).strip():
-            raise ValueError("queries require unique non-empty id and query")
-        query_ids.add(query_id)
-        expected = query.get("expected_evidence_ids", [])
-        if not isinstance(expected, list):
-            raise ValueError(f"query {query_id} expected_evidence_ids must be a list")
-        unknown = sorted(set(str(value) for value in expected) - evidence_ids)
-        if unknown:
-            raise ValueError(f"query {query_id} references unknown evidence: {', '.join(unknown)}")
+        _validate_query(query, query_ids, evidence_ids)
     for mutation in fixture["mutations"]:
-        mutation_id = str(mutation.get("id", "")).strip()
-        if not mutation_id:
-            raise ValueError("mutations require a non-empty id")
-        action = str(mutation.get("action", "")).strip()
-        if action not in ("update", "forget"):
-            raise ValueError(f"mutation {mutation_id} has unsupported action: {action or '(empty)'}")
-        evidence_key = str(mutation.get("evidence_id", "")).strip()
-        if evidence_key not in evidence_ids:
-            raise ValueError(f"mutation {mutation_id} references unknown evidence: {evidence_key or '(empty)'}")
-        base_query = str(mutation.get("base_query_id", "")).strip()
-        if base_query and base_query not in query_ids:
-            raise ValueError(f"mutation {mutation_id} references unknown query: {base_query}")
-        if action == "update" and not str(mutation.get("new_text", "")).strip():
-            raise ValueError(f"mutation {mutation_id} update requires new_text")
+        _validate_mutation(mutation, evidence_ids, query_ids)
     return fixture
 
 
@@ -178,9 +189,9 @@ def discover_capabilities(plugin_root: Path, hermes_help: str | None = None) -> 
     }
     manifests: dict[str, Path] = {}
     if plugin_root.is_dir():
-        for manifest in plugin_root.glob("*/plugin.yaml"):
-            name = _yaml_scalar(manifest, "name") or manifest.parent.name
-            manifests[name] = manifest
+        for manifest_path in plugin_root.glob("*/plugin.yaml"):
+            name = _yaml_scalar(manifest_path, "name") or manifest_path.parent.name
+            manifests[name] = manifest_path
     names = sorted(set(PROVIDER_METADATA) | runtime_names | set(manifests))
     matrix: list[dict[str, Any]] = []
     for name in names:
@@ -204,6 +215,37 @@ def _round(value: float) -> float:
     return round(value, 6)
 
 
+def _score_unanswerable(
+    ranked: list[str],
+    recall_sums: dict[int, float],
+    reciprocal_ranks: list[float],
+    ndcgs: list[float],
+    abstention: list[float],
+) -> None:
+    value = 1.0 if not ranked else 0.0
+    for k in recall_sums:
+        recall_sums[k] += value
+    reciprocal_ranks.append(value)
+    ndcgs.append(value)
+    abstention.append(value)
+
+
+def _score_answerable(
+    expected: set[str],
+    ranked: list[str],
+    recall_sums: dict[int, float],
+    reciprocal_ranks: list[float],
+    ndcgs: list[float],
+) -> None:
+    for k in recall_sums:
+        recall_sums[k] += len(expected.intersection(ranked[:k])) / len(expected)
+    positions = [index + 1 for index, evidence_id in enumerate(ranked) if evidence_id in expected]
+    reciprocal_ranks.append(1.0 / min(positions) if positions else 0.0)
+    dcg = sum(1.0 / math.log2(index + 2) for index, evidence_id in enumerate(ranked[:5]) if evidence_id in expected)
+    ideal = sum(1.0 / math.log2(index + 2) for index in range(min(len(expected), 5)))
+    ndcgs.append(dcg / ideal if ideal else 0.0)
+
+
 def score_rankings(queries: list[dict[str, Any]], rankings: dict[str, list[str]]) -> dict[str, Any]:
     if not queries:
         return {"query_count": 0, "recall_at_1": 0.0, "recall_at_3": 0.0, "recall_at_5": 0.0, "mrr": 0.0, "ndcg_at_5": 0.0, "abstention_accuracy": 0.0}
@@ -212,24 +254,12 @@ def score_rankings(queries: list[dict[str, Any]], rankings: dict[str, list[str]]
     ndcgs: list[float] = []
     abstention: list[float] = []
     for query in queries:
-        expected = set(str(value) for value in query.get("expected_evidence_ids", []))
+        expected = {str(value) for value in query.get("expected_evidence_ids", [])}
         ranked = rankings.get(str(query["id"]), [])
-        is_unanswerable = bool(query.get("unanswerable", not expected))
-        if is_unanswerable:
-            value = 1.0 if not ranked else 0.0
-            for k in recall_sums:
-                recall_sums[k] += value
-            reciprocal_ranks.append(value)
-            ndcgs.append(value)
-            abstention.append(value)
-            continue
-        for k in recall_sums:
-            recall_sums[k] += len(expected.intersection(ranked[:k])) / len(expected)
-        positions = [index + 1 for index, evidence_id in enumerate(ranked) if evidence_id in expected]
-        reciprocal_ranks.append(1.0 / min(positions) if positions else 0.0)
-        dcg = sum(1.0 / math.log2(index + 2) for index, evidence_id in enumerate(ranked[:5]) if evidence_id in expected)
-        ideal = sum(1.0 / math.log2(index + 2) for index in range(min(len(expected), 5)))
-        ndcgs.append(dcg / ideal if ideal else 0.0)
+        if bool(query.get("unanswerable", not expected)):
+            _score_unanswerable(ranked, recall_sums, reciprocal_ranks, ndcgs, abstention)
+        else:
+            _score_answerable(expected, ranked, recall_sums, reciprocal_ranks, ndcgs)
     count = len(queries)
     return {
         "query_count": count,
@@ -253,7 +283,7 @@ class ProviderAdapter:
         return {"available": True}
 
     def reset(self) -> None:
-        return None
+        raise NotImplementedError
 
     def ingest(self, documents: list[dict[str, Any]]) -> None:
         raise NotImplementedError
@@ -262,23 +292,22 @@ class ProviderAdapter:
         raise NotImplementedError
 
     def update(self, mutation: dict[str, Any]) -> dict[str, Any]:
-        return {"supported": False, "reason": "update is not implemented by this adapter"}
+        raise NotImplementedError
 
     def forget(self, mutation: dict[str, Any]) -> dict[str, Any]:
-        return {"supported": False, "reason": "forget is not implemented by this adapter"}
-
-    def restart(self) -> dict[str, Any]:
-        return {"supported": True}
-
-    def export(self) -> dict[str, Any]:
-        return {"supported": False, "reason": "export is not implemented by this adapter"}
+        raise NotImplementedError
 
     def capture(self, conversation: dict[str, Any]) -> dict[str, Any]:
-        del conversation
-        return {"supported": False, "reason": "scripted conversation capture is not implemented by this adapter"}
+        raise NotImplementedError
+
+    def restart(self) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def export(self) -> dict[str, Any]:
+        raise NotImplementedError
 
     def teardown(self) -> None:
-        return None
+        raise NotImplementedError
 
 
 class BuiltinAdapter(ProviderAdapter):
@@ -341,11 +370,41 @@ class BuiltinAdapter(ProviderAdapter):
         return {"supported": True, "removed": 1}
 
     def query(self, query: str, top_k: int) -> list[dict[str, Any]]:
-        del query
+        # Built-in memory injection is query-independent: durable entries are
+        # returned in insertion order regardless of the query text.
         return [dict(item, score=1.0) for item in self.entries[:top_k]]
+
+    def capture(self, conversation: dict[str, Any]) -> dict[str, Any]:
+        session_id = str(conversation.get("session_id") or conversation.get("id") or "session")
+        captured: list[str] = []
+        turns = conversation.get("turns", [])
+        for index, turn in enumerate(turns, start=1):
+            if str(turn.get("role")) != "user":
+                continue
+            text = str(turn.get("content", "")).strip()
+            if not text:
+                continue
+            entry_text = f"session {session_id}: {text}"
+            current = len(self._rendered_text())
+            if current + len(entry_text) + 3 > self.char_limit:
+                break
+            self.entries.append({"evidence_id": f"{session_id}-t{index}", "text": entry_text, "document_id": str(conversation.get("id", ""))})
+            captured.append(entry_text)
+        if captured:
+            self._persist()
+        return {"supported": True, "captured": len(captured), "texts": captured}
+
+    def _rendered_text(self) -> str:
+        return "\n§\n".join(f"[{entry['evidence_id']}] {entry['text']}" for entry in self.entries)
+
+    def restart(self) -> dict[str, Any]:
+        return {"supported": True, "path": str(self.memory_path.relative_to(self.sandbox))}
 
     def export(self) -> dict[str, Any]:
         return {"supported": True, "path": str(self.memory_path.relative_to(self.sandbox)), "characters": len(self.memory_path.read_text(encoding="utf-8"))}
+
+    def teardown(self) -> None:
+        self.reset()
 
 
 class MemsearchAdapter(ProviderAdapter):
@@ -362,6 +421,15 @@ class MemsearchAdapter(ProviderAdapter):
 
     def health(self) -> dict[str, Any]:
         return {"available": self.binary is not None, "binary": self.binary, "collection": self.collection}
+
+    def update(self, mutation: dict[str, Any]) -> dict[str, Any]:
+        return {"supported": False, "reason": "memsearch index updates require reindexing; not driven by this adapter"}
+
+    def forget(self, mutation: dict[str, Any]) -> dict[str, Any]:
+        return {"supported": False, "reason": "memsearch has no delete primitive; reset and reindex is the only removal path"}
+
+    def capture(self, conversation: dict[str, Any]) -> dict[str, Any]:
+        return {"supported": False, "reason": "scripted conversation capture is not part of the memsearch index path"}
 
     def reset(self) -> None:
         if self.binary:
@@ -402,6 +470,31 @@ class MemsearchAdapter(ProviderAdapter):
                     return [item for item in value if isinstance(item, dict)]
         return []
 
+    def _ranked_from_payload(self, payload: Any, top_k: int) -> list[dict[str, Any]]:
+        ranked: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for record in self._result_records(payload):
+            if len(ranked) >= top_k:
+                break
+            ranked.extend(self._evidence_hits(record, seen, top_k))
+        return ranked[:top_k]
+
+    def _evidence_hits(self, record: dict[str, Any], seen: set[str], top_k: int) -> list[dict[str, Any]]:
+        source = str(record.get("source") or record.get("path") or record.get("file") or "")
+        content = str(record.get("content") or record.get("text") or record.get("chunk") or "")
+        score = record.get("score") or record.get("similarity") or 0.0
+        doc_id = Path(source).stem if source else ""
+        ids = re.findall(r"\[evidence:([^\]]+)\]", content)
+        if not ids:
+            ids = self.evidence_by_document.get(doc_id, [])
+        hits: list[dict[str, Any]] = []
+        for evidence_id in ids:
+            if len(hits) >= top_k or evidence_id in seen:
+                continue
+            seen.add(evidence_id)
+            hits.append({"evidence_id": evidence_id, "document_id": doc_id, "score": score})
+        return hits
+
     def query(self, query: str, top_k: int) -> list[dict[str, Any]]:
         if not self.binary:
             raise RuntimeError("memsearch is not installed")
@@ -414,27 +507,19 @@ class MemsearchAdapter(ProviderAdapter):
         )
         if result.returncode != 0:
             raise RuntimeError(f"memsearch search failed: {(result.stderr or result.stdout).strip()[:500]}")
-        payload = json.loads(result.stdout)
-        ranked: list[dict[str, Any]] = []
-        seen: set[str] = set()
-        for record in self._result_records(payload):
-            source = str(record.get("source") or record.get("path") or record.get("file") or "")
-            content = str(record.get("content") or record.get("text") or record.get("chunk") or "")
-            score = record.get("score") or record.get("similarity") or 0.0
-            doc_id = Path(source).stem if source else ""
-            ids = re.findall(r"\[evidence:([^\]]+)\]", content)
-            if not ids:
-                ids = self.evidence_by_document.get(doc_id, [])
-            for evidence_id in ids:
-                if evidence_id not in seen:
-                    seen.add(evidence_id)
-                    ranked.append({"evidence_id": evidence_id, "document_id": doc_id, "score": score})
-                    if len(ranked) >= top_k:
-                        return ranked
-        return ranked
+        return self._ranked_from_payload(json.loads(result.stdout), top_k)
 
     def teardown(self) -> None:
         self.reset()
+
+    def restart(self) -> dict[str, Any]:
+        # memsearch is a client of an external Milvus service; the collection
+        # persists across client restarts, so restart support is structural.
+        return {"supported": True, "collection": self.collection}
+
+    def export(self) -> dict[str, Any]:
+        total = sum(path.stat().st_size for path in self.documents_dir.glob("*.md"))
+        return {"supported": True, "path": str(self.documents_dir.relative_to(self.sandbox)), "characters": total}
 
 
 class UnavailableProviderAdapter(ProviderAdapter):
@@ -447,11 +532,9 @@ class UnavailableProviderAdapter(ProviderAdapter):
         return {"available": False, "reason": self.reason}
 
     def ingest(self, documents: list[dict[str, Any]]) -> None:
-        del documents
         raise RuntimeError(self.reason)
 
     def query(self, query: str, top_k: int) -> list[dict[str, Any]]:
-        del query, top_k
         raise RuntimeError(self.reason)
 
 
@@ -465,7 +548,6 @@ class Timer:
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
-        del exc_type, exc, traceback
         self.elapsed_ms = (time.perf_counter() - self.started) * 1000
 
 
@@ -477,44 +559,78 @@ def _latency_summary(values: list[float]) -> dict[str, float | None]:
     return {"p50_ms": _round(statistics.median(ordered)), "p95_ms": _round(ordered[index])}
 
 
+def _run_query_phase(
+    adapter: ProviderAdapter,
+    queries: list[dict[str, Any]],
+    top_k: int,
+) -> tuple[dict[str, list[str]], list[dict[str, Any]], list[float]]:
+    rankings: dict[str, list[str]] = {}
+    query_details: list[dict[str, Any]] = []
+    latencies: list[float] = []
+    for query in queries:
+        with Timer() as timer:
+            results = adapter.query(str(query["query"]), top_k)
+        ids = [str(item["evidence_id"]) for item in results]
+        rankings[str(query["id"])] = ids
+        latencies.append(timer.elapsed_ms)
+        query_details.append({"query_id": query["id"], "evidence_ids": ids, "latency_ms": _round(timer.elapsed_ms)})
+    return rankings, query_details, latencies
+
+
+def _mutation_outcome(adapter: ProviderAdapter, mutation: dict[str, Any]) -> dict[str, Any]:
+    if mutation.get("action") == "forget":
+        return adapter.forget(mutation)
+    return adapter.update(mutation)
+
+
+def _post_mutation_check(
+    adapter: ProviderAdapter,
+    fixture: dict[str, list[dict[str, Any]]],
+    mutation: dict[str, Any],
+    top_k: int,
+) -> dict[str, Any]:
+    base_query_id = str(mutation.get("base_query_id", "")).strip()
+    base_query = next((q for q in fixture["queries"] if str(q["id"]) == base_query_id), None)
+    if base_query is None:
+        return {}
+    ranked = [str(item["evidence_id"]) for item in adapter.query(str(base_query["query"]), top_k)]
+    post: dict[str, Any] = {"ranked": ranked}
+    expect_absent = [str(value) for value in mutation.get("expect_absent", [])]
+    if expect_absent:
+        post["absent_ok"] = all(value not in ranked for value in expect_absent)
+    return post
+
+
+def _run_mutation_phase(
+    adapter: ProviderAdapter,
+    fixture: dict[str, list[dict[str, Any]]],
+    top_k: int,
+) -> list[dict[str, Any]]:
+    lifecycle: list[dict[str, Any]] = []
+    for mutation in fixture["mutations"]:
+        outcome = _mutation_outcome(adapter, mutation)
+        post: dict[str, Any] = {}
+        if outcome.get("supported"):
+            post = _post_mutation_check(adapter, fixture, mutation, top_k)
+        lifecycle.append({
+            "mutation_id": mutation.get("id"),
+            "action": mutation.get("action"),
+            **outcome,
+            **({"post": post} if post else {}),
+        })
+    return lifecycle
+
+
 def run_adapter(adapter: ProviderAdapter, fixture: dict[str, list[dict[str, Any]]], top_k: int = 5) -> dict[str, Any]:
     health = adapter.health()
     if not health.get("available"):
         return {"provider": adapter.name, "status": "capability_gap", "health": health, "metrics": None}
-    rankings: dict[str, list[str]] = {}
-    query_details: list[dict[str, Any]] = []
-    query_latencies: list[float] = []
-    lifecycle: list[dict[str, Any]] = []
     try:
         adapter.reset()
         with Timer() as ingest_timer:
             adapter.ingest(fixture["documents"])
-        for query in fixture["queries"]:
-            with Timer() as query_timer:
-                results = adapter.query(str(query["query"]), top_k)
-            ids = [str(item["evidence_id"]) for item in results]
-            rankings[str(query["id"])] = ids
-            query_latencies.append(query_timer.elapsed_ms)
-            query_details.append({"query_id": query["id"], "evidence_ids": ids, "latency_ms": _round(query_timer.elapsed_ms)})
-        for mutation in fixture["mutations"]:
-            action = mutation.get("action")
-            if action == "forget":
-                outcome = adapter.forget(mutation)
-            else:
-                outcome = adapter.update(mutation)
-            post: dict[str, Any] = {}
-            base_query_id = str(mutation.get("base_query_id", "")).strip()
-            if outcome.get("supported") and base_query_id:
-                base_query = next((q for q in fixture["queries"] if str(q["id"]) == base_query_id), None)
-                if base_query is not None:
-                    ranked = [str(item["evidence_id"]) for item in adapter.query(str(base_query["query"]), top_k)]
-                    post["ranked"] = ranked
-                    expect_absent = [str(value) for value in mutation.get("expect_absent", [])]
-                    if expect_absent:
-                        post["absent_ok"] = all(value not in ranked for value in expect_absent)
-            lifecycle.append({"mutation_id": mutation.get("id"), "action": action, **outcome, **({"post": post} if post else {})})
-        restart = adapter.restart()
-        exported = adapter.export()
+        rankings, query_details, query_latencies = _run_query_phase(adapter, fixture["queries"], top_k)
+        lifecycle = _run_mutation_phase(adapter, fixture, top_k)
         capture = [adapter.capture(conversation) for conversation in fixture["conversations"]]
         return {
             "provider": adapter.name,
@@ -525,10 +641,10 @@ def run_adapter(adapter: ProviderAdapter, fixture: dict[str, list[dict[str, Any]
             "queries": query_details,
             "lifecycle": lifecycle,
             "capture": capture,
-            "restart": restart,
-            "export": exported,
+            "restart": adapter.restart(),
+            "export": adapter.export(),
         }
-    except (OSError, RuntimeError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+    except (OSError, RuntimeError, NotImplementedError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
         return {"provider": adapter.name, "status": "failed", "health": health, "error": str(exc)[:500], "metrics": None}
     finally:
         adapter.teardown()
@@ -584,13 +700,9 @@ def command_run(args: argparse.Namespace) -> int:
         print(f"output already exists: {output} (pass --overwrite)", file=sys.stderr)
         return 2
     results: list[dict[str, Any]] = []
-    sandbox_parent = Path(args.sandbox_root).resolve() if args.sandbox_root else None
-    with tempfile.TemporaryDirectory(prefix="dotagents-memory-eval-", dir=str(sandbox_parent) if sandbox_parent else None) as tmp:
+    sandbox_parent = str(Path(args.sandbox_root).resolve()) if args.sandbox_root else None
+    with tempfile.TemporaryDirectory(prefix="dotagents-memory-eval-", dir=sandbox_parent) as tmp:
         root = Path(tmp).resolve()
-        if root == Path.home().resolve() or Path.home().resolve() in root.parents:
-            # Temp roots under a user's home are safe only because every adapter
-            # is still rooted beneath this newly-created evaluation directory.
-            pass
         for name in requested:
             arm = root / name
             results.append(run_adapter(make_adapter(name, arm), fixture, top_k=args.top_k))
