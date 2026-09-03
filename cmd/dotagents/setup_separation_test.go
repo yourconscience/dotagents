@@ -174,7 +174,7 @@ func TestMemoryTierDefinitionsAndMemsearchDependency(t *testing.T) {
 	if err := applyMemoryTier(&cfg, memoryTierMemsearch, root, home); err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Hooks) != 4 || cfg.Hooks[1].Command != "~/.agents/memory/hooks/session-start.sh" || !stringSlicesEqual(cfg.Hooks[1].Agents, []string{agentClaudeCode, agentCodex, agentDroid, agentHermes}) || cfg.Hooks[2].Command != "~/.agents/memory/hooks/stop.sh" || !stringSlicesEqual(cfg.Hooks[2].Agents, []string{agentClaudeCode, agentCodex, agentDroid}) || cfg.Hooks[3].Command != "~/.agents/memory/hooks/session-end.sh" || !stringSlicesEqual(cfg.Hooks[3].Agents, []string{agentClaudeCode, agentCodex, agentDroid, agentHermes}) {
+	if len(cfg.Hooks) != 6 || cfg.Hooks[1].Command != "~/.agents/memory/hooks/session-start.sh" || !stringSlicesEqual(cfg.Hooks[1].Agents, []string{agentClaudeCode, agentCodex, agentDroid}) || cfg.Hooks[2].Command != "~/.agents/memory/hooks/stop.sh" || !stringSlicesEqual(cfg.Hooks[2].Agents, []string{agentClaudeCode, agentCodex, agentDroid}) || cfg.Hooks[3].Command != "~/.agents/memory/hooks/session-end.sh" || !stringSlicesEqual(cfg.Hooks[3].Agents, []string{agentClaudeCode, agentCodex, agentDroid, agentHermes}) || cfg.Hooks[4].Name != "memory-hermes-vault-to-memory" || cfg.Hooks[4].Command != "~/.agents/memory/hooks/sync-vault-to-memory.sh" || !stringSlicesEqual(cfg.Hooks[4].Agents, []string{agentHermes}) || cfg.Hooks[5].Name != "memory-hermes-memory-to-vault" || cfg.Hooks[5].Command != "~/.agents/memory/hooks/sync-memory-to-vault.sh" || !stringSlicesEqual(cfg.Hooks[5].Agents, []string{agentHermes}) {
 		t.Fatalf("memsearch hooks = %#v", cfg.Hooks)
 	}
 }

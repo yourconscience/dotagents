@@ -294,8 +294,11 @@ func TestRemoveNativeManagedMemoryHooksCleansSupportedNativeConfigs(t *testing.T
   }
 }`,
 		filepath.Join(home, ".hermes", "config.yaml"): `hooks:
+  on_session_start:
+    - command: ~/.agents/memory/hooks/sync-vault-to-memory.sh
   on_session_finalize:
     - command: ~/.agents/memory/hooks/session-end.sh
+    - command: ~/.agents/memory/hooks/sync-memory-to-vault.sh
     - command: echo hermes
 `,
 	}

@@ -52,6 +52,18 @@ Memory tiers:
 - `basic` (default): Python-3-only bounded Markdown digests under `$KNOWLEDGE_DIR/sessions/` plus recent context at session start.
 - `memsearch`: the indexed SessionStart, Stop, and SessionEnd pipeline; requires `memsearch` on `PATH`.
 
+For Hermes, the `memsearch` tier also keeps the built-in memory files and the
+knowledge vault in sync: `sync-vault-to-memory.sh` runs at session start,
+`session-end.sh` captures the session digest at finalize, and
+`sync-memory-to-vault.sh` exports durable memory at finalize. The generic
+`session-start.sh` is not registered for Hermes because its Claude-style
+context response is not consumed by Hermes; Hermes injects the synchronized
+built-in memory natively instead.
+
+Verify the complete setup with `dotagents doctor --e2e`, then run
+`hermes hooks doctor`. Hermes hook approval is host-local and may require one
+interactive approval after setup.
+
 ## status
 
 Reports each configured harness as detected or not detected and compares the four managed surfaces with native state:

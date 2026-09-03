@@ -223,13 +223,14 @@ def vault_to_memory(paths: dict):
             else:
                 break
 
-        hermes_user_path.write_text(
-            "\n§\n".join(lines) + "\n",
-            encoding="utf-8",
-        )
         added = len(lines) - len(existing_entries)
+        if added:
+            hermes_user_path.write_text(
+                "\n§\n".join(lines) + "\n",
+                encoding="utf-8",
+            )
         print(f"vault->memory: added {added} facts to {hermes_user_path} ({current_size}/{HERMES_USER_LIMIT} chars)")
-        changed = True
+        changed = added > 0
     else:
         print(f"vault->memory: {hermes_user_path} up to date")
 

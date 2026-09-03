@@ -23,9 +23,11 @@ const (
 )
 
 var managedMemoryHookNames = map[string]struct{}{
-	"memory-session-start": {},
-	"memory-stop":          {},
-	"memory-session-end":   {},
+	"memory-session-start":          {},
+	"memory-stop":                   {},
+	"memory-session-end":            {},
+	"memory-hermes-vault-to-memory": {},
+	"memory-hermes-memory-to-vault": {},
 }
 
 type setupIO struct {
@@ -229,6 +231,7 @@ func applyMemoryTier(cfg *config, tier string, root string, home string) error {
 	startTargets := memoryHookAgents(*cfg, "SessionStart")
 	stopTargets := memoryHookAgents(*cfg, "Stop")
 	endTargets := memoryHookAgents(*cfg, "SessionEnd")
+	hermesTargets := enabledAgentNames(*cfg, agentHermes)
 	switch tier {
 	case memoryTierOff:
 		removeManagedMemoryHooks(cfg)
@@ -250,14 +253,23 @@ func applyMemoryTier(cfg *config, tier string, root string, home string) error {
 			return fmt.Errorf("configure memsearch: %w", err)
 		}
 		removeManagedMemoryHooks(cfg)
-		if len(startTargets) > 0 {
-			cfg.Hooks = append(cfg.Hooks, hookConfig{Name: "memory-session-start", Enabled: true, Event: "SessionStart", Command: managedMemoryHookCommand(root, home, "session-start.sh"), Timeout: 15, Agents: startTargets})
+		// session-start.sh delegates to the Claude memsearch plugin, whose
+		// hookSpecificOutput response is not consumed by Hermes. Hermes imports
+		// the shared vault into its built-in memory instead.
+		if targets := withoutAgent(startTargets, agentHermes); len(targets) > 0 {
+			cfg.Hooks = append(cfg.Hooks, hookConfig{Name: "memory-session-start", Enabled: true, Event: "SessionStart", Command: managedMemoryHookCommand(root, home, "session-start.sh"), Timeout: 15, Agents: targets})
 		}
 		if len(stopTargets) > 0 {
 			cfg.Hooks = append(cfg.Hooks, hookConfig{Name: "memory-stop", Enabled: true, Event: "Stop", Command: managedMemoryHookCommand(root, home, "stop.sh"), Timeout: 15, Agents: stopTargets})
 		}
 		if len(endTargets) > 0 {
 			cfg.Hooks = append(cfg.Hooks, hookConfig{Name: "memory-session-end", Enabled: true, Event: "SessionEnd", Command: managedMemoryHookCommand(root, home, "session-end.sh"), Timeout: 30, Agents: endTargets})
+		}
+		if len(hermesTargets) > 0 {
+			cfg.Hooks = append(cfg.Hooks,
+				hookConfig{Name: "memory-hermes-vault-to-memory", Enabled: true, Event: "SessionStart", Command: managedMemoryHookCommand(root, home, "sync-vault-to-memory.sh"), Timeout: 30, Agents: hermesTargets},
+				hookConfig{Name: "memory-hermes-memory-to-vault", Enabled: true, Event: "SessionEnd", Command: managedMemoryHookCommand(root, home, "sync-memory-to-vault.sh"), Timeout: 30, Agents: hermesTargets},
+			)
 		}
 		return nil
 	default:
@@ -291,6 +303,27 @@ func memoryHookAgents(cfg config, event string) []string {
 	}
 	sort.Strings(agents)
 	return agents
+}
+
+func enabledAgentNames(cfg config, name string) []string {
+	var names []string
+	for _, agent := range cfg.Agents {
+		if agent.Enabled && normalizeAgentName(agent.Name) == name {
+			names = append(names, agent.Name)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+func withoutAgent(agents []string, excluded string) []string {
+	filtered := make([]string, 0, len(agents))
+	for _, agent := range agents {
+		if normalizeAgentName(agent) != excluded {
+			filtered = append(filtered, agent)
+		}
+	}
+	return filtered
 }
 
 func normalizeMemoryTier(tier string) string {

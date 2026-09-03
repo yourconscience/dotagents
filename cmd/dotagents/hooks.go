@@ -304,7 +304,7 @@ func managedMemoryNativeCommands(home string, root string, cfgs ...config) []str
 		}
 	}
 	for _, commandRoot := range []string{root, filepath.Join(home, ".agents")} {
-		for _, script := range []string{"basic-session-start.py", "basic-session-end.py", "session-start.sh", "stop.sh", "session-end.sh"} {
+		for _, script := range []string{"basic-session-start.py", "basic-session-end.py", "session-start.sh", "stop.sh", "session-end.sh", "sync-vault-to-memory.sh", "sync-memory-to-vault.sh"} {
 			add(managedMemoryHookCommand(commandRoot, home, script))
 		}
 	}
