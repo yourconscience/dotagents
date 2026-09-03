@@ -1,0 +1,18 @@
+{"id": "q01", "query": "Which memory mode works with Python alone while keeping Markdown as the storage format?", "expected_evidence_ids": ["ev-01a"], "task_class": "semantic_paraphrase"}
+{"id": "q02", "query": "Is the search index or the local vault the authoritative copy of stored memory?", "expected_evidence_ids": ["ev-02a"], "task_class": "exact_lookup"}
+{"id": "q03", "query": "Why can a generic lifecycle callback call itself forever, and how is that prevented?", "expected_evidence_ids": ["ev-03a"], "task_class": "semantic_paraphrase"}
+{"id": "q04", "query": "What must a successful hook print on stdout for the host to accept it?", "expected_evidence_ids": ["ev-04a"], "task_class": "exact_lookup"}
+{"id": "q05", "query": "How do replayed session-end events avoid duplicate digests during concurrent writes?", "expected_evidence_ids": ["ev-05a"], "task_class": "project_continuity"}
+{"id": "q06", "query": "Atlas and Cinder expose different session data shapes. Where should those differences be handled?", "expected_evidence_ids": ["ev-06a"], "task_class": "multi_document"}
+{"id": "q07", "query": "How are recent memory files ordered and limited when startup context is assembled?", "expected_evidence_ids": ["ev-07a"], "task_class": "temporal_ordering"}
+{"id": "q08", "query": "Should credential redaction happen before or after digest truncation and path extraction?", "expected_evidence_ids": ["ev-08a"], "task_class": "contradiction_detection"}
+{"id": "q09", "query": "What happens when bounded agent memory is full during a vault-to-memory sync?", "expected_evidence_ids": ["ev-09a"], "task_class": "temporal_ordering"}
+{"id": "q10", "query": "Will session capture survive when the optional semantic search executable is unavailable?", "expected_evidence_ids": ["ev-10a"], "task_class": "degraded_mode"}
+{"id": "q11", "query": "Does the consolidation pass automatically rewrite memory files when it finds a candidate?", "expected_evidence_ids": ["ev-11a"], "task_class": "contradiction_detection"}
+{"id": "q12", "query": "How should identical, conflicting, and unterminated copies of one session record be classified?", "expected_evidence_ids": ["ev-12a"], "task_class": "multi_document"}
+{"id": "q13", "query": "What are the character limits applied to each file and in total when startup context is built?", "expected_evidence_ids": ["ev-07a"], "task_class": "rare_identifier"}
+{"id": "q14", "query": "Which document explains how both sync directions avoid re-importing the same normalized facts?", "expected_evidence_ids": ["ev-09b"], "task_class": "rare_identifier"}
+{"id": "q15", "query": "Explain the exact sequence in which redaction, truncation, sanitization, rendering, and path storage must occur.", "expected_evidence_ids": ["ev-08a"], "task_class": "multi_document"}
+{"id": "q16", "query": "Who is the user's favorite composer, and what symphony do they prefer?", "expected_evidence_ids": [], "unanswerable": true, "task_class": "abstention"}
+{"id": "q17", "query": "What is the recommended daily calorie intake for a sled dog?", "expected_evidence_ids": [], "unanswerable": true, "task_class": "abstention"}
+{"id": "q18", "query": "Summarize the quarterly revenue guidance mentioned in these notes.", "expected_evidence_ids": [], "unanswerable": true, "task_class": "abstention"}
