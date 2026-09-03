@@ -83,9 +83,33 @@ class ScoringTests(unittest.TestCase):
             {"q-1": ["ev-1", "ev-2"], "q-2": []},
         )
         self.assertEqual(scores["query_count"], 2)
-        self.assertEqual(scores["recall_at_1"], 0.5)
+        self.assertEqual(scores["answerable_query_count"], 1)
+        self.assertEqual(scores["recall_at_1"], 0.0)
         self.assertEqual(scores["recall_at_3"], 1.0)
-        self.assertEqual(scores["mrr"], 0.75)
+        self.assertEqual(scores["mrr"], 0.5)
+        self.assertEqual(scores["abstention_accuracy"], 1.0)
+
+    def test_retrieval_metrics_exclude_unanswerable_queries(self):
+        scores = EVAL.score_rankings(
+            [
+                {"id": "q-1", "expected_evidence_ids": ["ev-1"]},
+                {"id": "q-2", "expected_evidence_ids": [], "unanswerable": True},
+            ],
+            {"q-1": ["ev-1"], "q-2": ["ev-1"]},
+        )
+        # q-2 returned results despite being unanswerable: abstention 0, but
+        # retrieval metrics are computed over the answerable query only.
+        self.assertEqual(scores["recall_at_1"], 1.0)
+        self.assertEqual(scores["mrr"], 1.0)
+        self.assertEqual(scores["abstention_accuracy"], 0.5)
+
+    def test_unanswerable_correct_abstention_counts_toward_abstention_only(self):
+        scores = EVAL.score_rankings(
+            [{"id": "q-2", "expected_evidence_ids": [], "unanswerable": True}],
+            {"q-2": []},
+        )
+        self.assertEqual(scores["answerable_query_count"], 0)
+        self.assertEqual(scores["recall_at_1"], 0.0)
         self.assertEqual(scores["abstention_accuracy"], 1.0)
 
 
@@ -148,6 +172,18 @@ class BuiltinAdapterTests(unittest.TestCase):
             self.assertEqual([entry["evidence_id"] for entry in adapter.entries], ["ev-1"])
             unknown = adapter.forget({"evidence_id": "missing"})
             self.assertFalse(unknown["supported"])
+
+    def test_builtin_update_rejects_budget_busting_replacement(self):
+        fixture = two_doc_fixture()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            adapter = EVAL.BuiltinAdapter(root, char_limit=40)
+            adapter.ingest(fixture["documents"])
+            update = adapter.update({"evidence_id": "ev-1", "new_text": "x" * 60})
+            self.assertFalse(update["supported"])
+            self.assertIn("budget", update["reason"])
+            self.assertEqual([entry["text"] for entry in adapter.entries], ["alpha", "beta"])
+            self.assertLessEqual(len(adapter._rendered_text()), 40)
 
 
 class MemsearchAdapterTests(unittest.TestCase):

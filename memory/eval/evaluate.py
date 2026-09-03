@@ -215,19 +215,8 @@ def _round(value: float) -> float:
     return round(value, 6)
 
 
-def _score_unanswerable(
-    ranked: list[str],
-    recall_sums: dict[int, float],
-    reciprocal_ranks: list[float],
-    ndcgs: list[float],
-    abstention: list[float],
-) -> None:
-    value = 1.0 if not ranked else 0.0
-    for k in recall_sums:
-        recall_sums[k] += value
-    reciprocal_ranks.append(value)
-    ndcgs.append(value)
-    abstention.append(value)
+def _is_unanswerable(query: dict[str, Any]) -> bool:
+    return bool(query.get("unanswerable", not query.get("expected_evidence_ids")))
 
 
 def _score_answerable(
@@ -248,27 +237,36 @@ def _score_answerable(
 
 def score_rankings(queries: list[dict[str, Any]], rankings: dict[str, list[str]]) -> dict[str, Any]:
     if not queries:
-        return {"query_count": 0, "recall_at_1": 0.0, "recall_at_3": 0.0, "recall_at_5": 0.0, "mrr": 0.0, "ndcg_at_5": 0.0, "abstention_accuracy": 0.0}
+        return {"query_count": 0, "answerable_query_count": 0, "recall_at_1": 0.0, "recall_at_3": 0.0, "recall_at_5": 0.0, "mrr": 0.0, "ndcg_at_5": 0.0, "abstention_accuracy": 0.0}
     recall_sums = {1: 0.0, 3: 0.0, 5: 0.0}
     reciprocal_ranks: list[float] = []
     ndcgs: list[float] = []
     abstention: list[float] = []
+    answerable_count = 0
     for query in queries:
         expected = {str(value) for value in query.get("expected_evidence_ids", [])}
         ranked = rankings.get(str(query["id"]), [])
-        if bool(query.get("unanswerable", not expected)):
-            _score_unanswerable(ranked, recall_sums, reciprocal_ranks, ndcgs, abstention)
+        if _is_unanswerable(query):
+            # Correct behavior on unanswerable queries is abstention (empty
+            # rankings); they are excluded from retrieval-quality metrics.
+            abstention.append(1.0 if not ranked else 0.0)
         else:
+            answerable_count += 1
+            abstention.append(1.0 if ranked else 0.0)
             _score_answerable(expected, ranked, recall_sums, reciprocal_ranks, ndcgs)
-    count = len(queries)
+
+    def _mean(values: list[float]) -> float:
+        return sum(values) / len(values) if values else 0.0
+
     return {
-        "query_count": count,
-        "recall_at_1": _round(recall_sums[1] / count),
-        "recall_at_3": _round(recall_sums[3] / count),
-        "recall_at_5": _round(recall_sums[5] / count),
-        "mrr": _round(sum(reciprocal_ranks) / count),
-        "ndcg_at_5": _round(sum(ndcgs) / count),
-        "abstention_accuracy": _round(sum(abstention) / len(abstention)) if abstention else None,
+        "query_count": len(queries),
+        "answerable_query_count": answerable_count,
+        "recall_at_1": _round(recall_sums[1] / answerable_count) if answerable_count else 0.0,
+        "recall_at_3": _round(recall_sums[3] / answerable_count) if answerable_count else 0.0,
+        "recall_at_5": _round(recall_sums[5] / answerable_count) if answerable_count else 0.0,
+        "mrr": _round(_mean(reciprocal_ranks)),
+        "ndcg_at_5": _round(_mean(ndcgs)),
+        "abstention_accuracy": _round(_mean(abstention)) if abstention else None,
     }
 
 
@@ -356,7 +354,11 @@ class BuiltinAdapter(ProviderAdapter):
         entry = self._find_entry(str(mutation.get("evidence_id", "")))
         if entry is None:
             return {"supported": False, "reason": "unknown evidence id"}
+        previous_text = entry["text"]
         entry["text"] = str(mutation.get("new_text", "")).strip()
+        if len(self._rendered_text()) + 1 > self.char_limit:
+            entry["text"] = previous_text
+            return {"supported": False, "reason": "update exceeds the bounded memory character budget"}
         self._persist()
         return {"supported": True, "changed": 1}
 
@@ -433,7 +435,9 @@ class MemsearchAdapter(ProviderAdapter):
 
     def reset(self) -> None:
         if self.binary:
-            subprocess.run([self.binary, "reset", "--collection", self.collection, "--yes"], capture_output=True, text=True, timeout=30, check=False)
+            result = subprocess.run([self.binary, "reset", "--collection", self.collection, "--yes"], capture_output=True, text=True, timeout=30, check=False)
+            if result.returncode != 0:
+                raise RuntimeError(f"memsearch reset failed for {self.collection}: {(result.stderr or result.stdout).strip()[:300]}")
         if self.documents_dir.exists():
             shutil.rmtree(self.documents_dir)
 
@@ -745,7 +749,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--forbidden-file")
     run.add_argument("--approved-fixture", action="store_true", help="record that the human fixture review gate passed")
     run.add_argument("--overwrite", action="store_true")
-    run.add_argument("--top-k", type=int, default=5)
+    run.add_argument("--top-k", type=int, default=5, choices=range(1, 51), metavar="[1-50]", help="number of ranked results per query (1-50)")
     run.add_argument("--sandbox-root")
     run.set_defaults(handler=command_run)
     return parser
