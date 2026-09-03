@@ -4,7 +4,7 @@ A role is a Markdown file in `~/.agents/agents/` with frontmatter (`name`, `desc
 
 ## Model tiers and overrides
 
-The generic `model` value is a capability tier (`haiku`, `sonnet`, or `opus`). Claude Code, Codex, and Droid render it natively in their own model family. Harnesses without a native tier concept (OMP, OpenCode) render the value verbatim, so set a per-harness override there whenever you need an exact identifier or want to omit the model and inherit the active session model:
+The generic `model` value is a capability tier (`haiku`, `sonnet`, or `opus`). Claude Code, Codex, and Droid render it natively in their own model family. Harnesses without a native tier concept use native inheritance or an exact per-harness override:
 
 ```yaml
 model: opus
@@ -16,6 +16,9 @@ omp:
   model: gpt-5.6-luna-high
 opencode:
   model: openai/gpt-5.6
+qwen:
+  model: qwen3-coder-plus
+  approval_mode: plan
 ```
 
 ## Rendering targets
@@ -26,5 +29,6 @@ opencode:
 | Codex | TOML | `~/.codex/agents/<name>.toml` |
 | Factory Droid | Markdown | `~/.factory/droids/<name>.md` |
 | OMP | YAML frontmatter | `~/.omp/agent/agents/<name>.md` |
+| Qwen Code | YAML frontmatter | `~/.qwen/agents/<name>.md` |
 
 Roles are regenerated on every `dotagents sync`; edit the canonical `.md`, never the rendered output.

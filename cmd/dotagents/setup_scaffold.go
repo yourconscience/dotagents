@@ -153,6 +153,7 @@ func defaultAgentConfigs() []agentConfig {
 		{Name: agentOMP, Enabled: true, SkillRoot: "~/.omp/agent/skills", AgentRoot: "~/.omp/agent/agents", Detect: "omp"},
 		{Name: agentOpenCode, Enabled: true, SkillRoot: "~/.config/opencode/skills", AgentRoot: "~/.config/opencode/agents", Detect: "opencode"},
 		{Name: agentPi, Enabled: true, SkillRoot: "~/.pi/agent/skills", Detect: "pi"},
+		{Name: agentQwenCode, Enabled: true, SkillRoot: "~/.qwen/skills", AgentRoot: "~/.qwen/agents", Detect: "qwen"},
 	}
 }
 

@@ -253,6 +253,33 @@ func initHarnesses() {
 			}),
 			Roles: &RolesCapability{Extension: ".md", Render: renderOMPAgentRole},
 		},
+
+		agentQwenCode: {
+			Skills: SkillsConfigDriven,
+			InspectSkills: func(agent agentConfig, expected map[string]string, agentsSkillRoot string, cfg config, home string) (agentReport, error) {
+				return inspectQwenAgent(agent, expected, agentsSkillRoot, cfg, home)
+			},
+			Setup: patchQwenConfig,
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  agentQwenCode,
+				configPath: qwenSettingsPath,
+				inspect:    inspectJSONMCPServer,
+				patch:      patchJSONMCPServer,
+				read:       readJSONMCPServer,
+				rootKey:    "mcpServers",
+			}),
+			Roles: &RolesCapability{Extension: ".md", Render: renderQwenAgentRole},
+			Hooks: &hookTarget{
+				agentName: agentQwenCode,
+				inspect:   inspectQwenHook,
+				patch:     patchQwenHook,
+			},
+			RootInstructions: &RootInstructionsCapability{
+				Path:     func(home string) string { return filepath.Join(home, ".qwen", "QWEN.md") },
+				Expected: func(repoRoot string) string { return filepath.Join(repoRoot, "AGENTS.md") },
+			},
+			IntegrationNote: "config-driven via ~/.qwen/settings.json -> skills.directories",
+		},
 	}
 }
 

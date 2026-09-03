@@ -247,6 +247,23 @@ func patchDroidHook(hook hookConfig, home string) error {
 	return patchNestedJSONHook(activeDroidHooksConfigPath(home), hook)
 }
 
+func inspectQwenHook(hook hookConfig, home string) (string, error) {
+	return inspectNestedJSONHook(qwenSettingsPath(home), nativeQwenHook(hook))
+}
+
+func patchQwenHook(hook hookConfig, home string) error {
+	return patchNestedJSONHook(qwenSettingsPath(home), nativeQwenHook(hook))
+}
+
+func nativeQwenHook(hook hookConfig) hookConfig {
+	// Qwen Code expresses command hook timeouts in milliseconds. Canonical
+	// dotagents hook timeouts are seconds, matching the other harnesses.
+	if hook.Timeout > 0 {
+		hook.Timeout *= 1000
+	}
+	return hook
+}
+
 func removeNativeManagedMemoryHooks(home string, root string, prior config, current config) (int, error) {
 	commands := managedMemoryNativeCommands(home, root, prior, current)
 	if len(commands) == 0 {
@@ -265,6 +282,9 @@ func removeNativeManagedMemoryHooks(home string, root string, prior config, curr
 		},
 		func(home string, commands []string) (bool, error) {
 			return removeGroupedJSONHookCommands(droidLegacyHooksConfigPath(home), commands)
+		},
+		func(home string, commands []string) (bool, error) {
+			return removeGroupedJSONHookCommands(qwenSettingsPath(home), commands)
 		},
 		func(home string, commands []string) (bool, error) {
 			return removeSimpleYAMLHookCommands(filepath.Join(home, ".hermes", "config.yaml"), commands)

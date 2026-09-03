@@ -33,3 +33,5 @@ external_skills:
 ## Plugins
 
 External sources with an [agent-plugins-spec](https://agent-plugins.org) `plugin.json` get their skills and MCP servers discovered automatically. Native plugin projection (Codex `.codex-plugin/`) is planned.
+
+Qwen Code reads the canonical skill directory through `skills.directories` in `~/.qwen/settings.json`. This leaves its personal `~/.qwen/skills/` inventory untouched and avoids a duplicate symlink mirror.
