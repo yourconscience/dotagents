@@ -39,6 +39,7 @@ type agentRole struct {
 	OMP          ompRoleOptions      `yaml:"omp"`
 	Droid        droidRoleOptions    `yaml:"droid"`
 	Opencode     opencodeRoleOptions `yaml:"opencode"`
+	Qwen         qwenRoleOptions     `yaml:"qwen"`
 }
 
 func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
@@ -87,6 +88,10 @@ func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
 			}
 		case "opencode":
 			if err := node.Decode(&role.Opencode); err != nil {
+				return err
+			}
+		case "qwen":
+			if err := node.Decode(&role.Qwen); err != nil {
 				return err
 			}
 		case "tools":
@@ -145,6 +150,12 @@ type opencodeRoleOptions struct {
 	Model       string `yaml:"model"`
 	Temperature string `yaml:"temperature"`
 	Mode        string `yaml:"mode"`
+}
+
+type qwenRoleOptions struct {
+	Model        string   `yaml:"model"`
+	ApprovalMode string   `yaml:"approval_mode"`
+	Tools        []string `yaml:"tools"`
 }
 
 var droidToolMapping = map[string][]string{

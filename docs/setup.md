@@ -49,4 +49,4 @@ dotagents setup --memory memsearch
 
 ## Root instructions
 
-`~/.agents/AGENTS.md` is your single root instruction file. During sync, dotagents links it into each harness's native memory path — `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex, `~/.factory/AGENTS.md` for Droid — so an edit in one place reaches every agent. `dotagents status` reports drift, and a file that exists but is not a symlink is never touched without your confirmation.
+`~/.agents/AGENTS.md` is your single root instruction file. During sync, dotagents links it into each harness's native memory path — `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex, `~/.factory/AGENTS.md` for Droid, and `~/.qwen/QWEN.md` for Qwen Code — so an edit in one place reaches every agent. `dotagents status` reports drift, and a file that exists but is not a symlink is never touched without your confirmation.

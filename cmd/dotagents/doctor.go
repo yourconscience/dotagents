@@ -24,6 +24,7 @@ const (
 	agentOpenCode            = "opencode"
 	agentPi                  = "pi"
 	agentOMP                 = "omp"
+	agentQwenCode            = "qwen-code"
 	dotagentsSkillsPathValue = "~/.agents/skills"
 )
 

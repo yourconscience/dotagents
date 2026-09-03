@@ -42,12 +42,14 @@ Five surfaces, each rendered into the harness's own format — dotagents does no
 | Factory Droid | yes | yes | yes | yes | -- |
 | Hermes | yes | -- | yes | yes | -- |
 | OpenCode | yes† | yes | yes | -- | -- |
+| Qwen Code | yes, config-driven | yes | yes | yes | skills + MCP§ |
 | OMP (pi fork) | yes | yes | yes | --‡ | -- |
 | Pi* | yes | --* | --* | -- | -- |
 
 \* Vanilla [pi](https://github.com/earendil-works/pi) is skills-only by design; the OMP fork is detected as its own target.
 † OpenCode reads `~/.agents/skills/` natively; its only hook surface is a JS plugin API.
 ‡ OMP has no managed hook surface yet; register memory hooks manually if needed.
+§ Qwen Code natively loads Agent Plugins v1 skills and MCP servers; dotagents manages those same surfaces without rewriting the plugin.
 
 Amp and OpenClaw read the repo's skills via standard conventions but are not managed. A "yes" above only appears after end-to-end verification.
 
@@ -70,7 +72,7 @@ Candidates are inert until you promote them into durable instructions — consol
 
 ## Roles
 
-Markdown role definitions in `~/.agents/agents/`, rendered to each harness's native format (Claude Markdown, Codex TOML, Droid). Generic `model` tiers (`haiku`/`sonnet`/`opus`) render natively per family; per-harness overrides pin exact ids. Six starter roles ship with the tool; yours win on name collision. Details in [docs/roles.md](docs/roles.md).
+Markdown role definitions in `~/.agents/agents/`, rendered to each harness's native format (Claude Markdown, Codex TOML, Qwen Markdown, Droid). Generic `model` tiers (`haiku`/`sonnet`/`opus`) render natively per family; per-harness overrides pin exact ids. Six starter roles ship with the tool; yours win on name collision. Details in [docs/roles.md](docs/roles.md).
 
 ## Commands
 

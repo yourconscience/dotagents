@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dotagents - public CLI for your private agent config</title>
-<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, OpenCode, and Pi.">
+<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, OpenCode, Qwen Code, and Pi.">
 <style>
   :root {
     color-scheme: dark;
@@ -269,6 +269,17 @@
         <div class="hname">Hermes</div>
         <div class="htag managed">managed</div>
       </div>
+      <!-- Qwen Code -->
+      <div class="hcard">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="var(--violet)" stroke-width="2"/>
+            <path d="M15.8 15.8 19 19M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="hname">Qwen Code</div>
+        <div class="htag managed">managed</div>
+      </div>
       <!-- Pi - Greek pi (no public SVG logo); OMP fork folded into the same card -->
       <div class="hcard">
         <div class="icon">
@@ -391,6 +402,7 @@
           <tr><th scope="row">Factory Droid</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS link</td></tr>
           <tr><th scope="row">Hermes</th><td class="y">yes</td><td class="n">--</td><td class="y">yes</td><td class="y">yes</td><td style="color:var(--gold)">native ctx</td></tr>
           <tr><th scope="row">OpenCode</th><td class="y">yes†</td><td class="y">yes</td><td class="y">yes</td><td class="n">--</td><td style="color:var(--gold)">native AGENTS.md</td></tr>
+          <tr><th scope="row">Qwen Code</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">QWEN.md link</td></tr>
           <tr><th scope="row">OMP (pi fork)</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="n">--‡</td><td style="color:var(--gold)">AGENTS.md</td></tr>
           <tr><th scope="row">OMP (pi fork)</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="n">--&#8225;</td><td style="color:var(--gold)">AGENTS.md</td></tr>
           <tr><th scope="row">Pi*</th><td class="y">yes</td><td class="n">--*</td><td class="n">--*</td><td class="n">--</td><td class="n">--</td></tr>
@@ -406,7 +418,7 @@
   <!-- Landscape -->
   <section>
     <h2>Landscape</h2>
-    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo across machines, seven targets deep, pinned and audited externals, review-first memory (<code>rem</code>) built in.</p>
+    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo across machines, eight targets deep, pinned and audited externals, review-first memory (<code>rem</code>) built in.</p>
 
     <div class="panel">
       <h3>How it compares</h3>

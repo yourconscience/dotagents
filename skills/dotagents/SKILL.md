@@ -1,6 +1,6 @@
 ---
 name: dotagents
-description: Set up, inspect, and sync a private user-owned agent configuration across Claude Code, Codex, Hermes, Droid, Pi, and OMP. Use for dotagents setup, status, sync, doctor, skill, MCP, hook, role, memory-tier, or config-root workflows.
+description: Set up, inspect, and sync a private user-owned agent configuration across Claude Code, Codex, Hermes, Droid, Qwen Code, Pi, and OMP. Use for dotagents setup, status, sync, doctor, skill, MCP, hook, role, memory-tier, or config-root workflows.
 ---
 
 # dotagents
@@ -67,7 +67,7 @@ Missing, drifted, conflicting, stale managed, and unrelated external entries are
 
 Reconciles only configured managed entries. Unrelated native content remains untouched.
 
-For symlink-based harnesses, skills point to canonical directories under `~/.agents/skills`. Hermes uses `skills.external_dirs: ["~/.agents/skills"]` instead of mirroring into its bundled skill tree.
+For symlink-based harnesses, skills point to canonical directories under `~/.agents/skills`. Hermes uses `skills.external_dirs: ["~/.agents/skills"]`; Qwen Code uses `skills.directories: ["~/.agents/skills"]`. Both consume the canonical tree without creating a duplicate mirror.
 
 Agent roles are canonical Markdown files under `~/.agents/agents/` and render to:
 
@@ -75,6 +75,7 @@ Agent roles are canonical Markdown files under `~/.agents/agents/` and render to
 - Codex: `~/.codex/agents/<name>.toml`
 - Factory Droid: `~/.factory/droids/<name>.md`
 - OMP: `~/.omp/agent/agents/<name>.md`
+- Qwen Code: `~/.qwen/agents/<name>.md`
 
 Pi has a managed skill root only. OMP is a separate target with skills, roles, and MCP support.
 
@@ -128,5 +129,6 @@ dotagents doctor --e2e
 | Hermes | yes, config-driven | no | yes | yes |
 | Pi | yes | no | no | no |
 | OMP | yes | yes | yes | no |
+| Qwen Code | yes, config-driven | yes | yes | yes |
 
 Do not add a surface without a verified native adapter and focused tests.
