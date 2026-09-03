@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "fixture_version": "v1",
+  "provenance": "synthetic",
+  "description": "Fully fictionalized technical corpus about agent memory architecture. No real people, hosts (except RFC 2606 .test and /srv/fixture), credentials, or private knowledge-vault content. One inert secret canary (fixture-secret-hook-0001) is intentional and used only by conversation mutation checks.",
+  "derived_from": "technical themes only; no source documents copied",
+  "excluded_categories": [
+    "job-search", "employment", "finance", "immigration", "health",
+    "relationship", "travel", "contact", "credentials", "personal-profile"
+  ],
+  "approval": {
+    "state": "pending_human_review",
+    "reviewer": null,
+    "reviewed_at": null
+  },
+  "canary_note": "fixture-secret-hook-0001 is a deliberately inert fake token used to assert redaction behavior; it is not a real credential."
+}

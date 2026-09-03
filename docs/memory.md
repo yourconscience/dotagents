@@ -21,6 +21,13 @@ history. Run `dotagents doctor --e2e` and `hermes hooks doctor` after setup.
 
 Memory data lives in your knowledge directory (default `~/Workspace/knowledge`, configurable via `KNOWLEDGE_DIR`), never in the tool repository.
 
+## Provider evaluation
+
+`memory/eval/` contains a privacy-safe, fully isolated harness for comparing
+Hermes memory providers against the built-in + memsearch baseline. It uses a
+synthetic fixture, throwaway memsearch collections (`dotagents_eval_*`), and
+never touches live memory stores. See `memory/eval/README.md`.
+
 ## Tools
 
 `sync` builds every Go tool under your repo's `memory/tools/` into `$GOBIN` or `~/.local/bin` (skipped without a Go toolchain; rebuilds only on source changes). Two ship as reference implementations in this repository:

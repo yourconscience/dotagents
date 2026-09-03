@@ -1,0 +1,3 @@
+{"id": "m01", "action": "forget", "document_id": "d05", "evidence_id": "ev-05a", "base_query_id": "q05", "expect_absent": ["ev-05a"], "description": "After a forget, replay-dedup knowledge must not be retrievable again."}
+{"id": "m02", "action": "update", "document_id": "d07", "evidence_id": "ev-07a", "new_text": "Startup context now reads at most nine files with 2800 characters each and a 9000 character total.", "base_query_id": "q07", "expect_absent": [], "description": "After the correction, queries about context bounds must return the revised fact."}
+{"id": "m03", "action": "forget", "document_id": "d12", "evidence_id": "ev-12a", "base_query_id": "q12", "expect_absent": ["ev-12a"], "description": "Forgetting classification rules must remove retrieval of that rule."}
