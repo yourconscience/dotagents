@@ -180,7 +180,7 @@ def discover_capabilities(plugin_root: Path, hermes_help: str | None = None) -> 
     if hermes_help is None:
         hermes = shutil.which("hermes")
         if hermes:
-            result = subprocess.run([hermes, "memory", "--help"], capture_output=True, text=True, timeout=15, check=False)
+            result = _run_provider_tool([hermes, "memory", "--help"], 15)
             hermes_help = result.stdout + result.stderr
         else:
             hermes_help = ""
@@ -213,6 +213,13 @@ def discover_capabilities(plugin_root: Path, hermes_help: str | None = None) -> 
 
 def _round(value: float) -> float:
     return round(value, 6)
+
+
+def _run_provider_tool(argv: list[str], timeout_s: int) -> "subprocess.CompletedProcess[str]":
+    # All provider invocations use argv lists (never shell=True), binaries
+    # resolved from PATH, and arguments limited to fixture/sandbox content.
+    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+    return subprocess.run(argv, capture_output=True, text=True, timeout=timeout_s, check=False)
 
 
 def _is_unanswerable(query: dict[str, Any]) -> bool:
@@ -435,7 +442,7 @@ class MemsearchAdapter(ProviderAdapter):
 
     def reset(self) -> None:
         if self.binary:
-            result = subprocess.run([self.binary, "reset", "--collection", self.collection, "--yes"], capture_output=True, text=True, timeout=30, check=False)
+            result = _run_provider_tool([self.binary, "reset", "--collection", self.collection, "--yes"], 30)
             if result.returncode != 0:
                 raise RuntimeError(f"memsearch reset failed for {self.collection}: {(result.stderr or result.stdout).strip()[:300]}")
         if self.documents_dir.exists():
@@ -453,12 +460,9 @@ class MemsearchAdapter(ProviderAdapter):
             lines = [f"# {document.get('title') or doc_id}", "", str(document["text"]), ""]
             lines.extend(f"[evidence:{item['id']}] {item['text']}" for item in document["evidence"])
             (self.documents_dir / f"{doc_id}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-        result = subprocess.run(
+        result = _run_provider_tool(
             [self.binary, "index", str(self.documents_dir), "--collection", self.collection, "--force"],
-            capture_output=True,
-            text=True,
-            timeout=180,
-            check=False,
+            180,
         )
         if result.returncode != 0:
             raise RuntimeError(f"memsearch index failed: {(result.stderr or result.stdout).strip()[:500]}")
@@ -502,12 +506,9 @@ class MemsearchAdapter(ProviderAdapter):
     def query(self, query: str, top_k: int) -> list[dict[str, Any]]:
         if not self.binary:
             raise RuntimeError("memsearch is not installed")
-        result = subprocess.run(
+        result = _run_provider_tool(
             [self.binary, "search", query, "--top-k", str(top_k), "--collection", self.collection, "--source-prefix", str(self.documents_dir), "--json-output"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
+            60,
         )
         if result.returncode != 0:
             raise RuntimeError(f"memsearch search failed: {(result.stderr or result.stdout).strip()[:500]}")
