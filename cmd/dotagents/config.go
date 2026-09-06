@@ -21,6 +21,9 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 		return "", "", config{}, nil, err
 	}
 	repoRoot := filepath.Dir(configPath)
+	if err := refuseWorktreeRoot(repoRoot); err != nil {
+		return "", "", config{}, nil, err
+	}
 
 	cfg, err := loadConfig(repoRoot, home, configPath)
 	if err != nil {
@@ -356,6 +359,23 @@ func absoluteExpandedPath(path string, home string) (string, error) {
 		return "", fmt.Errorf("resolve %s: %w", path, err)
 	}
 	return abs, nil
+}
+
+// refuseWorktreeRoot rejects repo roots that live inside a git worktree
+// directory (.worktrees/). sync materializes absolute links into the repo
+// root; when the worktree is removed those links dangle and every managed
+// skill breaks (ENOENT). The canonical checkout is the only valid root.
+func refuseWorktreeRoot(repoRoot string) error {
+	resolved := repoRoot
+	if real, err := filepath.EvalSymlinks(repoRoot); err == nil {
+		resolved = real
+	}
+	for _, seg := range strings.Split(filepath.ToSlash(resolved), "/") {
+		if seg == ".worktrees" {
+			return fmt.Errorf("refusing to run with repo root %s: it lives inside a git worktree (.worktrees/); materialized links would dangle when the worktree is removed — run from the canonical checkout", repoRoot)
+		}
+	}
+	return nil
 }
 
 func expandPath(path string, home string) string {
