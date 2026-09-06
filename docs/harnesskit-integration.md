@@ -4,7 +4,7 @@ Status: draft / thinking. Branch: `feat/harnesskit-integration`. Date: 2026-09-0
 
 ## Finding
 
-[HarnessKit](https://github.com/RealZST/HarnessKit) (RealZST/HarnessKit, Rust, Apache-2.0, ~420★, active) is a web UI (also desktop/CLI) that inspects and manages agent extensions, configs, memory, and rules across 13 harnesses. Verified live against the maintainer's machine on 2026-09-06: it detects and reads the **full dotagents stack** — Claude Code, Codex, **Oh My Pi** (`~/.omp/agent/`), **Hermes** (`~/.hermes/`), plus Gemini CLI, Copilot, OpenCode, Grok Build. This is exactly the coverage (Pi/OMP + Hermes) that CCO and ai-config-sync-manager lack.
+[HarnessKit](https://github.com/RealZST/HarnessKit) (RealZST/HarnessKit, Rust, Apache-2.0, ~420★, active) is a web UI (also desktop/CLI) that inspects and manages agent extensions, configs, memory, and rules across 13 harnesses. Verified live against a full stack install on 2026-09-06: it detects and reads the **full dotagents stack** — Claude Code, Codex, **Oh My Pi** (`~/.omp/agent/`), **Hermes** (`~/.hermes/`), plus Gemini CLI, Copilot, OpenCode, Grok Build. This is exactly the coverage (Pi/OMP + Hermes) that CCO and ai-config-sync-manager lack.
 
 Consequence: dotagents does **not** need to build its own config viewer. HarnessKit already does the read/inspect/audit surface better than we would from scratch, and on every harness we care about.
 
@@ -60,19 +60,25 @@ Both risk exactly the drift the boundary invariant forbids. Treat L3 as a spike 
 - `cmd/dotagents/detect.go`, `harness.go` — harness detection; useful if HK install is only offered when ≥1 supported harness is present.
 - `cmd/dotagents/report.go`, `inspect.go` — the `status`/`inspect` output; where a "view in HarnessKit" pointer could surface.
 
-## Open questions (need verification, do not guess)
+## Open questions
 
-1. **HK install method** — GitHub release binary vs `cargo install` vs `brew`. Check the repo's releases/install docs before wiring L1.
-2. **HK headless/CLI mode** — does HK expose a non-interactive "start server on port X, no onboarding" invocation suitable for `dotagents view`? The web UI ran a 3-step onboarding wizard on first open; confirm it can be skipped/scripted.
-3. **Config-root targeting** — can HK be pointed at an arbitrary config root (for `--config`/`$DOTAGENTS_HOME` setups), or does it only scan default `~/.<agent>` paths? Observed it reading default paths (`~/.omp`, `~/.hermes`); custom-root support unconfirmed.
-4. **Pluggable write backend (L3)** — does HK have any hook/API to delegate mutations? Assume no until shown.
-5. **Publish-age policy fit** — HK releases cadence vs the 3-day external-package rule; pick a window.
+Resolved 2026-09-06 by inspecting `hk` 1.10.0 (`hk --help`, `hk serve --help`, `hk list --help`):
+
+1. **HK headless/CLI mode — RESOLVED (yes).** `hk serve` is fully scriptable: `--port`, `--host`, `--token`/`--no-token`, `--name`. The 3-step onboarding is client-side UI state, not a server gate. HK also ships a pure CLI — `hk status`, `hk list --json`, `hk audit`, `hk info`, `hk enable/disable` — so a future text/status integration can consume `hk list --json` without the web server.
+2. **Config-root targeting — RESOLVED (no flag, not needed).** `hk serve`/`hk list` have no `--config`/`--root`; only `HK_SCOPE_LAST_USED` (scope memory). HK reads the native harness homes (`~/.claude`, `~/.codex`, `~/.omp`, `~/.hermes`), which is exactly what dotagents materializes — so `view` targets the right thing for the default `~/.agents` root. Custom `$DOTAGENTS_HOME`/`--config` only relocates dotagents' YAML, not the harness homes HK reads, so no retargeting is required.
+3. **HK binary/version — RESOLVED.** `hk` 1.10.0, Mach-O arm64, installed at `~/.local/bin/hk`.
+
+Still open (gate L1, not L2):
+
+4. **HK install method (L1)** — release binary vs `cargo install` vs `brew` tap. Verify from HK's releases/install docs before wiring an opt-in installer.
+5. **Publish-age policy fit (L1)** — HK's release cadence vs the 3-day external-package rule (`package_age.go`); pick a window.
+6. **Pluggable write backend (L3)** — does HK expose any hook/API to delegate mutations? Assume no until shown.
 
 ## Recommended first slice
 
-Ship **L0 + L2** first; hold L1's auto-install behind the package-age answer:
+**L0 + L2, now unblocked** (open questions #1–#3 resolved in HK's favor):
 
-1. L0 docs pointer (README + comparison + skill).
-2. `dotagents view` that launches HK against the resolved config root, read-only framing. Answer open questions #2 and #3 as part of this slice.
-3. Then L1 opt-in install once #1 and #5 are settled.
-4. L3: separate spike doc, no code, decision recorded here.
+1. L0 docs pointer — README + `dotagents` SKILL + CLI help. Pointer only, no duplicated harness-compat table.
+2. `dotagents view` — thin launcher: `exec.LookPath("hk")`, forward args to `hk serve`, read-only framing, install hint when absent. Implemented on this branch (`cmd/dotagents/view.go`, `view_test.go`).
+3. L1 opt-in install — deferred until #4 and #5 are settled.
+4. L3 — separate spike, no code; decision recorded here.

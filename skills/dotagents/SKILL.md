@@ -22,6 +22,7 @@ dotagents setup [--memory off|basic|memsearch] [--agents ...] [--yes] [--dry-run
 dotagents status [--agents ...]
 dotagents sync [--pull] [--agents ...]
 dotagents doctor [--e2e] [--agents ...]
+dotagents view [--port N] [--host ADDR]
 dotagents skill new <name> [--description ...]
 dotagents skill update [name ...]
 dotagents skill promote <name-or-path> [--dry-run]
@@ -117,6 +118,14 @@ Runs sync, status, and doctor as one health check. It fails on drift, conflicts,
 
 ```bash
 dotagents doctor --e2e
+```
+
+## view
+
+Launches [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) as a read-only web UI over every detected harness — skills, MCP, hooks, and configs in one place, with a security audit. dotagents stays the only writer; `view` is for inspection and audit, not deployment. Requires `hk` on `PATH` (install HarnessKit separately); flags are forwarded to `hk serve`.
+
+```bash
+dotagents view --port 7070
 ```
 
 ## Capability matrix

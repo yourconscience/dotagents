@@ -139,6 +139,8 @@ func run(args []string) error {
 		return runSyncCommand(args[1:])
 	case "doctor":
 		return runDoctorCommand(args[1:])
+	case "view":
+		return runView(args[1:])
 	case "skill":
 		return runSkillCommand(args[1:])
 	case "mcp":
@@ -490,6 +492,7 @@ func printAllUsage() {
 	fmt.Println("  dotagents status [--agents ...]")
 	fmt.Println("  dotagents sync [--pull] [--agents ...]")
 	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
+	fmt.Println("  dotagents view [hk serve flags: --port N, --host ADDR, --no-token]")
 	fmt.Println("  dotagents skill new <name> [--description ...]")
 	fmt.Println("  dotagents skill update [name ...]")
 	fmt.Println("  dotagents skill promote <name-or-path> [--dry-run]")
