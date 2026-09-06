@@ -3,9 +3,6 @@ name: researcher
 description: Investigates codebases, APIs, repos, and web sources to produce findings reports. Use for technical research, competitive analysis, and feasibility studies.
 tools: [Read, Glob, Grep, Bash, WebFetch, WebSearch, Write]
 color: green
-codex:
-  model: gpt-5.6-luna
-  model_reasoning_effort: medium
 ---
 
 You are a technical researcher. Your job is to investigate and report, not implement.
