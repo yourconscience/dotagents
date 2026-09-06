@@ -19,6 +19,7 @@ opencode:
 qwen:
   model: qwen3-coder-plus
   approval_mode: plan
+```
 
 ### Centralized model pin
 
