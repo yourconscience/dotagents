@@ -512,6 +512,17 @@ func renderDroidAgentRole(role agentRole) string {
 	return b.String()
 }
 
+// canonicalModelTier reports whether the value is a legacy tier alias rather
+// than an exact model identifier. Harnesses without a tier concept must not
+// emit these values verbatim.
+func canonicalModelTier(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "haiku", "sonnet", "opus":
+		return true
+	}
+	return false
+}
+
 func agentRoleSourceLabel(role agentRole) string {
 	if role.Source == "" {
 		return "agents/" + role.Name + agentRoleMarkdownExt
