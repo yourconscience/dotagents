@@ -22,7 +22,7 @@ const hkInstallHint = `HarnessKit (hk) not found on PATH.
 dotagents view launches HarnessKit as a read-only cross-harness inspector for
 skills, MCP servers, hooks, and configs across every detected agent.
 
-Install it from https://github.com/RealZST/HarnessKit, then re-run "dotagents view".`
+Install it from https://github.com/RealZST/HarnessKit, then re-run: dotagents view`
 
 // hkServeArgs builds the argv for the underlying `hk serve` invocation. Extra
 // args are forwarded verbatim to hk serve (e.g. --port, --host, --no-token).
