@@ -1,8 +1,6 @@
 ---
 name: tester
 description: Runs end-to-end tests against a prepared environment. Executes golden routes and user scenarios, records logic/UX/behavior problems. Never fixes code or builds — report only.
-model: opus
-effort: medium
 tools: [Read, Glob, Grep, Bash, Write]
 color: green
 ---

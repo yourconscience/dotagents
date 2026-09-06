@@ -372,6 +372,9 @@ func renderAgentRole(role agentRole, agent agentConfig) (string, string, bool) {
 	if h == nil || h.Roles == nil {
 		return "", "", false
 	}
+	if role.Model == "" && agent.RoleModel != "" {
+		role.Model = agent.RoleModel
+	}
 	target := filepath.Join(agent.AgentRoot, role.Name+h.Roles.Extension)
 	content := h.Roles.Render(role)
 	return target, content, true
@@ -404,7 +407,7 @@ func renderClaudeAgentRole(role agentRole) string {
 func renderCodexAgentRole(role agentRole) string {
 	model := strings.TrimSpace(role.Codex.Model)
 	if model == "" {
-		model = codexModelFor(role.Model)
+		model = strings.TrimSpace(role.Model)
 	}
 	effort := strings.TrimSpace(role.Codex.ModelReasoningEffort)
 	if effort == "" {
@@ -508,19 +511,6 @@ func writeTOMLMultiline(b *strings.Builder, key string, value string) {
 	b.WriteString("\n")
 }
 
-func codexModelFor(model string) string {
-	switch strings.ToLower(strings.TrimSpace(model)) {
-	case "haiku":
-		return "gpt-5.4-mini"
-	case "sonnet", "opus":
-		return "gpt-5.4"
-	default:
-		if strings.TrimSpace(model) == "" {
-			return "gpt-5.4"
-		}
-		return strings.TrimSpace(model)
-	}
-}
 
 func droidModelFor(model string) string {
 	model = strings.TrimSpace(model)

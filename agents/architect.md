@@ -1,8 +1,6 @@
 ---
 name: architect
 description: Designs system architecture, telemetry schemas, and technical plans. Use for design docs, architecture reviews, and API surface decisions. Delegates implementation to builders.
-model: opus
-effort: high
 tools: [Read, Glob, Grep, Bash, Write, Edit]
 color: blue
 codex:

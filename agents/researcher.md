@@ -1,8 +1,6 @@
 ---
 name: researcher
 description: Investigates codebases, APIs, repos, and web sources to produce findings reports. Use for technical research, competitive analysis, and feasibility studies.
-model: opus
-effort: high
 tools: [Read, Glob, Grep, Bash, WebFetch, WebSearch, Write]
 color: green
 codex:
