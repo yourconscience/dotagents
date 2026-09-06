@@ -402,6 +402,9 @@ func renderAgentRole(role agentRole, agent agentConfig) (string, string, bool) {
 	if h == nil || h.Roles == nil {
 		return "", "", false
 	}
+	if role.Model == "" && agent.RoleModel != "" {
+		role.Model = agent.RoleModel
+	}
 	target := filepath.Join(agent.AgentRoot, role.Name+h.Roles.Extension)
 	content := h.Roles.Render(role)
 	return target, content, true
@@ -460,6 +463,18 @@ func renderCodexAgentRole(role agentRole) string {
 	return b.String()
 }
 
+// codexModelFor resolves legacy canonical model aliases. Claude-family names
+// (opus/sonnet/haiku) are not valid Codex identifiers, so they render without a
+// model and Codex uses its own default; anything else passes through verbatim.
+func codexModelFor(model string) string {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "", "haiku", "sonnet", "opus":
+		return ""
+	default:
+		return strings.TrimSpace(model)
+	}
+}
+
 func renderDroidAgentRole(role agentRole) string {
 	model := strings.TrimSpace(role.Droid.Model)
 	if model == "" {
@@ -495,6 +510,17 @@ func renderDroidAgentRole(role agentRole) string {
 	b.WriteString(role.Instructions)
 	b.WriteString("\n")
 	return b.String()
+}
+
+// canonicalModelTier reports whether the value is a legacy tier alias rather
+// than an exact model identifier. Harnesses without a tier concept must not
+// emit these values verbatim.
+func canonicalModelTier(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "haiku", "sonnet", "opus":
+		return true
+	}
+	return false
 }
 
 func agentRoleSourceLabel(role agentRole) string {
@@ -541,20 +567,6 @@ func writeTOMLMultiline(b *strings.Builder, key string, value string) {
 	b.WriteString(" = ")
 	b.WriteString(strconv.Quote(value))
 	b.WriteString("\n")
-}
-
-func codexModelFor(model string) string {
-	switch strings.ToLower(strings.TrimSpace(model)) {
-	case "haiku":
-		return "gpt-5.4-mini"
-	case "sonnet", "opus":
-		return "gpt-5.4"
-	default:
-		if strings.TrimSpace(model) == "" {
-			return "gpt-5.4"
-		}
-		return strings.TrimSpace(model)
-	}
 }
 
 func droidModelFor(model string) string {

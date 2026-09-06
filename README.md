@@ -72,7 +72,7 @@ Candidates are inert until you promote them into durable instructions — consol
 
 ## Roles
 
-Markdown role definitions in `~/.agents/agents/`, rendered to each harness's native format (Claude Markdown, Codex TOML, Qwen Markdown, Droid). Generic `model` tiers (`haiku`/`sonnet`/`opus`) render natively per family; per-harness overrides pin exact ids. Six starter roles ship with the tool; yours win on name collision. Details in [docs/roles.md](docs/roles.md).
+Markdown role definitions in `~/.agents/agents/`, rendered to each harness's native format (Claude Markdown, Codex TOML, Qwen Markdown, Droid). Generic `model` tiers (`haiku`/`sonnet`/`opus`) render natively for Claude and Droid; Codex omits them and uses its own default unless a per-harness override pins an exact id. Six starter roles ship with the tool; yours win on name collision. Details in [docs/roles.md](docs/roles.md).
 
 ## Commands
 

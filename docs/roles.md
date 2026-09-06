@@ -4,7 +4,7 @@ A role is a Markdown file in `~/.agents/agents/` with frontmatter (`name`, `desc
 
 ## Model tiers and overrides
 
-The generic `model` value is a capability tier (`haiku`, `sonnet`, or `opus`). Claude Code, Codex, and Droid render it natively in their own model family. Harnesses without a native tier concept use native inheritance or an exact per-harness override:
+Claude Code and Droid render the tier natively in their own model family. Codex neutralizes the tier and uses its own default unless an exact per-harness `codex.model` override is set. Harnesses without a tier concept use native inheritance or an exact per-harness override:
 
 ```yaml
 model: opus
@@ -20,6 +20,10 @@ qwen:
   model: qwen3-coder-plus
   approval_mode: plan
 ```
+
+### Centralized model pin
+
+To pin one model for all rendered roles that have no explicit model, set `role_model` on the agent entry in `dotagents.yaml`. Roles (or per-harness overrides) that declare a model always win over `role_model`. Exact model names belong in role frontmatter or `role_model` — never in tool code.
 
 ## Rendering targets
 

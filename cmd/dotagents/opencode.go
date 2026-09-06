@@ -52,6 +52,8 @@ func renderOpenCodeAgentRole(role agentRole) string {
 	b.WriteString("\n")
 	if model := strings.TrimSpace(role.Opencode.Model); model != "" {
 		writeYAMLScalar(&b, "model", model)
+	} else if model := strings.TrimSpace(role.Model); model != "" && !canonicalModelTier(model) {
+		writeYAMLScalar(&b, "model", model)
 	}
 	if temperature := strings.TrimSpace(role.Opencode.Temperature); temperature != "" {
 		b.WriteString("temperature: ")

@@ -84,7 +84,7 @@ func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 		Effort:       "high",
 		Instructions: "Line one\nLine two\tTabbed\rReturn",
 		Codex: codexRoleOptions{
-			Model:                "gpt-5.4-mini",
+			Model:                "test-model-mini",
 			ModelReasoningEffort: "medium",
 		},
 	}
@@ -92,8 +92,7 @@ func TestRenderCodexAgentRoleEscapesControlCharacters(t *testing.T) {
 	got := renderCodexAgentRole(role)
 	for _, want := range []string{
 		`name = "researcher"`,
-		`description = "Find \"facts\""`,
-		`model = "gpt-5.4-mini"`,
+		`model = "test-model-mini"`,
 		`model_reasoning_effort = "medium"`,
 		`developer_instructions = "Line one\nLine two\tTabbed\rReturn"`,
 		generatedAgentMarker,
@@ -184,12 +183,26 @@ func TestRenderDroidAgentRoleMapsModelAndTools(t *testing.T) {
 	}
 }
 
-func TestCodexModelFor(t *testing.T) {
+func TestRenderCodexAgentRoleOmitsMissingModel(t *testing.T) {
+	role := agentRole{
+		Name:         "builder",
+		Description:  "Builds features",
+		Instructions: "Implement the change.",
+	}
+
+	got := renderCodexAgentRole(role)
+	for _, absent := range []string{"model =", "model_reasoning_effort ="} {
+		if strings.Contains(got, absent) {
+			t.Fatalf("model-neutral codex role should omit %q:\n%s", absent, got)
+		}
+	}
+}
+func TestCodexModelForNeutralizesAliases(t *testing.T) {
 	tests := map[string]string{
-		"":           "gpt-5.4",
-		"sonnet":     "gpt-5.4",
-		"opus":       "gpt-5.4",
-		"haiku":      "gpt-5.4-mini",
+		"":           "",
+		"sonnet":     "",
+		"opus":       "",
+		"haiku":      "",
 		"gpt-custom": "gpt-custom",
 	}
 
@@ -197,6 +210,20 @@ func TestCodexModelFor(t *testing.T) {
 		if got := codexModelFor(input); got != want {
 			t.Fatalf("codexModelFor(%q) = %q, want %q", input, got, want)
 		}
+	}
+}
+
+func TestRenderAgentRolePrefillsConfiguredModel(t *testing.T) {
+	role := agentRole{Name: "builder", Description: "Builds features", Instructions: "Implement."}
+	path, content, ok := renderAgentRole(role, agentConfig{Name: agentClaudeCode, AgentRoot: t.TempDir(), RoleModel: "configured-model"})
+	if !ok {
+		t.Fatal("claude role was not rendered")
+	}
+	if !strings.Contains(content, `model: "configured-model"`) {
+		t.Fatalf("role missing configured role_model:\n%s", content)
+	}
+	if path == "" {
+		t.Fatal("empty target path")
 	}
 }
 

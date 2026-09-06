@@ -38,6 +38,7 @@ type agentConfig struct {
 	SkillRoot string `yaml:"skill_root"`
 	AgentRoot string `yaml:"agent_root,omitempty"`
 	Detect    string `yaml:"detect,omitempty"`
+	RoleModel string `yaml:"role_model,omitempty"`
 }
 
 type repoLinkReport struct {
