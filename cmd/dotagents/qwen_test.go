@@ -247,3 +247,17 @@ hooks:
 		t.Fatalf("config-driven skills should not create a Qwen mirror: %v", err)
 	}
 }
+
+func TestQwenRoleRenderUsesConfiguredModel(t *testing.T) {
+	role := agentRole{Name: "builder", Description: "Builds features", Model: "qwen3-coder-plus", Instructions: "Implement."}
+	content := renderQwenAgentRole(role)
+	if !strings.Contains(content, "model: \"qwen3-coder-plus\"") {
+		t.Fatalf("configured role_model not applied to Qwen role:\n%s", content)
+	}
+
+	alias := agentRole{Name: "reviewer", Description: "Reviews code", Model: "opus", Instructions: "Review."}
+	content = renderQwenAgentRole(alias)
+	if strings.Contains(content, "model: opus") {
+		t.Fatalf("tier alias leaked into Qwen role:\n%s", content)
+	}
+}

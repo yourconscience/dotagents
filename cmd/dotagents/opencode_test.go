@@ -387,3 +387,16 @@ Be helpful.
 		t.Fatalf("converted opencode role dropped body:\n%s", data)
 	}
 }
+
+func TestOpenCodeRoleRenderUsesConfiguredModel(t *testing.T) {
+	role := agentRole{
+		Name:         "builder",
+		Description:  "Builds features",
+		Model:        "openai/gpt-5.6",
+		Instructions: "Implement.",
+	}
+	content := renderOpenCodeAgentRole(role)
+	if !strings.Contains(content, "model: \"openai/gpt-5.6\"") {
+		t.Fatalf("configured role_model not applied to OpenCode role:\n%s", content)
+	}
+}

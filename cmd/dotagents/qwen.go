@@ -154,7 +154,11 @@ var qwenToolMapping = map[string]string{
 func renderQwenAgentRole(role agentRole) string {
 	model := strings.TrimSpace(role.Qwen.Model)
 	if model == "" {
-		model = "inherit"
+		if generic := strings.TrimSpace(role.Model); generic != "" && !canonicalModelTier(generic) {
+			model = generic
+		} else {
+			model = "inherit"
+		}
 	}
 	tools := role.Qwen.Tools
 	if len(tools) == 0 {
