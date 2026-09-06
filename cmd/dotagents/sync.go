@@ -14,6 +14,7 @@ func runStatus(opts runOptions) error {
 	if err != nil {
 		return err
 	}
+	injectPluginMCPServers(&cfg, home)
 
 	repoReport, err := inspectRepoLink(repoRoot, home)
 	if err != nil {
@@ -64,8 +65,18 @@ func runSync(opts runOptions) error {
 	if err := syncExternalRepos(cfg.ExternalSkills, home, repoRoot); err != nil {
 		return err
 	}
+	// Re-inject after clone so first sync picks up newly fetched plugins.
+	injectPluginMCPServers(&cfg, home)
 	if err := renderCommittedArtifacts(repoRoot); err != nil {
 		return err
+	}
+
+	toolInstalls, err := installMemoryTools(repoRoot)
+	if err != nil {
+		return err
+	}
+	if len(toolInstalls) > 0 {
+		fmt.Printf("memory tools installed: %s\n", strings.Join(toolInstalls, ", "))
 	}
 
 	expected, err := expectedSkills(repoRoot, home, cfg)

@@ -12,8 +12,8 @@ Never restore project-directory config discovery or make the public checkout the
 
 # Architecture invariants
 
-- dotagents syncs exactly four surfaces: skills, MCP servers, hooks, and agent roles.
-- Plugin packaging, plugin delivery modes, and native-plugin projection are intentionally unsupported.
+- dotagents syncs exactly five surfaces: skills, MCP servers, hooks, agent roles, and plugins.
+- Plugins follow the agent-plugins-spec v1.0.0 format. For harnesses with native plugin systems (Codex), dotagents projects spec-format plugins into the native format. Claude Code plugins (`.claude/plugins/*.ts`) are a planned addition.
 - `setup` owns first-run scaffolding, harness detection, optional copy/convert import, memory-tier selection, and the first sync. There is no separate `init` command.
 - Native import is copy-only. Never move or delete the source content.
 - Existing unrelated native harness configuration must remain untouched.

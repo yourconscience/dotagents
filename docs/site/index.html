@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dotagents - public CLI for your private agent config</title>
-<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, OpenCode, and Pi.">
+<meta name="description" content="Public Go CLI that syncs skills, MCP servers, hooks, and roles from your private ~/.agents repository into Claude Code, Codex, Droid, Hermes, OpenCode, Qwen Code, and Pi.">
 <style>
   :root {
     color-scheme: dark;
@@ -193,8 +193,9 @@
   <h1>One private repo for all your coding agents.</h1>
   <p class="subtitle">
     <b>dotagents</b> is a public CLI that keeps your skills, MCP servers, hooks,
-    and agent roles in a private <code>~/.agents</code> repository, then syncs
-    each supported surface into its harness-native format.
+    agent roles, root instructions, and memory tooling in a private
+    <code>~/.agents</code> repository, then syncs each supported surface into its
+    harness-native format.
   </p>
 
   <!-- Terminal -->
@@ -212,7 +213,9 @@
 <span class="h">skills</span>        <span class="g">synced</span>   native skill roots
 <span class="h">agent roles</span>   <span class="g">synced</span>   native role formats
 <span class="h">MCP servers</span>   <span class="g">synced</span>   targeted config entries
-<span class="h">hooks</span>         <span class="g">synced</span>   supported lifecycle events</pre>
+<span class="h">hooks</span>         <span class="g">synced</span>   supported lifecycle events
+<span class="h">root instr.</span>  <span class="g">synced</span>   AGENTS.md linked per harness
+<span class="h">memory tools</span> <span class="g">built</span>    rem + knowledge-sync to ~/.local/bin</pre>
   </div>
 
   <!-- Harnesses -->
@@ -264,6 +267,17 @@
           </svg>
         </div>
         <div class="hname">Hermes</div>
+        <div class="htag managed">managed</div>
+      </div>
+      <!-- Qwen Code -->
+      <div class="hcard">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="var(--violet)" stroke-width="2"/>
+            <path d="M15.8 15.8 19 19M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="hname">Qwen Code</div>
         <div class="htag managed">managed</div>
       </div>
       <!-- Pi - Greek pi (no public SVG logo); OMP fork folded into the same card -->
@@ -350,8 +364,9 @@
       <div class="path-card">
         <div class="path-label" style="background:rgba(201,167,255,.15); color:var(--violet);">Public CLI</div>
         <h3>Install dotagents</h3>
-        <p class="desc">Use a release binary or Go. No personal configuration ships with the tool.</p>
-        <pre><span class="p">$</span> <span class="c">curl -fsSL https://raw.githubusercontent.com/yourconscience/dotagents/main/scripts/install.sh | sh</span>
+        <p class="desc">Homebrew, npm, release binary, or Go. No personal configuration ships with the tool.</p>
+        <pre><span class="p">$</span> <span class="c">brew install yourconscience/tap/dotagents</span>
+<span class="p"># or</span> <span class="c">npm install -g @your_conscience/dotagents</span>
 <span class="p"># or</span> <span class="c">go install github.com/yourconscience/dotagents/cmd/dotagents@latest</span></pre>
       </div>
 
@@ -387,18 +402,23 @@
           <tr><th scope="row">Factory Droid</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">AGENTS link</td></tr>
           <tr><th scope="row">Hermes</th><td class="y">yes</td><td class="n">--</td><td class="y">yes</td><td class="y">yes</td><td style="color:var(--gold)">native ctx</td></tr>
           <tr><th scope="row">OpenCode</th><td class="y">yes†</td><td class="y">yes</td><td class="y">yes</td><td class="n">--</td><td style="color:var(--gold)">native AGENTS.md</td></tr>
+          <tr><th scope="row">Qwen Code</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">QWEN.md link</td></tr>
+          <tr><th scope="row">OMP (pi fork)</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="n">--‡</td><td style="color:var(--gold)">AGENTS.md</td></tr>
+          <tr><th scope="row">OMP (pi fork)</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="n">--&#8225;</td><td style="color:var(--gold)">AGENTS.md</td></tr>
           <tr><th scope="row">Pi*</th><td class="y">yes</td><td class="n">--*</td><td class="n">--*</td><td class="n">--</td><td class="n">--</td></tr>
         </tbody>
       </table>
       </div>
-      <p class="section-sub" style="margin-top:10px">* Vanilla pi is skills-only by design; on the OMP fork dotagents additionally manages agent roles and MCP servers. &dagger; OpenCode reads <code>~/.agents/skills/</code> natively, so skills need no mirror when the config root is <code>~/.agents</code>; hooks are a JS plugin surface only.</p>
+      <p class="section-sub" style="margin-top:10px">* Vanilla pi is skills-only by design; the OMP fork is detected as its own target.</p>
+      <p class="section-sub" style="margin:4px 24px 4px; font-size: 13px">&dagger; OpenCode reads <code>~/.agents/skills/</code> natively — skills need no mirror when the config root is <code>~/.agents</code>. Its only hook surface is a JS plugin API.</p>
+      <p class="section-sub" style="margin:4px 24px 12px; font-size: 13px">&#8225; OMP has no managed hook surface in <code>dotagents.yaml</code> yet; register memory hooks manually if needed.</p>
     </div>
   </section>
 
   <!-- Landscape -->
   <section>
     <h2>Landscape</h2>
-    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo that follows you across machines, six harnesses deep, with pinned and audited external skills.</p>
+    <p class="section-sub">Project-level generators win on tool breadth. dotagents is user-level: one private repo across machines, eight targets deep, pinned and audited externals, review-first memory (<code>rem</code>) built in.</p>
 
     <div class="panel">
       <h3>How it compares</h3>

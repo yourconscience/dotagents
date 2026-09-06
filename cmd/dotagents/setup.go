@@ -22,6 +22,9 @@ func runSetup(opts runOptions) error {
 		return err
 	}
 	repoRoot := filepath.Dir(configPath)
+	if err := refuseWorktreeRoot(repoRoot); err != nil {
+		return err
+	}
 	streams := setupStreams(opts)
 
 	cfg, err := loadSetupConfig(configPath, home)

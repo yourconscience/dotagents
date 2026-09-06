@@ -1,0 +1,24 @@
+{
+  "name": "@your_conscience/dotagents",
+  "version": "0.0.0-dev",
+  "description": "Dotfiles for your AI agents: one ~/.agents repo synced to every coding agent.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourconscience/dotagents.git"
+  },
+  "bin": {
+    "dotagents": "bin/dotagents.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js",
+    "test": "node --test"
+  },
+  "files": [
+    "bin/",
+    "install.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

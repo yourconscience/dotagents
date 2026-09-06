@@ -153,6 +153,7 @@ func defaultAgentConfigs() []agentConfig {
 		{Name: agentOMP, Enabled: true, SkillRoot: "~/.omp/agent/skills", AgentRoot: "~/.omp/agent/agents", Detect: "omp"},
 		{Name: agentOpenCode, Enabled: true, SkillRoot: "~/.config/opencode/skills", AgentRoot: "~/.config/opencode/agents", Detect: "opencode"},
 		{Name: agentPi, Enabled: true, SkillRoot: "~/.pi/agent/skills", Detect: "pi"},
+		{Name: agentQwenCode, Enabled: true, SkillRoot: "~/.qwen/skills", AgentRoot: "~/.qwen/agents", Detect: "qwen"},
 	}
 }
 
@@ -647,7 +648,7 @@ func convertCodexRoleTOMLToMarkdown(path string, data []byte) ([]byte, error) {
 	if strings.TrimSpace(instructions) == "" {
 		instructions = strings.TrimSpace(string(data))
 	}
-	role := agentRole{Name: name, Description: description, Model: model, Effort: effort, Instructions: instructions, Codex: codexRoleOptions{Model: model, ModelReasoningEffort: effort}}
+	role := agentRole{Name: name, Description: description, Effort: effort, Instructions: instructions, Codex: codexRoleOptions{Model: model, ModelReasoningEffort: effort}}
 	return renderCanonicalRoleMarkdown(role)
 }
 
@@ -662,10 +663,16 @@ func renderCanonicalRoleMarkdown(role agentRole) ([]byte, error) {
 		Effort      string              `yaml:"effort,omitempty"`
 		Tools       []string            `yaml:"tools,omitempty"`
 		Color       string              `yaml:"color,omitempty"`
+		Claude      claudeRoleOptions   `yaml:"claude,omitempty"`
 		Codex       codexRoleOptions    `yaml:"codex,omitempty"`
 		Droid       droidRoleOptions    `yaml:"droid,omitempty"`
 		Opencode    opencodeRoleOptions `yaml:"opencode,omitempty"`
-	}{Name: role.Name, Description: role.Description, Model: role.Model, Effort: role.Effort, Tools: role.Tools, Color: role.Color, Codex: role.Codex, Droid: role.Droid, Opencode: role.Opencode}
+		OMP         ompRoleOptions      `yaml:"omp,omitempty"`
+	}{
+		Name: role.Name, Description: role.Description, Model: role.Model, Effort: role.Effort,
+		Tools: role.Tools, Color: role.Color, Claude: role.Claude, Codex: role.Codex,
+		Droid: role.Droid, Opencode: role.Opencode, OMP: role.OMP,
+	}
 	meta, err := yaml.Marshal(front)
 	if err != nil {
 		return nil, err

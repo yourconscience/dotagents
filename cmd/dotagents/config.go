@@ -21,6 +21,9 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 		return "", "", config{}, nil, err
 	}
 	repoRoot := filepath.Dir(configPath)
+	if err := refuseWorktreeRoot(repoRoot); err != nil {
+		return "", "", config{}, nil, err
+	}
 
 	cfg, err := loadConfig(repoRoot, home, configPath)
 	if err != nil {
@@ -183,6 +186,27 @@ func validateConfig(cfg *config, home string, expand bool) error {
 			return fmt.Errorf("config external_skills repo %q is duplicated", name)
 		}
 		seenExt[name] = struct{}{}
+
+		if src.MCP && len(src.MCPAgents) > 0 {
+			kept := src.MCPAgents[:0]
+			for _, agentName := range src.MCPAgents {
+				agentName = normalizeAgentName(agentName)
+				if agentName == "" {
+					continue
+				}
+				if len(seen) > 0 {
+					if _, ok := seen[agentName]; !ok {
+						return fmt.Errorf("config external_skills repo %q mcp_agents targets unknown agent %q", name, agentName)
+					}
+				}
+				if !hasMCPSupport(agentName) {
+					fmt.Fprintf(os.Stderr, "warning: config external_skills repo %q mcp_agents targets agent %q without MCP support; target ignored\n", name, agentName)
+					continue
+				}
+				kept = append(kept, agentName)
+			}
+			src.MCPAgents = kept
+		}
 	}
 
 	seenMCP := make(map[string]struct{})
@@ -335,6 +359,34 @@ func absoluteExpandedPath(path string, home string) (string, error) {
 		return "", fmt.Errorf("resolve %s: %w", path, err)
 	}
 	return abs, nil
+}
+
+// refuseWorktreeRoot rejects repo roots that are (or live under) a linked
+// git worktree. sync materializes absolute links into the repo root; when
+// the worktree is removed those links dangle and every managed skill
+// breaks (ENOENT). The canonical checkout is the only valid root.
+//
+// Two detections: a linked worktree has a .git FILE pointing at its git
+// dir (the canonical checkout has a .git directory or none), and the
+// project convention places worktrees under .worktrees/, which catches
+// roots whose .git check cannot run (missing dir, odd layouts).
+func refuseWorktreeRoot(repoRoot string) error {
+	resolved := repoRoot
+	if real, err := filepath.EvalSymlinks(repoRoot); err == nil {
+		resolved = real
+	}
+	refuse := func() error {
+		return fmt.Errorf("refusing to run with repo root %s: it is (or lives inside) a linked git worktree; materialized links would dangle when the worktree is removed — run from the canonical checkout", repoRoot)
+	}
+	if fi, err := os.Stat(filepath.Join(resolved, ".git")); err == nil && fi.Mode().IsRegular() {
+		return refuse()
+	}
+	for _, seg := range strings.Split(filepath.ToSlash(resolved), "/") {
+		if seg == ".worktrees" {
+			return refuse()
+		}
+	}
+	return nil
 }
 
 func expandPath(path string, home string) string {

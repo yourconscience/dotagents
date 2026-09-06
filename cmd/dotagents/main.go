@@ -28,6 +28,8 @@ type externalSkillSource struct {
 	Branch      string   `yaml:"branch"`
 	Skills      []string `yaml:"skills,omitempty"`
 	Materialize bool     `yaml:"materialize,omitempty"`
+	MCP         bool     `yaml:"mcp,omitempty"`
+	MCPAgents   []string `yaml:"mcp_agents,omitempty"`
 }
 
 type agentConfig struct {

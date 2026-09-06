@@ -8,11 +8,15 @@ Claude-compatible hook JSON on stdout.
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
 import os
 import re
 import sys
 import tempfile
+import unicodedata
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
@@ -182,7 +186,7 @@ def inline_messages(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 def read_transcript(path: Path) -> tuple[list[dict[str, Any]], datetime | None, str | None]:
     if not path.exists():
-        raise HookError(f"transcript_path does not exist: {path}")
+        return [], None, None
     if not path.is_file():
         raise HookError(f"transcript_path is not a file: {path}")
 
@@ -470,3 +474,412 @@ def session_start(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> int
         return _error(str(exc))
     print(context_json(context), file=stdout)
     return 0
+
+
+DREAM_START_RE = re.compile(r"^<!-- basic-memory-session:(?P<id>[^:]+):start -->$")
+DREAM_END_TEMPLATE = "<!-- basic-memory-session:{session_id}:end -->"
+DREAM_HEADER_RE = re.compile(
+    r"^## Session (?P<captured>\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC) - (?P<id>.+)$"
+)
+DREAM_PREFERENCE_RE = re.compile(
+    r"^(?:i prefer|i want|please always|always|never|do not|don't)\b",
+    re.IGNORECASE,
+)
+DREAM_CORRECTION_RE = re.compile(
+    r"^(?:correction:|actually,|i was wrong\b|i no longer\b|instead,)",
+    re.IGNORECASE,
+)
+LEGACY_SYNC_RE = re.compile(
+    r"^## Sync (?P<captured>\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC)$"
+)
+
+
+@dataclass(frozen=True)
+class DreamEvidence:
+    path: str
+    line_start: int
+    line_end: int
+    session_id: str
+    captured_at: str
+    quote: str
+
+
+@dataclass(frozen=True)
+class DreamRecord:
+    path: str
+    line_start: int
+    line_end: int
+    session_id: str
+    captured_at: str
+    block: str
+    statements: tuple[DreamEvidence, ...]
+
+
+def dream_normalize(text: str) -> str:
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized.strip(" \t\r\n.,;:!?\"'()[]{}")
+
+
+def dream_statement(text: str) -> str | None:
+    cleaned = redact_text(text).strip()
+    if not cleaned or cleaned.endswith("…"):
+        return None
+    return cleaned
+
+
+def parse_dream_record(path: Path, relative_path: str, lines: list[str], start: int, end: int, session_id: str) -> DreamRecord | None:
+    header_index = start + 1
+    if header_index >= end:
+        return None
+    header = DREAM_HEADER_RE.match(lines[header_index])
+    if not header or header.group("id") != session_id:
+        return None
+    try:
+        captured = datetime.strptime(header.group("captured"), "%Y-%m-%d %H:%M UTC").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+    statements: list[DreamEvidence] = []
+    in_followups = False
+    for index in range(header_index + 1, end):
+        line = lines[index]
+        if line.startswith("- first request: "):
+            text = dream_statement(line.removeprefix("- first request: "))
+            in_followups = False
+        elif line == "- user follow-ups:":
+            in_followups = True
+            continue
+        elif in_followups and line.startswith("  - "):
+            text = dream_statement(line.removeprefix("  - "))
+        else:
+            if line.startswith("- "):
+                in_followups = False
+            continue
+        if text is None:
+            continue
+        statements.append(
+            DreamEvidence(
+                path=relative_path,
+                line_start=index + 1,
+                line_end=index + 1,
+                session_id=session_id,
+                captured_at=captured.isoformat().replace("+00:00", "Z"),
+                quote=text,
+            )
+        )
+
+    block = "\n".join(line.rstrip() for line in lines[start : end + 1])
+    return DreamRecord(
+        path=relative_path,
+        line_start=start + 1,
+        line_end=end + 1,
+        session_id=session_id,
+        captured_at=captured.isoformat().replace("+00:00", "Z"),
+        block=block,
+        statements=tuple(statements),
+    )
+
+
+def parse_dream_records(path: Path, knowledge_dir: Path) -> list[DreamRecord]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise HookError(f"cannot read session file {path}: {exc}") from exc
+    relative_path = str(path.relative_to(knowledge_dir))
+    records: list[DreamRecord] = []
+    index = 0
+    while index < len(lines):
+        start_match = DREAM_START_RE.match(lines[index])
+        if not start_match:
+            index += 1
+            continue
+        session_id = start_match.group("id")
+        end_marker = DREAM_END_TEMPLATE.format(session_id=session_id)
+        end = index + 1
+        while end < len(lines) and lines[end] != end_marker:
+            end += 1
+        if end >= len(lines):
+            index += 1
+            continue
+        record = parse_dream_record(path, relative_path, lines, index, end, session_id)
+        if record is not None:
+            records.append(record)
+        index = end + 1
+    return records
+
+
+def dream_evidence_dict(evidence: DreamEvidence) -> dict[str, Any]:
+    return {
+        "path": evidence.path,
+        "line_start": evidence.line_start,
+        "line_end": evidence.line_end,
+        "session_id": evidence.session_id,
+        "captured_at": evidence.captured_at,
+        "quote": redact_text(evidence.quote),
+    }
+
+
+def dream_candidate_id(kind: str, normalized_text: str, evidence: list[dict[str, Any]]) -> str:
+    coordinates = [
+        [item["path"], item["line_start"], item["line_end"], item["session_id"]]
+        for item in evidence
+    ]
+    payload = json.dumps([kind, normalized_text, coordinates], ensure_ascii=False, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def repeated_dream_candidates(records: list[DreamRecord]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], list[DreamEvidence]] = {}
+    for record in records:
+        for statement in record.statements:
+            if DREAM_PREFERENCE_RE.match(statement.quote):
+                kind = "repeated_preference"
+            elif DREAM_CORRECTION_RE.match(statement.quote):
+                kind = "repeated_correction"
+            else:
+                continue
+            normalized = dream_normalize(statement.quote)
+            grouped.setdefault((kind, normalized), []).append(statement)
+
+    candidates: list[dict[str, Any]] = []
+    for (kind, normalized), occurrences in sorted(grouped.items()):
+        by_session: dict[str, DreamEvidence] = {}
+        for occurrence in sorted(
+            occurrences,
+            key=lambda item: (item.path, item.line_start, item.session_id),
+        ):
+            by_session.setdefault(occurrence.session_id, occurrence)
+        if len(by_session) < 2:
+            continue
+        evidence = [dream_evidence_dict(item) for item in by_session.values()]
+        action = "promote_for_review"
+        candidates.append(
+            {
+                "id": dream_candidate_id(kind, normalized, evidence),
+                "kind": kind,
+                "status": "proposed",
+                "normalized_text": normalized,
+                "reason": f"Exact explicit statement appears in {len(evidence)} distinct sessions.",
+                "proposed_action": action,
+                "evidence": evidence,
+            }
+        )
+    return candidates
+
+
+def record_evidence(record: DreamRecord) -> dict[str, Any]:
+    return {
+        "path": record.path,
+        "line_start": record.line_start,
+        "line_end": record.line_end,
+        "session_id": record.session_id,
+        "captured_at": record.captured_at,
+        "quote": redact_text(record.block),
+    }
+
+
+def stale_dream_candidates(records: list[DreamRecord]) -> list[dict[str, Any]]:
+    grouped: dict[str, list[DreamRecord]] = {}
+    for record in records:
+        grouped.setdefault(record.session_id, []).append(record)
+
+    candidates: list[dict[str, Any]] = []
+    for session_id, occurrences in sorted(grouped.items()):
+        if len(occurrences) < 2:
+            continue
+        ordered = sorted(occurrences, key=lambda item: (item.path, item.line_start))
+        evidence = [record_evidence(item) for item in ordered]
+        blocks = {item.block for item in ordered}
+        expected_date = ordered[0].captured_at[:10]
+        canonical = [item for item in ordered if Path(item.path).name == f"{expected_date}.md"]
+        if len(blocks) == 1 and len(canonical) == 1:
+            kind = "stale_duplicate_record"
+            # `block` is line-rstripped when parsed, so equal blocks match apart
+            # from trailing whitespace / CRLF, not necessarily byte-for-byte.
+            reason = "Session block is identical apart from trailing whitespace and exists outside its unique UTC-dated canonical file."
+            action = "consolidate_for_review"
+            normalized = session_id
+        else:
+            kind = "record_conflict"
+            reason = "Repeated session ID has differing content or no unique UTC-dated canonical file."
+            action = "resolve_conflict"
+            normalized = session_id
+        candidates.append(
+            {
+                "id": dream_candidate_id(kind, normalized, evidence),
+                "kind": kind,
+                "status": "proposed",
+                "normalized_text": normalized,
+                "reason": reason,
+                "proposed_action": action,
+                "evidence": evidence,
+            }
+        )
+    return candidates
+
+
+def legacy_dream_candidates(path: Path, knowledge_dir: Path) -> tuple[list[dict[str, Any]], int]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise HookError(f"cannot read legacy memory file {path}: {exc}") from exc
+    relative_path = str(path.relative_to(knowledge_dir))
+    grouped: dict[str, list[DreamEvidence]] = {}
+    section_line = 0
+    section_id = ""
+    captured_at = ""
+    section_count = 0
+    for index, line in enumerate(lines):
+        heading = LEGACY_SYNC_RE.match(line)
+        if heading:
+            section_line = index + 1
+            section_id = f"legacy:{relative_path}:{section_line}"
+            captured = datetime.strptime(heading.group("captured"), "%Y-%m-%d %H:%M UTC").replace(tzinfo=timezone.utc)
+            captured_at = captured.isoformat().replace("+00:00", "Z")
+            section_count += 1
+            continue
+        if not section_id or not line.startswith("- "):
+            continue
+        quote = dream_statement(line.removeprefix("- "))
+        if quote is None:
+            continue
+        normalized = dream_normalize(quote)
+        if not normalized:
+            continue
+        grouped.setdefault(normalized, []).append(
+            DreamEvidence(
+                path=relative_path,
+                line_start=index + 1,
+                line_end=index + 1,
+                session_id=section_id,
+                captured_at=captured_at,
+                quote=quote,
+            )
+        )
+
+    candidates: list[dict[str, Any]] = []
+    for normalized, occurrences in sorted(grouped.items()):
+        by_section: dict[str, DreamEvidence] = {}
+        for occurrence in occurrences:
+            by_section.setdefault(occurrence.session_id, occurrence)
+        if len(by_section) < 2:
+            continue
+        all_evidence = [dream_evidence_dict(item) for item in by_section.values()]
+        shown_evidence = all_evidence[:20]
+        candidates.append(
+            {
+                "id": dream_candidate_id("stale_duplicate_record", normalized, all_evidence),
+                "kind": "stale_duplicate_record",
+                "status": "proposed",
+                "normalized_text": normalized,
+                "reason": f"Exact legacy fact appears in {len(all_evidence)} distinct sync records.",
+                "proposed_action": "consolidate_for_review",
+                "occurrence_count": len(all_evidence),
+                "evidence": shown_evidence,
+                "evidence_omitted": len(all_evidence) - len(shown_evidence),
+            }
+        )
+    return candidates, section_count
+
+
+def build_dream_report(knowledge_dir: Path) -> dict[str, Any]:
+    sessions_dir = require_readable_sessions_dir(knowledge_dir)
+    files = session_markdown_files(sessions_dir) if sessions_dir is not None else []
+    records: list[DreamRecord] = []
+    for path in sorted(files, key=lambda item: item.name):
+        records.extend(parse_dream_records(path, knowledge_dir))
+    records.sort(key=lambda item: (item.path, item.line_start, item.session_id))
+
+    legacy_candidates: list[dict[str, Any]] = []
+    legacy_records = 0
+    if sessions_dir is not None:
+        legacy_path = sessions_dir / "knowledge.md"
+        if legacy_path.is_file():
+            legacy_candidates, legacy_records = legacy_dream_candidates(legacy_path, knowledge_dir)
+    candidates = repeated_dream_candidates(records) + stale_dream_candidates(records) + legacy_candidates
+    candidates.sort(key=lambda item: (item["kind"], item["id"]))
+    counts = {
+        "repeated_preferences": sum(item["kind"] == "repeated_preference" for item in candidates),
+        "repeated_corrections": sum(item["kind"] == "repeated_correction" for item in candidates),
+        "stale_records": sum(item["kind"] == "stale_duplicate_record" for item in candidates),
+        "conflicts": sum(item["kind"] == "record_conflict" for item in candidates),
+    }
+    return {
+        "schema_version": 1,
+        "mode": "review-only",
+        "source": {
+            "root": "$KNOWLEDGE_DIR",
+            "patterns": ["sessions/*.md", "sessions/*.markdown"],
+            "files_scanned": len(files),
+            "records_scanned": len(records) + legacy_records,
+        },
+        "summary": counts,
+        "candidates": candidates,
+    }
+
+
+def write_dream_report(knowledge_dir: Path, output: Path, report: dict[str, Any]) -> None:
+    reviews_dir = (knowledge_dir / "reviews").resolve()
+    resolved = output.expanduser().resolve()
+    if not resolved.is_relative_to(reviews_dir):
+        raise HookError(f"dream output must be under {reviews_dir}")
+    if resolved.exists():
+        raise HookError(f"dream output already exists: {resolved}")
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{resolved.name}.", suffix=".tmp", dir=str(resolved.parent))
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(tmp_path, resolved)
+    except FileExistsError as exc:
+        raise HookError(f"dream output already exists: {resolved}") from exc
+    except OSError as exc:
+        raise HookError(f"cannot write dream report {resolved}: {exc}") from exc
+    finally:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+
+
+def dream_command(argv: list[str], stdout: TextIO = sys.stdout) -> int:
+    parser = argparse.ArgumentParser(prog="basic_memory.py dream")
+    parser.add_argument("--output", required=True, type=Path)
+    args = parser.parse_args(argv)
+    try:
+        knowledge_dir = knowledge_dir_from_env()
+        report = build_dream_report(knowledge_dir)
+        write_dream_report(knowledge_dir, args.output, report)
+    except HookError as exc:
+        return _error(str(exc))
+    counts = report["summary"]
+    print(
+        json.dumps(
+            {
+                "output_file": str(args.output.expanduser().resolve()),
+                "mode": "review-only",
+                "summary": counts,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        file=stdout,
+    )
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if not args or args[0] != "dream":
+        print("usage: basic_memory.py dream --output $KNOWLEDGE_DIR/reviews/<name>.json", file=sys.stderr)
+        return 2
+    return dream_command(args[1:])
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

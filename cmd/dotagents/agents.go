@@ -34,9 +34,12 @@ type agentRole struct {
 	Color        string              `yaml:"color"`
 	Instructions string              `yaml:"-"`
 	Source       string              `yaml:"-"`
+	Claude       claudeRoleOptions   `yaml:"claude"`
 	Codex        codexRoleOptions    `yaml:"codex"`
+	OMP          ompRoleOptions      `yaml:"omp"`
 	Droid        droidRoleOptions    `yaml:"droid"`
 	Opencode     opencodeRoleOptions `yaml:"opencode"`
+	Qwen         qwenRoleOptions     `yaml:"qwen"`
 }
 
 func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
@@ -67,8 +70,16 @@ func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
 			if err := node.Decode(&role.Color); err != nil {
 				return err
 			}
+		case "claude":
+			if err := node.Decode(&role.Claude); err != nil {
+				return err
+			}
 		case "codex":
 			if err := node.Decode(&role.Codex); err != nil {
+				return err
+			}
+		case "omp":
+			if err := node.Decode(&role.OMP); err != nil {
 				return err
 			}
 		case "droid":
@@ -77,6 +88,10 @@ func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
 			}
 		case "opencode":
 			if err := node.Decode(&role.Opencode); err != nil {
+				return err
+			}
+		case "qwen":
+			if err := node.Decode(&role.Qwen); err != nil {
 				return err
 			}
 		case "tools":
@@ -111,9 +126,18 @@ func decodeRoleTools(node *yaml.Node) ([]string, error) {
 	}
 }
 
+type claudeRoleOptions struct {
+	Model string `yaml:"model"`
+}
+
 type codexRoleOptions struct {
 	Model                string `yaml:"model"`
 	ModelReasoningEffort string `yaml:"model_reasoning_effort"`
+}
+
+type ompRoleOptions struct {
+	Model         string `yaml:"model"`
+	ThinkingLevel string `yaml:"thinking-level"`
 }
 
 type droidRoleOptions struct {
@@ -126,6 +150,12 @@ type opencodeRoleOptions struct {
 	Model       string `yaml:"model"`
 	Temperature string `yaml:"temperature"`
 	Mode        string `yaml:"mode"`
+}
+
+type qwenRoleOptions struct {
+	Model        string   `yaml:"model"`
+	ApprovalMode string   `yaml:"approval_mode"`
+	Tools        []string `yaml:"tools"`
 }
 
 var droidToolMapping = map[string][]string{
@@ -381,11 +411,16 @@ func renderAgentRole(role agentRole, agent agentConfig) (string, string, bool) {
 }
 
 func renderClaudeAgentRole(role agentRole) string {
+	model := strings.TrimSpace(role.Claude.Model)
+	if model == "" {
+		model = strings.TrimSpace(role.Model)
+	}
+
 	var b strings.Builder
 	b.WriteString("---\n")
 	writeYAMLScalar(&b, "name", role.Name)
 	writeYAMLScalar(&b, "description", role.Description)
-	writeYAMLScalar(&b, "model", role.Model)
+	writeYAMLScalar(&b, "model", model)
 	writeYAMLScalar(&b, "effort", role.Effort)
 	if len(role.Tools) > 0 {
 		b.WriteString("tools: ")

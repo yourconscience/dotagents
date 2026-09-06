@@ -8,11 +8,11 @@ external/
 dotagents.local.yaml
 memsearch.conf
 .skill-lock.json
+
+# Local development
+/dotagents
+npm/bin/*
+!npm/bin/dotagents.js
 memory/local/
 memory/apply-local.sh
-mcp/*/.env
-mcp/*/.*.session
-mcp/*/.venv/
-
-# Local development binary
-/dotagents
+npm/node_modules/
