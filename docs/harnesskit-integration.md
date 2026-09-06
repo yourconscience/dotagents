@@ -35,11 +35,11 @@ Install method is an **open question** (see below) — do not hardcode one until
 
 ### L2 — Launch command (`dotagents view`)
 
-New subcommand that starts HK pointed at the active dotagents config root and opens the browser:
+New subcommand that starts `hk serve` and forwards its stdio, which prints the tokenized URL for the user to open:
 
-- Resolves the config root the same way the rest of the CLI does (`--config` → `$DOTAGENTS_HOME` → `~/.agents`).
-- Spawns the HK local server (127.0.0.1, token in URL — as observed at `:7070`), prints the URL, optionally opens it. Mirrors the existing external-CLI launch path (`external_cli.go`, `cli_launch_test.go`).
-- Read-only intent: we launch HK as a viewer over what dotagents already materialized.
+- HarnessKit does its own harness discovery over the native homes (`~/.claude`, `~/.omp`, `~/.hermes`, …), so `view` does not load or pass the dotagents config root; a nonstandard `--config`/`$DOTAGENTS_HOME` only relocates dotagents' YAML, not the harness homes HK reads.
+- Spawns the HK local server (127.0.0.1, token in URL — as observed at `:7070`) and prints the URL; the launcher does not open a browser itself. Mirrors the existing external-CLI launch path (`external_cli.go`, `cli_launch_test.go`).
+- Inspection intent, not enforced: `hk serve` has no read-only mode, so HarnessKit's own enable/disable/deploy actions can still write native dirs and bypass dotagents. The launch banner warns against using them on managed surfaces; reconcile drift with `dotagents sync`.
 
 L0–L2 are the concrete near-term scope. All three keep the boundary invariant trivially (no managed-surface writes).
 
@@ -79,6 +79,6 @@ Still open (gate L1, not L2):
 **L0 + L2, now unblocked** (open questions #1–#3 resolved in HK's favor):
 
 1. L0 docs pointer — README + `dotagents` SKILL + CLI help. Pointer only, no duplicated harness-compat table.
-2. `dotagents view` — thin launcher: `exec.LookPath("hk")`, forward args to `hk serve`, read-only framing, install hint when absent. Implemented on this branch (`cmd/dotagents/view.go`, `view_test.go`).
+2. `dotagents view` — thin launcher: `exec.LookPath("hk")`, forward args to `hk serve`, inspection framing (writes not enforced — banner cautions), install hint when absent. Implemented on this branch (`cmd/dotagents/view.go`, `view_test.go`).
 3. L1 opt-in install — deferred until #4 and #5 are settled.
 4. L3 — separate spike, no code; decision recorded here.

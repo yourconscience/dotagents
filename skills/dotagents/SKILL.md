@@ -122,7 +122,7 @@ dotagents doctor --e2e
 
 ## view
 
-Launches [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) as a read-only web UI over every detected harness — skills, MCP, hooks, and configs in one place, with a security audit. dotagents stays the only writer; `view` is for inspection and audit, not deployment. Requires `hk` on `PATH` (install HarnessKit separately); flags are forwarded to `hk serve`.
+Launches [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) as an inspection web UI over every detected harness — skills, MCP, hooks, and configs in one place, with a security audit. The `view` command writes nothing, but HarnessKit's own enable/disable/deploy actions bypass dotagents; treat `view` as inspect/audit and reconcile any HarnessKit changes with `dotagents sync`. Requires `hk` on `PATH` (install HarnessKit separately); flags are forwarded to `hk serve`.
 
 ```bash
 dotagents view --port 7070
