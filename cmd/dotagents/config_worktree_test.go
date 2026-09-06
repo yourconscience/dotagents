@@ -23,6 +23,27 @@ func TestRefuseWorktreeRoot(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// A linked worktree outside .worktrees/ is caught by its .git file.
+	arbitrary := filepath.Join(t.TempDir(), "agents-test")
+	if err := os.MkdirAll(arbitrary, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(arbitrary, ".git"), []byte("gitdir: elsewhere\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refuseWorktreeRoot(arbitrary); err == nil {
+		t.Fatal("linked worktree via .git file must be refused")
+	}
+
+	// A canonical checkout has a .git directory, which is allowed.
+	canonical := filepath.Join(t.TempDir(), "repo")
+	if err := os.MkdirAll(filepath.Join(canonical, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := refuseWorktreeRoot(canonical); err != nil {
+		t.Fatalf("canonical checkout with .git dir must be accepted: %v", err)
+	}
+
 	// A symlink aliasing a worktree root resolves to the same refusal.
 	alias := filepath.Join(t.TempDir(), "alias")
 	if err := os.Symlink(worktree, alias); err != nil {
