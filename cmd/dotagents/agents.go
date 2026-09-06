@@ -407,7 +407,7 @@ func renderClaudeAgentRole(role agentRole) string {
 func renderCodexAgentRole(role agentRole) string {
 	model := strings.TrimSpace(role.Codex.Model)
 	if model == "" {
-		model = strings.TrimSpace(role.Model)
+		model = codexModelFor(role.Model)
 	}
 	effort := strings.TrimSpace(role.Codex.ModelReasoningEffort)
 	if effort == "" {
@@ -426,6 +426,18 @@ func renderCodexAgentRole(role agentRole) string {
 	writeTOMLString(&b, "model_reasoning_effort", effort)
 	writeTOMLMultiline(&b, "developer_instructions", role.Instructions)
 	return b.String()
+}
+
+// codexModelFor resolves legacy canonical model aliases. Claude-family names
+// (opus/sonnet/haiku) are not valid Codex identifiers, so they render without a
+// model and Codex uses its own default; anything else passes through verbatim.
+func codexModelFor(model string) string {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "", "haiku", "sonnet", "opus":
+		return ""
+	default:
+		return strings.TrimSpace(model)
+	}
 }
 
 func renderDroidAgentRole(role agentRole) string {
@@ -510,7 +522,6 @@ func writeTOMLMultiline(b *strings.Builder, key string, value string) {
 	b.WriteString(strconv.Quote(value))
 	b.WriteString("\n")
 }
-
 
 func droidModelFor(model string) string {
 	model = strings.TrimSpace(model)

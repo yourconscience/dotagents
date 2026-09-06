@@ -108,6 +108,21 @@ func TestRenderCodexAgentRoleOmitsMissingModel(t *testing.T) {
 		}
 	}
 }
+func TestCodexModelForNeutralizesAliases(t *testing.T) {
+	tests := map[string]string{
+		"":           "",
+		"sonnet":     "",
+		"opus":       "",
+		"haiku":      "",
+		"gpt-custom": "gpt-custom",
+	}
+
+	for input, want := range tests {
+		if got := codexModelFor(input); got != want {
+			t.Fatalf("codexModelFor(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
 
 func TestRenderAgentRolePrefillsConfiguredModel(t *testing.T) {
 	role := agentRole{Name: "builder", Description: "Builds features", Instructions: "Implement."}

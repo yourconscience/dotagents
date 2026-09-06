@@ -143,7 +143,7 @@ mcp_servers:
 
 A role is a Markdown file in `~/.agents/agents/` with frontmatter (`name`, `description`, `model`, `effort`, `tools`, optional per-harness overrides) and the system prompt as body. dotagents renders it into each harness's native format — e.g. TOML for Codex. Five generic starter roles ship with the tool: `architect` `builder` `researcher` `reviewer` `tester`. A same-name file in your `~/.agents/agents/` always wins over the starter.
 
-Roles are model-neutral: a role without `model` renders without one and the harness uses its own default. To pin one model for all rendered roles, set `role_model` on the agent entry in `dotagents.yaml` — that YAML entry is the single place to update model names.
+Roles are model-neutral: a role without `model` renders without one and the harness uses its own default. To pin one model for all rendered roles, set `role_model` on the agent entry in `dotagents.yaml` — that YAML entry is the single place to update model names. Legacy Claude-family aliases (`opus`, `sonnet`, `haiku`) still render for Claude Code but are neutralized for Codex, which uses its own default instead.
 
 ## Hooks and memory
 
