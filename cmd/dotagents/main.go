@@ -323,13 +323,17 @@ func runDoctorCommand(args []string) error {
 
 func runSkillCommand(args []string) error {
 	if len(args) == 0 {
-		return errors.New("skill requires subcommand: new, update, promote")
+		return errors.New("skill requires subcommand: new, list, info, update, promote")
 	}
 	switch args[0] {
 	case "new":
 		return runSkillify(args[1:])
 	case "update":
 		return runExternalUpdate(args[1:])
+	case "list":
+		return runSkillList(args[1:])
+	case "info":
+		return runSkillInfo(args[1:])
 	case "promote":
 		return runPromote(args[1:])
 	case "external":
@@ -479,7 +483,7 @@ func printUsage() {
 	fmt.Println("  doctor   Check pins, dependencies, and local health")
 	fmt.Println()
 	fmt.Println("Command groups:")
-	fmt.Println("  skill    Create, update, and promote skills")
+	fmt.Println("  skill    Inspect, create, update, and promote skills")
 	fmt.Println("  mcp      Manage MCP servers")
 	fmt.Println()
 	fmt.Println("Run \"dotagents help --all\" for flags, maintenance commands, and compatibility aliases.")
@@ -494,7 +498,8 @@ func printAllUsage() {
 	fmt.Println("  dotagents sync [--pull] [--agents ...]")
 	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
 	fmt.Println("  dotagents view [hk serve flags: --port N, --host ADDR, --no-token]")
-	fmt.Println("  dotagents skill new <name> [--description ...]")
+	fmt.Println("  dotagents skill list [--agents ...]")
+	fmt.Println("  dotagents skill info <name>")
 	fmt.Println("  dotagents skill update [name ...]")
 	fmt.Println("  dotagents skill promote <name-or-path> [--dry-run]")
 	fmt.Println("  dotagents mcp <list|add|import|remove> [options]")
