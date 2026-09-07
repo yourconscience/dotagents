@@ -82,11 +82,27 @@ dotagents status   [--agents ...]
 dotagents sync     [--pull] [--agents ...]
 dotagents doctor   [--e2e] [--agents ...]
 dotagents view     [--port N] [--host ADDR]   # launch HarnessKit (inspection UI)
-dotagents skill    new|update|promote
+dotagents skill    new|list|info|update|promote
 dotagents mcp      list|add|import|remove
 ```
 
+## Inspecting your skill roots
+
+`dotagents skill list` shows, per detected harness, every entry in its skill root with provenance: managed links (with the external source and pinned commit when applicable), foreign symlinks (other tools' plugins), unmanaged directories, drifted and broken links — plus the estimated context cost of each harness's skill listing. `dotagents skill info <name>` answers "where does this skill come from and who sees it".
+
 `dotagents view` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for an inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. HarnessKit does its own harness discovery and can also enable/disable/deploy; those writes bypass dotagents, so use `view` to inspect and reconcile any changes with `dotagents sync`. Install HarnessKit separately.
+
+## Installing skills without dotagents
+
+A dotagents-format repo also works as a plain skills source. Anyone can copy individual skills into their harness of choice with the skills.sh installer, no dotagents install needed:
+npx skills add yourconscience/myagents -s dotagents --copy   # verified: copies cleanly, no symlinks
+```
+
+That path copies editable files (the "fork" model); dotagents users get the symlink-to-canonical model with lock-pinned updates. Pick one per machine — installing both leaves you with every skill twice.
+
+## Not to be confused with
+
+Other tools share the name: npm's [`dotagents`](https://www.npmjs.com/package/dotagents) (@iannuttall) and Sentry's [`@sentry/dotagents`](https://www.npmjs.com/package/@sentry/dotagents) skill vendoring CLI. This repo is `yourconscience/dotagents` — install as `brew install yourconscience/tap/dotagents` or `npm i -g @your_conscience/dotagents`.
 
 ## Configuration
 
