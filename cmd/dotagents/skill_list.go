@@ -32,17 +32,23 @@ func skillOrigins(cfg config, repoRoot string, home string, expected map[string]
 			directSources = append(directSources, src)
 		}
 	}
-	if len(directSources) > 0 {
-		set, err := discoverExternalSkillSet(directSources, home)
-		if err == nil {
-			for name, skill := range set {
-				if _, ok := expected[name]; ok {
-					origins[name] = skill.Origin
-				}
+	for _, src := range directSources {
+		set, err := discoverExternalSourceSkills(src, home)
+		if err != nil {
+			// An uncloned cache only degrades the label; sync and doctor
+			// report the missing clone authoritatively, so this stays
+			// best-effort.
+			continue
+		}
+		label := fmt.Sprintf("%s (unpinned)", ownerRepo(src.URL))
+		if entry := lockEntryFor(lock, src); entry != nil {
+			label = fmt.Sprintf("%s@%s", ownerRepo(src.URL), shortSha(entry.Commit))
+		}
+		for _, skill := range set {
+			if _, ok := expected[skill.Name]; ok {
+				origins[skill.Name] = label
 			}
 		}
-		// An uncloned cache only degrades the label; sync and doctor report
-		// the missing clone authoritatively, so this stays best-effort.
 	}
 	return origins, nil
 }
@@ -71,6 +77,24 @@ func ownerRepo(url string) string {
 		return strings.Join(parts[len(parts)-2:], "/")
 	}
 	return trimmed
+}
+
+// integrationMissing returns report.Missing entries that are integration-level
+// messages rather than skill names. Config-driven harnesses (Amp, Hermes,
+// Qwen) record these when their skills configuration is absent, while still
+// listing every expected skill as managed.
+func integrationMissing(report agentReport) []string {
+	expectedSet := make(map[string]bool, len(report.ExpectedSkills))
+	for name := range report.ExpectedSkills {
+		expectedSet[name] = true
+	}
+	var out []string
+	for _, item := range report.Missing {
+		if !expectedSet[item] {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // skillProvenance renders one detail line for a skill in a harness skill root,
@@ -177,7 +201,7 @@ func runSkillList(args []string) error {
 		}
 	}
 	fmt.Printf("dotagents skill list\n")
-	fmt.Printf("repo: %s (%d canonical skills: %d local, %d external-pinned)\n", repoRoot, len(expected), localCount, len(expected)-localCount)
+	fmt.Printf("repo: %s (%d canonical skills: %d local, %d external)\n", repoRoot, len(expected), localCount, len(expected)-localCount)
 
 	for _, report := range reports {
 		fmt.Println()
@@ -188,6 +212,9 @@ func runSkillList(args []string) error {
 		}
 		h := harnessFor(report.Name)
 		if h != nil && h.Skills == SkillsConfigDriven {
+			if missing := integrationMissing(report); len(missing) > 0 {
+				fmt.Printf("  integration missing: %s\n", displayList(missing))
+			}
 			if h.IntegrationNote != "" {
 				fmt.Printf("  integration: %s\n", h.IntegrationNote)
 			}
@@ -265,6 +292,10 @@ func runSkillInfo(args []string) error {
 		fmt.Printf("  %-14s ", report.Name)
 		if !report.Detected {
 			fmt.Println("not detected")
+			continue
+		}
+		if missing := integrationMissing(report); len(missing) > 0 {
+			fmt.Printf("%s: integration missing: %s\n", report.SkillRoot, displayList(missing))
 			continue
 		}
 		fmt.Printf("%s: %s\n", report.SkillRoot, skillProvenance(name, report, origins, home))

@@ -24,6 +24,8 @@ dotagents sync [--pull] [--agents ...]
 dotagents doctor [--e2e] [--agents ...]
 dotagents view [--port N] [--host ADDR]
 dotagents skill new <name> [--description ...]
+dotagents skill list [--agents ...]
+dotagents skill info <name>
 dotagents skill update [name ...]
 dotagents skill promote <name-or-path> [--dry-run]
 dotagents mcp <list|add|import|remove> [options]

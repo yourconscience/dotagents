@@ -498,6 +498,7 @@ func printAllUsage() {
 	fmt.Println("  dotagents sync [--pull] [--agents ...]")
 	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
 	fmt.Println("  dotagents view [hk serve flags: --port N, --host ADDR, --no-token]")
+	fmt.Println("  dotagents skill new <name> [--description ...]")
 	fmt.Println("  dotagents skill list [--agents ...]")
 	fmt.Println("  dotagents skill info <name>")
 	fmt.Println("  dotagents skill update [name ...]")
