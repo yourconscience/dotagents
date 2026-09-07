@@ -81,9 +81,12 @@ dotagents setup    [--memory off|basic|memsearch] [--yes] [--dry-run] [--json]
 dotagents status   [--agents ...]
 dotagents sync     [--pull] [--agents ...]
 dotagents doctor   [--e2e] [--agents ...]
+dotagents view     [--port N] [--host ADDR]   # launch HarnessKit (inspection UI)
 dotagents skill    new|update|promote
 dotagents mcp      list|add|import|remove
 ```
+
+`dotagents view` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for an inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. HarnessKit does its own harness discovery and can also enable/disable/deploy; those writes bypass dotagents, so use `view` to inspect and reconcile any changes with `dotagents sync`. Install HarnessKit separately.
 
 ## Configuration
 
