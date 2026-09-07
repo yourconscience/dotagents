@@ -95,6 +95,8 @@ dotagents mcp      list|add|import|remove
 ## Installing skills without dotagents
 
 A dotagents-format repo also works as a plain skills source. Anyone can copy individual skills into their harness of choice with the skills.sh installer, no dotagents install needed:
+
+```bash
 npx skills add yourconscience/myagents -s dotagents --copy   # verified: copies cleanly, no symlinks
 ```
 
