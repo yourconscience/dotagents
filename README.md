@@ -78,10 +78,10 @@ Markdown role definitions in `~/.agents/agents/`, rendered to each harness's nat
 
 ```bash
 dotagents setup    [--memory off|basic|memsearch] [--yes] [--dry-run] [--json]
-dotagents status   [--agents ...]
+dotagents status   [--verbose] [--agents ...]
 dotagents sync     [--pull] [--agents ...]
 dotagents doctor   [--e2e] [--agents ...]
-dotagents view     [--port N] [--host ADDR]   # launch HarnessKit (inspection UI)
+dotagents view     [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]  # launch HarnessKit (inspection UI)
 dotagents skill    new|list|info|update|promote
 dotagents mcp      list|add|import|remove
 ```
@@ -90,7 +90,7 @@ dotagents mcp      list|add|import|remove
 
 `dotagents skill list` shows, per detected harness, every entry in its skill root with provenance: managed links (with the external source and pinned commit when applicable), foreign symlinks (other tools' plugins), unmanaged directories, drifted and broken links — plus the estimated context cost of each harness's skill listing. `dotagents skill info <name>` answers "where does this skill come from and who sees it".
 
-`dotagents view` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for an inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. HarnessKit does its own harness discovery and can also enable/disable/deploy; those writes bypass dotagents, so use `view` to inspect and reconcile any changes with `dotagents sync`. Install HarnessKit separately.
+`dotagents view` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for an inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. It prints the tokenized URL on its own line and opens it in your default browser locally; use `--no-open` to skip the launch, or `--ssh-host user@host` on a remote box to print an `ssh -L` tunnel command instead (inside an SSH session the host is derived from `SSH_CONNECTION`). HarnessKit does its own harness discovery and can also enable/disable/deploy; those writes bypass dotagents, so use `view` to inspect and reconcile any changes with `dotagents sync`. Install HarnessKit separately.
 
 ## Installing skills without dotagents
 

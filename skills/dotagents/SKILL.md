@@ -19,10 +19,10 @@ Never infer configuration from the current project. Never replace a user's confi
 
 ```bash
 dotagents setup [--memory off|basic|memsearch] [--agents ...] [--yes] [--dry-run] [--json]
-dotagents status [--agents ...]
+dotagents status [--verbose] [--agents ...]
 dotagents sync [--pull] [--agents ...]
 dotagents doctor [--e2e] [--agents ...]
-dotagents view [--port N] [--host ADDR]
+dotagents view [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]
 dotagents skill new <name> [--description ...]
 dotagents skill list [--agents ...]
 dotagents skill info <name>
@@ -136,10 +136,14 @@ dotagents doctor --e2e
 
 ## view
 
-Launches [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) as an inspection web UI over every detected harness — skills, MCP, hooks, and configs in one place, with a security audit. The `view` command writes nothing, but HarnessKit's own enable/disable/deploy actions bypass dotagents; treat `view` as inspect/audit and reconcile any HarnessKit changes with `dotagents sync`. Requires `hk` on `PATH` (install HarnessKit separately); flags are forwarded to `hk serve`.
+Launches [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) as an inspection web UI over every detected harness — skills, MCP, hooks, and configs in one place, with a security audit. The `view` command writes nothing, but HarnessKit's own enable/disable/deploy actions bypass dotagents; treat `view` as inspect/audit and reconcile any HarnessKit changes with `dotagents sync`. Requires `hk` on `PATH` (install HarnessKit separately).
+
+It prints the tokenized URL on its own line and, when running locally, opens it in your default browser. `--no-open` suppresses the browser launch. On a remote host, pass `--ssh-host user@host` (or run inside an SSH session, where it derives the host from `SSH_CONNECTION`) to print a ready `ssh -L` tunnel command instead of auto-opening. Any other flags (`--port`, `--host`, `--no-token`, `--name`) are forwarded to `hk serve`.
 
 ```bash
-dotagents view --port 7070
+dotagents view                                 # open the inspector locally
+dotagents view --no-open --port 7070           # print the URL, do not open a browser
+dotagents view --ssh-host me@box --host 0.0.0.0 # remote: print an ssh -L tunnel command
 ```
 
 ## Capability matrix
