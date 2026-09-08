@@ -30,8 +30,7 @@ func runStatus(opts runOptions) error {
 		return err
 	}
 
-	printReport("status", repoRoot, repoReport, reports, home, cfg)
-	printStatusSummaries(repoRoot, home, cfg)
+	printStatusReport(repoRoot, repoReport, reports, home, cfg, opts.Verbose)
 	if repoReport.State != stateSynced {
 		return errors.New("dotagents is not fully synced")
 	}

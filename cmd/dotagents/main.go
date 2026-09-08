@@ -116,6 +116,9 @@ type runOptions struct {
 	// ConfirmRemovals makes sync preview per-harness removals and role
 	// overwrites and ask before applying them. Set by setup-driven syncs.
 	ConfirmRemovals bool
+	// Verbose expands `status` back to the full per-surface managed and
+	// external skill lists and native root paths instead of the concise view.
+	Verbose bool
 }
 
 func main() {
@@ -243,11 +246,31 @@ func runStatusCommand(args []string) error {
 			return runMemsearch(append([]string{"status"}, args[1:]...))
 		}
 	}
-	opts, err := parseSubcommandFlags("status", args)
+	opts, err := parseStatusFlags(args)
 	if err != nil {
 		return err
 	}
 	return runStatus(opts)
+}
+
+func parseStatusFlags(args []string) (runOptions, error) {
+	fs := flag.NewFlagSet("status", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	var opts runOptions
+	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
+	fs.StringVar(&opts.Agents, "agents", "", "Comma-separated agent names to use for this run")
+	fs.BoolVar(&opts.SkipPackageAge, "skip-package-age", false, "Skip external package publish-age checks")
+	fs.BoolVar(&opts.Verbose, "verbose", false, "Show full managed/external skill lists and native root paths")
+	fs.BoolVar(&opts.Verbose, "v", false, "Show full managed/external skill lists and native root paths")
+
+	if err := fs.Parse(args); err != nil {
+		return runOptions{}, err
+	}
+	if fs.NArg() != 0 {
+		return runOptions{}, errors.New("status does not accept positional arguments")
+	}
+	return opts, nil
 }
 
 func runSyncCommand(args []string) error {
@@ -494,10 +517,10 @@ func printAllUsage() {
 	fmt.Println()
 	fmt.Println("Canonical forms:")
 	fmt.Println("  dotagents setup [--memory off|basic|memsearch] [--agents ...] [--yes] [--dry-run] [--json]")
-	fmt.Println("  dotagents status [--agents ...]")
+	fmt.Println("  dotagents status [--verbose] [--agents ...]")
 	fmt.Println("  dotagents sync [--pull] [--agents ...]")
 	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
-	fmt.Println("  dotagents view [hk serve flags: --port N, --host ADDR, --no-token]")
+	fmt.Println("  dotagents view [--no-open] [--ssh-host user@host] [hk serve flags: --port N, --host ADDR, --no-token]")
 	fmt.Println("  dotagents skill new <name> [--description ...]")
 	fmt.Println("  dotagents skill list [--agents ...]")
 	fmt.Println("  dotagents skill info <name>")
