@@ -213,7 +213,8 @@ func hasFile(path string) bool {
 type palette struct{ on bool }
 
 func statusPalette() palette {
-	if os.Getenv("NO_COLOR") != "" {
+	// NO_COLOR opts out when present, regardless of value (https://no-color.org).
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
 		return palette{on: false}
 	}
 	info, err := os.Stdout.Stat()

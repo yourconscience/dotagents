@@ -36,7 +36,13 @@ var openInBrowser = func(url string) error {
 	default:
 		cmd = exec.Command("xdg-open", url)
 	}
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	// Reap the short-lived launcher (open/xdg-open/start) so it does not linger
+	// as a zombie for the lifetime of the foreground `hk serve` session.
+	go func() { _ = cmd.Wait() }()
+	return nil
 }
 
 const hkInstallHint = `HarnessKit (hk) not found on PATH.
