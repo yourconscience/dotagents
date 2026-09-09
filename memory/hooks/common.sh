@@ -65,11 +65,19 @@ refresh_index_async() {
   # mkdir is atomic: it fails when a refresh already holds the lock, so we never
   # spawn overlapping reindexers.
   if ! mkdir "$reindex_lock" 2>/dev/null; then
-    return 0
+    # The lock exists. Reclaim it only if its owner is gone (e.g. the refresher
+    # was SIGKILLed mid-run), so a dead process can't suppress reindex forever.
+    owner="$(cat "$reindex_lock/pid" 2>/dev/null || true)"
+    if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
+      return 0
+    fi
+    rm -f "$reindex_lock/pid" 2>/dev/null || true
+    rmdir "$reindex_lock" 2>/dev/null || true
+    mkdir "$reindex_lock" 2>/dev/null || return 0
   fi
 
   (
-    trap 'rmdir "$reindex_lock" 2>/dev/null || true' EXIT
+    trap 'rm -f "$reindex_lock/pid" 2>/dev/null || true; rmdir "$reindex_lock" 2>/dev/null || true' EXIT
     set -- "$NOTES_DIR" "$PROFILE_DIR"
     for path in "$SESSIONS_DIR"/*.md "$SESSIONS_DIR"/*.markdown; do
       [ -f "$path" ] && set -- "$@" "$path"
@@ -82,6 +90,9 @@ refresh_index_async() {
     kill "$watchdog_pid" 2>/dev/null || true
     wait "$watchdog_pid" 2>/dev/null || true
   ) >/dev/null 2>&1 &
+  # Record the worker's PID (portable across bash 3.2, unlike $BASHPID) so a
+  # later call can tell a live refresh from a lock stranded by a killed one.
+  printf '%s\n' "$!" >"$reindex_lock/pid" 2>/dev/null || true
 
   return 0
 }

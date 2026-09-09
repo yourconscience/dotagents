@@ -303,10 +303,12 @@ def build_digest(payload: dict[str, Any], messages: list[dict[str, Any]], starte
     users = collect_user_turns(messages)
     assistant = last_assistant_text(messages)
     paths = extract_paths(messages, payload)
+    # An explicit source hint wins over payload markers so a conflicting
+    # platform/agent field in the payload cannot mislabel the digest.
     platform = (
-        payload.get("platform")
+        os.environ.get("DOTAGENTS_MEMORY_SOURCE")
+        or payload.get("platform")
         or payload.get("agent")
-        or os.environ.get("DOTAGENTS_MEMORY_SOURCE")
         or payload.get("hook_event_name")
         or "basic"
     )

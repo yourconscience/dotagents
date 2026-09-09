@@ -796,9 +796,10 @@ class ClaudeFallbackAndDispatchTests(unittest.TestCase):
             log = tmp_path / "memsearch.log"
             self.fake_memsearch(fake_bin, log=log)
             env = self.with_fake_memsearch_path(self.base_env(knowledge), fake_bin)
-            # Simulate a refresh already in flight by pre-holding the lock.
+            # Simulate a refresh in flight by pre-holding the lock with a live owner.
             lock = knowledge / "state" / "reindex.lock"
             lock.mkdir(parents=True)
+            (lock / "pid").write_text(str(os.getpid()), encoding="utf-8")
 
             result = self.run_shell(SESSION_END_HOOK, self.claude_payload(tmp_path, "no-overlap"), env=env)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -806,7 +807,30 @@ class ClaudeFallbackAndDispatchTests(unittest.TestCase):
             import time
 
             time.sleep(0.8)
-            self.assertFalse(log.exists(), "held lock must prevent an overlapping reindex")
+            self.assertFalse(log.exists(), "a live owner's lock must prevent an overlapping reindex")
+
+    def test_reindex_reclaims_a_stale_lock_from_a_dead_owner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            fake_bin = tmp_path / "bin"
+            log = tmp_path / "memsearch.log"
+            self.fake_memsearch(fake_bin, log=log)
+            env = self.with_fake_memsearch_path(self.base_env(knowledge), fake_bin)
+            # A lock left behind by a SIGKILLed refresher: its recorded owner is dead.
+            dead = subprocess.Popen(["true"])
+            dead.wait()
+            lock = knowledge / "state" / "reindex.lock"
+            lock.mkdir(parents=True)
+            (lock / "pid").write_text(str(dead.pid), encoding="utf-8")
+
+            result = self.run_shell(SESSION_END_HOOK, self.claude_payload(tmp_path, "stale-lock"), env=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("basic memory appended", json.loads(result.stdout)["systemMessage"])
+            self.assertTrue(
+                self.wait_for(lambda: log.exists() and "index" in log.read_text()),
+                "a stale lock from a dead owner must be reclaimed so reindex is not suppressed forever",
+            )
 
     def test_reindex_is_nonblocking_and_bounded_by_watchdog(self):
         with tempfile.TemporaryDirectory() as tmp:
