@@ -258,12 +258,14 @@ def reindex_memsearch(paths: dict):
         return
 
     state_dir = paths["memsearch_home"]
+    # Best-effort: a failure to create the state dir or open the lock must never
+    # raise out of a reindex trigger, only skip and warn.
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
-    lock_path = state_dir / "reindex.lock"
-    lock = open(lock_path, "w")
+        lock = open(state_dir / "reindex.lock", "w")
+    except OSError as exc:
+        print(f"memsearch reindex: cannot open lock dir ({exc}), skipped")
+        return
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
@@ -272,7 +274,9 @@ def reindex_memsearch(paths: dict):
         return
 
     try:
-        cmd = ["memsearch", "index", str(paths["vault_dir"]), "--collection", paths["collection"]]
+        # Always refresh the canonical "ai" collection; ignore MEMSEARCH_COLLECTION
+        # drift so the canonical collection cannot go silently stale.
+        cmd = ["memsearch", "index", str(paths["vault_dir"]), "--collection", "ai"]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
             print("memsearch reindex: done")

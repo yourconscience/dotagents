@@ -23,8 +23,31 @@ func run(dir string, name string, args ...string) (string, error) {
 	return out.String(), err
 }
 
+// canonicalCollection is the one memsearch collection the automatic freshness
+// triggers keep fresh; it is not configurable so it cannot drift.
+const canonicalCollection = "ai"
+
 func git(dir string, args ...string) (string, error) {
 	return run(dir, "git", args...)
+}
+
+// commitPinned commits with the identity pinned two ways so a partial/stale git
+// env in the launchd context cannot leak a host-detected identity past the pin:
+// the `-c user.*` config flags, and the GIT_AUTHOR_*/GIT_COMMITTER_* env (which
+// takes precedence over `-c`) both forced to the resolved name/email.
+func commitPinned(dir, name, email, msg string) (string, error) {
+	cmd := exec.Command("git",
+		"-c", "user.name="+name, "-c", "user.email="+email,
+		"commit", "-m", msg)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME="+name, "GIT_AUTHOR_EMAIL="+email,
+		"GIT_COMMITTER_NAME="+name, "GIT_COMMITTER_EMAIL="+email)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	err := cmd.Run()
+	return out.String(), err
 }
 
 func main() {
@@ -62,8 +85,7 @@ func main() {
 			fatal("git identity", err, "")
 		}
 		msg := "sync knowledge " + time.Now().UTC().Format("2006-01-02T15:04:05Z")
-		commitArgs := []string{"-c", "user.name=" + name, "-c", "user.email=" + email, "commit", "-m", msg}
-		if out, err := git(repo, commitArgs...); err != nil {
+		if out, err := commitPinned(repo, name, email, msg); err != nil {
 			// Nothing to commit after add is harmless; anything else is not.
 			if !strings.Contains(out, "nothing to commit") && !strings.Contains(out, "no changes added") {
 				fatal("git commit", err, out)
@@ -183,7 +205,10 @@ func reindexAfterSync(repo string) {
 	defer func() { _ = syscall.Flock(int(rlock.Fd()), syscall.LOCK_UN) }()
 
 	knowledge := getenv("KNOWLEDGE_DIR", repo)
-	collection := getenv("MEMSEARCH_COLLECTION", "ai")
+	// The automatic trigger always refreshes the canonical "ai" collection.
+	// MEMSEARCH_COLLECTION drift is deliberately ignored so `ai` can never go
+	// silently stale behind an override meant for ad-hoc/manual indexing.
+	collection := canonicalCollection
 	ctx, cancel := context.WithTimeout(context.Background(), reindexTimeout())
 	defer cancel()
 

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -80,5 +83,35 @@ func TestResolveIdentityRefusesHostDetectedFallback(t *testing.T) {
 
 	if _, _, err := resolveIdentity(dir); err == nil {
 		t.Fatal("expected resolveIdentity to refuse with no identity configured")
+	}
+}
+
+func TestCommitPinnedOverridesLeakyEnv(t *testing.T) {
+	dir := t.TempDir()
+	gitInit(t, dir)
+	// A stale/partial git env in the ambient process must not leak into the
+	// commit -- commitPinned forces the resolved identity for author + committer.
+	t.Setenv("GIT_AUTHOR_NAME", "Leaky")
+	t.Setenv("GIT_AUTHOR_EMAIL", "leak@bad")
+	t.Setenv("GIT_COMMITTER_NAME", "Leaky")
+	t.Setenv("GIT_COMMITTER_EMAIL", "leak@bad")
+
+	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", dir, "add", "-A").CombinedOutput(); err != nil {
+		t.Fatalf("add: %v %s", err, out)
+	}
+	if out, err := commitPinned(dir, "Pinned Name", "pin@example.com", "msg"); err != nil {
+		t.Fatalf("commitPinned: %v %s", err, out)
+	}
+	out, err := exec.Command("git", "-C", dir, "log", "-1", "--format=%an|%ae|%cn|%ce").CombinedOutput()
+	if err != nil {
+		t.Fatalf("log: %v %s", err, out)
+	}
+	got := strings.TrimSpace(string(out))
+	want := "Pinned Name|pin@example.com|Pinned Name|pin@example.com"
+	if got != want {
+		t.Errorf("commit identity leaked: got %q, want %q", got, want)
 	}
 }
