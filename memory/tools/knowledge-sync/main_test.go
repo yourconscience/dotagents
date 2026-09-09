@@ -42,9 +42,11 @@ func TestResolveIdentityFallsBackToGitEnvThenConfig(t *testing.T) {
 	t.Setenv("GIT_AUTHOR_NAME", "Env Name")
 	t.Setenv("GIT_AUTHOR_EMAIL", "env@example.com")
 	if out, err := exec.Command("git", "-C", dir, "config", "user.name", "Cfg Name").CombinedOutput(); err != nil {
-		t.Fatalf("config: %v %s", err, out)
+		t.Fatalf("config name: %v %s", err, out)
 	}
-	exec.Command("git", "-C", dir, "config", "user.email", "cfg@example.com").Run()
+	if out, err := exec.Command("git", "-C", dir, "config", "user.email", "cfg@example.com").CombinedOutput(); err != nil {
+		t.Fatalf("config email: %v %s", err, out)
+	}
 
 	name, email, err := resolveIdentity(dir)
 	if err != nil {
