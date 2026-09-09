@@ -15,29 +15,7 @@ payload="$(mktemp)"
 trap 'rm -f "$payload"' EXIT
 cat >"$payload"
 
-kind="$(python3 - "$payload" <<'PY'
-import os
-import json
-import sys
-from pathlib import Path
-
-try:
-    data = json.load(open(sys.argv[1]))
-except Exception:
-    print("unknown")
-    raise SystemExit
-
-transcript = os.path.expanduser(str(data.get("transcript_path") or ""))
-if transcript and "/.factory/" in transcript and Path(transcript).suffix == ".jsonl":
-    print("factory-jsonl")
-elif data.get("platform") == "amp" or data.get("amp_thread_id"):
-    print("amp-json")
-elif data.get("session_id") and not transcript:
-    print("hermes-json")
-else:
-    print("claude-plugin")
-PY
-)"
+kind="$(classify_payload "$payload")"
 
 case "$kind" in
   amp-json)
@@ -49,12 +27,20 @@ case "$kind" in
   hermes-json)
     python3 "$MEMORY_DIR/lib/hermes_digest.py" <"$payload"
     ;;
+  codex|omp)
+    # Codex/OMP capture always uses the local basic_memory digest.
+    dispatch_basic_digest "$payload"
+    ;;
   *)
     plugin_dir="$(resolve_claude_memory_plugin || true)"
     if [ -n "$plugin_dir" ]; then
       bash "$plugin_dir/hooks/session-end.sh" <"$payload" >/dev/null 2>&1 || true
       index_memory_top_level || true
+      printf '{"continue":true,"suppressOutput":true}\n'
+    else
+      # No memsearch claude-code plugin (e.g. memsearch 0.2.x): fall back to the
+      # local basic_memory digest so Claude capture keeps working.
+      dispatch_basic_digest "$payload"
     fi
-    printf '{"continue":true,"suppressOutput":true}\n'
     ;;
 esac

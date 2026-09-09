@@ -11,8 +11,9 @@ fi
 load_memory_config
 plugin_dir="$(resolve_claude_memory_plugin || true)"
 if [ -z "$plugin_dir" ]; then
-  printf '{"continue":true,"suppressOutput":true}\n'
-  exit 0
+  # No memsearch claude-code plugin: fall back to the local basic_memory
+  # implementation so recent session digests are injected as additionalContext.
+  exec python3 "$MEMORY_DIR/hooks/basic-session-start.py"
 fi
 
 prepare_memory_index_env

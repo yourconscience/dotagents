@@ -52,3 +52,85 @@ index_memory_top_level() {
   done
   memsearch index "$@" --collection "$MEMSEARCH_COLLECTION" >/dev/null 2>&1
 }
+
+# Best-effort vault reindex fired after a session digest is written. It never
+# blocks the hook (all work is backgrounded), is bounded by a watchdog so a
+# hung memsearch can't run forever, and refuses to overlap a refresh that is
+# already running via an atomic mkdir lock. No-op when memsearch is absent.
+refresh_index_async() {
+  command -v memsearch >/dev/null 2>&1 || return 0
+  prepare_memory_index_env
+
+  reindex_lock="${MEMSEARCH_STATE_DIR%/}/reindex.lock"
+  # mkdir is atomic: it fails when a refresh already holds the lock, so we never
+  # spawn overlapping reindexers.
+  if ! mkdir "$reindex_lock" 2>/dev/null; then
+    return 0
+  fi
+
+  (
+    trap 'rmdir "$reindex_lock" 2>/dev/null || true' EXIT
+    set -- "$NOTES_DIR" "$PROFILE_DIR"
+    for path in "$SESSIONS_DIR"/*.md "$SESSIONS_DIR"/*.markdown; do
+      [ -f "$path" ] && set -- "$@" "$path"
+    done
+    memsearch index "$@" --collection "$MEMSEARCH_COLLECTION" >/dev/null 2>&1 &
+    index_pid=$!
+    ( sleep "${MEMSEARCH_REINDEX_TIMEOUT:-120}"; kill "$index_pid" 2>/dev/null || true ) &
+    watchdog_pid=$!
+    wait "$index_pid" 2>/dev/null || true
+    kill "$watchdog_pid" 2>/dev/null || true
+    wait "$watchdog_pid" 2>/dev/null || true
+  ) >/dev/null 2>&1 &
+
+  return 0
+}
+
+# Classify a hook payload file into a dispatch kind. Codex and OMP capture route
+# through the local basic_memory digest (never the Claude plugin), detected from
+# an explicit source hint or the payload's own agent/platform marker.
+classify_payload() {
+  MEMORY_SOURCE_HINT="${DOTAGENTS_MEMORY_SOURCE:-}" python3 - "$1" <<'PY'
+import os
+import json
+import sys
+from pathlib import Path
+
+try:
+    data = json.load(open(sys.argv[1]))
+except Exception:
+    print("unknown")
+    raise SystemExit
+
+hint = (os.environ.get("MEMORY_SOURCE_HINT") or "").strip().lower()
+agent = str(data.get("agent") or data.get("platform") or "").strip().lower()
+transcript = os.path.expanduser(str(data.get("transcript_path") or ""))
+
+if hint in {"codex", "omp"}:
+    print(hint)
+elif agent in {"codex", "omp"}:
+    print(agent)
+elif transcript and "/.factory/" in transcript and Path(transcript).suffix == ".jsonl":
+    print("factory-jsonl")
+elif data.get("platform") == "amp" or data.get("amp_thread_id"):
+    print("amp-json")
+elif data.get("session_id") and not transcript:
+    print("hermes-json")
+else:
+    print("claude-plugin")
+PY
+}
+
+# Write a local basic_memory digest for the payload, then fire a bounded,
+# non-overlapping reindex only when a new digest was actually appended. Used by
+# the Claude fallback and by Codex/OMP capture so the logic lives in one place.
+dispatch_basic_digest() {
+  if digest_output="$(python3 "$MEMORY_DIR/hooks/basic-session-end.py" <"$1")"; then
+    printf '%s\n' "$digest_output"
+    case "$digest_output" in
+      *'"systemMessage":"basic memory appended'*) refresh_index_async ;;
+    esac
+  else
+    printf '{"continue":true,"suppressOutput":true}\n'
+  fi
+}

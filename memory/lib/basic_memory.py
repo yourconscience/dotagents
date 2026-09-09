@@ -303,7 +303,13 @@ def build_digest(payload: dict[str, Any], messages: list[dict[str, Any]], starte
     users = collect_user_turns(messages)
     assistant = last_assistant_text(messages)
     paths = extract_paths(messages, payload)
-    platform = payload.get("platform") or payload.get("agent") or payload.get("hook_event_name") or "basic"
+    platform = (
+        payload.get("platform")
+        or payload.get("agent")
+        or os.environ.get("DOTAGENTS_MEMORY_SOURCE")
+        or payload.get("hook_event_name")
+        or "basic"
+    )
     model = payload.get("model")
 
     lines = []

@@ -19,6 +19,8 @@ AMP_DIGEST = MEMORY_DIR / "lib" / "amp_digest.py"
 FACTORY_DIGEST = MEMORY_DIR / "lib" / "factory_digest.py"
 HERMES_DIGEST = MEMORY_DIR / "lib" / "hermes_digest.py"
 SESSION_END_HOOK = MEMORY_DIR / "hooks" / "session-end.sh"
+SESSION_START_HOOK = MEMORY_DIR / "hooks" / "session-start.sh"
+STOP_HOOK = MEMORY_DIR / "hooks" / "stop.sh"
 
 
 class BasicMemoryHookTests(unittest.TestCase):
@@ -590,6 +592,246 @@ class DreamMemoryReviewTests(unittest.TestCase):
             self.assertEqual(candidate["occurrence_count"], 21)
             self.assertEqual(len(candidate["evidence"]), 20)
             self.assertEqual(candidate["evidence_omitted"], 1)
+
+class ClaudeFallbackAndDispatchTests(unittest.TestCase):
+    """R1 fallback, R7 Codex/OMP capture, and R2 bounded reindex."""
+
+    def run_shell(self, hook: Path, payload: object, *, env: dict[str, str], raw: str | None = None):
+        stdin = raw if raw is not None else json.dumps(payload)
+        return subprocess.run(
+            ["/bin/bash", str(hook)],
+            input=stdin,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
+        )
+
+    def base_env(self, knowledge: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
+        env = os.environ.copy()
+        env["KNOWLEDGE_DIR"] = str(knowledge)
+        env["MEMSEARCH_STATE_DIR"] = str(knowledge / "state")
+        # A scratch collection keeps any stray reindex away from the real index.
+        env["MEMSEARCH_COLLECTION"] = "test-scratch"
+        # Point the plugin resolver at a directory that does not exist so the
+        # Claude fallback is exercised (memsearch 0.2.x ships no claude-code plugin).
+        env["MEMSEARCH_PLUGIN_DIR"] = str(knowledge / "no-such-plugin")
+        if extra:
+            env.update(extra)
+        return env
+
+    def fake_memsearch(self, fake_bin: Path, *, log: Path, sleep: float = 0.0, done_marker: Path | None = None) -> None:
+        fake_bin.mkdir(parents=True, exist_ok=True)
+        lines = ["#!/bin/sh", f'printf "%s\\n" "$*" >> "{log}"']
+        if sleep:
+            lines.append(f"sleep {sleep}")
+        if done_marker is not None:
+            lines.append(f'printf "done\\n" >> "{done_marker}"')
+        lines.append("exit 0")
+        script = fake_bin / "memsearch"
+        script.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        script.chmod(script.stat().st_mode | stat.S_IXUSR)
+
+    def with_fake_memsearch_path(self, env: dict[str, str], fake_bin: Path) -> dict[str, str]:
+        env["PATH"] = str(fake_bin) + os.pathsep + env.get("PATH", "")
+        return env
+
+    def claude_payload(self, tmp_path: Path, session_id: str, first: str = "remember ripgrep over grep") -> dict:
+        transcript = tmp_path / f"{session_id}.jsonl"
+        transcript.write_text(
+            "\n".join(
+                [
+                    json.dumps({"type": "session_start", "session_id": session_id, "timestamp": "2026-09-09T16:36:00Z"}),
+                    json.dumps({"type": "message", "timestamp": "2026-09-09T16:36:01Z", "message": {"role": "user", "content": first}}),
+                    json.dumps({"type": "message", "timestamp": "2026-09-09T16:36:05Z", "message": {"role": "assistant", "content": "Noted."}}),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return {
+            "hook_event_name": "SessionEnd",
+            "session_id": session_id,
+            "transcript_path": str(transcript),
+            "model": "claude-opus-4-8",
+        }
+
+    def wait_for(self, predicate, timeout: float = 6.0, interval: float = 0.1) -> bool:
+        import time
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return True
+            time.sleep(interval)
+        return predicate()
+
+    def sole_digest(self, knowledge: Path) -> str:
+        files = sorted((knowledge / "sessions").glob("*.md"))
+        self.assertEqual(len(files), 1, files)
+        return files[0].read_text(encoding="utf-8")
+
+    def test_plugin_present_path_delegates_and_skips_basic_digest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            plugin_root = tmp_path / "plugin"
+            (plugin_root / "hooks").mkdir(parents=True)
+            plugin_marker = tmp_path / "plugin-ran"
+            plugin_end = plugin_root / "hooks" / "session-end.sh"
+            plugin_end.write_text(f'#!/bin/sh\nprintf "ran\\n" > "{plugin_marker}"\nexit 0\n', encoding="utf-8")
+            plugin_end.chmod(plugin_end.stat().st_mode | stat.S_IXUSR)
+
+            fake_bin = tmp_path / "bin"
+            log = tmp_path / "memsearch.log"
+            self.fake_memsearch(fake_bin, log=log)
+            env = self.with_fake_memsearch_path(
+                self.base_env(knowledge, {"MEMSEARCH_PLUGIN_DIR": str(plugin_root)}), fake_bin
+            )
+
+            result = self.run_shell(SESSION_END_HOOK, self.claude_payload(tmp_path, "plugin-present"), env=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), {"continue": True, "suppressOutput": True})
+            self.assertTrue(plugin_marker.exists(), "plugin session-end.sh should run when the plugin resolves")
+            self.assertEqual(list((knowledge / "sessions").glob("*.md")), [], "basic digest must not be written on the plugin path")
+
+    def test_plugin_missing_fallback_writes_claude_digest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            env = self.base_env(knowledge)  # no memsearch on PATH -> reindex is a no-op
+
+            result = self.run_shell(SESSION_END_HOOK, self.claude_payload(tmp_path, "claude-fallback"), env=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = json.loads(result.stdout)
+            self.assertTrue(output["continue"])
+            self.assertIn("basic memory appended", output["systemMessage"])
+            digest = self.sole_digest(knowledge)
+            self.assertIn("basic-memory-session:claude-fallback:start", digest)
+            self.assertIn("remember ripgrep over grep", digest)
+
+    def test_plugin_missing_session_start_injects_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            sessions = knowledge / "sessions"
+            sessions.mkdir(parents=True)
+            (sessions / "2026-09-09.md").write_text("## Session digest\n- first request: prefer ripgrep\n", encoding="utf-8")
+
+            result = self.run_shell(SESSION_START_HOOK, {"hook_event_name": "SessionStart"}, env=self.base_env(knowledge))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = json.loads(result.stdout)
+            self.assertEqual(output["hookSpecificOutput"]["hookEventName"], "SessionStart")
+            self.assertIn("prefer ripgrep", output["hookSpecificOutput"]["additionalContext"])
+
+    def test_codex_payload_classifies_to_basic_digest_labeled_codex(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            env = self.base_env(knowledge, {"DOTAGENTS_MEMORY_SOURCE": "codex"})
+            payload = self.claude_payload(tmp_path, "codex-1", first="codex remember this")
+            payload["model"] = "gpt-5-codex"
+
+            result = self.run_shell(SESSION_END_HOOK, payload, env=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("basic memory appended", json.loads(result.stdout)["systemMessage"])
+            digest = self.sole_digest(knowledge)
+            self.assertIn("- source: codex; model: gpt-5-codex", digest)
+            self.assertIn("codex remember this", digest)
+
+    def test_omp_payload_via_stop_hook_writes_basic_digest_labeled_omp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            payload = {
+                "hook_event_name": "Stop",
+                "agent": "omp",
+                "session_id": "omp-1",
+                "messages": [{"role": "user", "content": "omp remember this"}],
+            }
+            result = self.run_shell(STOP_HOOK, payload, env=self.base_env(knowledge))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("basic memory appended", json.loads(result.stdout)["systemMessage"])
+            digest = self.sole_digest(knowledge)
+            self.assertIn("- source: omp", digest)
+            self.assertIn("omp remember this", digest)
+
+    def test_stop_hook_claude_payload_does_not_capture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            result = self.run_shell(STOP_HOOK, self.claude_payload(tmp_path, "claude-stop"), env=self.base_env(knowledge))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), {"continue": True, "suppressOutput": True})
+            self.assertFalse((knowledge / "sessions").exists(), "Claude Stop must not capture; SessionEnd owns the digest")
+
+    def test_reindex_fires_after_append_and_is_gated_on_replay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            fake_bin = tmp_path / "bin"
+            log = tmp_path / "memsearch.log"
+            self.fake_memsearch(fake_bin, log=log)
+            env = self.with_fake_memsearch_path(self.base_env(knowledge), fake_bin)
+            payload = self.claude_payload(tmp_path, "reindex-1")
+
+            first = self.run_shell(SESSION_END_HOOK, payload, env=env)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertTrue(self.wait_for(lambda: log.exists() and log.read_text().count("index") == 1), "one reindex expected after append")
+
+            # Re-running the same session id is a replay -> no digest, no reindex.
+            second = self.run_shell(SESSION_END_HOOK, payload, env=env)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertIn("skipped replayed", json.loads(second.stdout)["systemMessage"])
+            import time
+
+            time.sleep(0.8)
+            self.assertEqual(log.read_text().count("index"), 1, "replay must not trigger a second reindex")
+
+    def test_reindex_does_not_overlap_a_running_refresh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            fake_bin = tmp_path / "bin"
+            log = tmp_path / "memsearch.log"
+            self.fake_memsearch(fake_bin, log=log)
+            env = self.with_fake_memsearch_path(self.base_env(knowledge), fake_bin)
+            # Simulate a refresh already in flight by pre-holding the lock.
+            lock = knowledge / "state" / "reindex.lock"
+            lock.mkdir(parents=True)
+
+            result = self.run_shell(SESSION_END_HOOK, self.claude_payload(tmp_path, "no-overlap"), env=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("basic memory appended", json.loads(result.stdout)["systemMessage"])
+            import time
+
+            time.sleep(0.8)
+            self.assertFalse(log.exists(), "held lock must prevent an overlapping reindex")
+
+    def test_reindex_is_nonblocking_and_bounded_by_watchdog(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            fake_bin = tmp_path / "bin"
+            log = tmp_path / "memsearch.log"
+            done = tmp_path / "reindex-done"
+            self.fake_memsearch(fake_bin, log=log, sleep=5, done_marker=done)
+            env = self.with_fake_memsearch_path(
+                self.base_env(knowledge, {"MEMSEARCH_REINDEX_TIMEOUT": "1"}), fake_bin
+            )
+            import time
+
+            start = time.monotonic()
+            result = self.run_shell(SESSION_END_HOOK, self.claude_payload(tmp_path, "bounded"), env=env)
+            elapsed = time.monotonic() - start
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertLess(elapsed, 3.0, "hook must not block on the reindex")
+            # The reindex started but the watchdog kills it before the 5s sleep completes.
+            self.assertTrue(self.wait_for(lambda: log.exists()), "reindex should start")
+            time.sleep(2.5)
+            self.assertFalse(done.exists(), "watchdog must kill a reindex that exceeds the bound")
+            self.assertFalse((knowledge / "state" / "reindex.lock").exists(), "lock must be released after the bounded run")
+
 
 if __name__ == "__main__":
     unittest.main()
