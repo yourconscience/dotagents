@@ -140,7 +140,8 @@ func loadCandidates(dir string) ([]candidateLine, error) {
 	return out, nil
 }
 
-// cmdSearch passes a query through to memsearch.
+// cmdSearch passes a query through to memsearch, targeting the canonical vault
+// collection (ai) unless the caller overrides it.
 func cmdSearch(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: rem search \"query\"")
@@ -149,9 +150,28 @@ func cmdSearch(args []string) error {
 	if err != nil {
 		return fmt.Errorf("memsearch not found: %w", err)
 	}
-	cmd := exec.Command(bin, append([]string{"search"}, args...)...)
+	collection := os.Getenv("REM_COLLECTION")
+	if collection == "" {
+		collection = "ai"
+	}
+	cmd := exec.Command(bin, searchArgs(args, collection)...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Run()
+}
+
+// searchArgs builds the memsearch argv, injecting `--collection <collection>`
+// unless the caller already passed a collection flag.
+func searchArgs(args []string, collection string) []string {
+	for _, a := range args {
+		if a == "-c" || a == "--collection" {
+			return append([]string{"search"}, args...)
+		}
+	}
+	out := []string{"search"}
+	if collection != "" {
+		out = append(out, "--collection", collection)
+	}
+	return append(out, args...)
 }
 
 // cmdSync wraps the guarded knowledge-sync binary.
