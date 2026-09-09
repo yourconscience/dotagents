@@ -57,17 +57,22 @@ derived index current, both refreshing the whole vault into collection `ai`:
 ### Shared reindex contract
 
 Both triggers honor the same contract so they stay coordinated and never step on
-each other:
+each other (canonical definition: `memory/hooks/common.sh` `refresh_index_async`,
+mirrored by `knowledge-sync`):
 
-- **Command:** `memsearch index "$KNOWLEDGE_DIR" --collection ai` (incremental;
-  only changed files are re-embedded).
-- **Idempotent:** re-running is safe; markdown is canonical.
-- **Non-overlapping lock:** an OS advisory lock (`flock`/`fcntl.flock`,
-  non-blocking) on `"$MEMSEARCH_HOME/reindex.lock"` (default
-  `~/.memsearch/reindex.lock`). If the lock is already held, the trigger skips;
-  the next trigger catches up.
-- **Best-effort:** a refresh never blocks or fails its caller. `knowledge-sync`
-  additionally bounds it with a timeout (`MEMSEARCH_REINDEX_TIMEOUT_SECONDS`,
-  default 300s).
+- **Scope:** the notes and profile directories plus every `sessions/*.md` and
+  `*.markdown` file, indexed into collection `ai` (incremental; only changed
+  files are re-embedded). Paths resolve from `NOTES_DIR` / `PROFILE_DIR` /
+  `SESSIONS_DIR`, defaulting under `KNOWLEDGE_DIR`.
+- **Idempotent:** re-running is safe; markdown is canonical. `ai` is pinned;
+  `MEMSEARCH_COLLECTION` drift is ignored so `ai` cannot go stale.
+- **Non-overlapping lock:** an atomic **`mkdir` lock** at
+  `"${MEMSEARCH_STATE_DIR:-~/.memsearch/state}/reindex.lock"` (a directory) with
+  the owner pid written to `reindex.lock/pid`. `mkdir` is atomic, so a second
+  refresh fails to create it and skips; a lock whose recorded owner is no longer
+  alive (`kill -0`) is reclaimed so a killed refresher cannot suppress reindex
+  forever. Both triggers use this exact path and mechanism.
+- **Best-effort:** a refresh never blocks or fails its caller, bounded by a
+  timeout (`MEMSEARCH_REINDEX_TIMEOUT`, seconds, default 120).
 - **No-op without the engine:** on a sync-only node where `memsearch` is not on
   `PATH`, the trigger silently does nothing.

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -84,6 +85,88 @@ func TestResolveIdentityRefusesHostDetectedFallback(t *testing.T) {
 	if _, _, err := resolveIdentity(dir); err == nil {
 		t.Fatal("expected resolveIdentity to refuse with no identity configured")
 	}
+}
+
+func TestReindexStateDirMatchesCaptureDefault(t *testing.T) {
+	t.Setenv("MEMSEARCH_STATE_DIR", "")
+	got := reindexStateDir()
+	if filepath.Base(got) != "state" || filepath.Base(filepath.Dir(got)) != ".memsearch" {
+		t.Errorf("default state dir = %q, want ~/.memsearch/state", got)
+	}
+	t.Setenv("MEMSEARCH_STATE_DIR", "/custom/state")
+	if got := reindexStateDir(); got != "/custom/state" {
+		t.Errorf("env override = %q, want /custom/state", got)
+	}
+}
+
+func TestReindexIndexPathsMirrorCaptureScope(t *testing.T) {
+	t.Setenv("NOTES_DIR", "")
+	t.Setenv("PROFILE_DIR", "")
+	t.Setenv("SESSIONS_DIR", "")
+	root := t.TempDir()
+	for _, d := range []string{"notes", "profile", "sessions", "sessions/sub"} {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, f := range []string{"sessions/a.md", "sessions/b.markdown", "sessions/c.txt", "sessions/sub/deep.md"} {
+		if err := os.WriteFile(filepath.Join(root, f), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := reindexIndexPaths(root)
+	want := []string{
+		filepath.Join(root, "notes"),
+		filepath.Join(root, "profile"),
+		filepath.Join(root, "sessions", "a.md"),
+		filepath.Join(root, "sessions", "b.markdown"),
+	}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("index paths = %v, want %v", got, want)
+	}
+}
+
+func TestAcquireReindexLockExcludesAndRecovers(t *testing.T) {
+	lock := filepath.Join(t.TempDir(), "reindex.lock")
+
+	// First acquire succeeds and records this live process as owner.
+	if !acquireReindexLock(lock) {
+		t.Fatal("first acquire should succeed")
+	}
+	if fi, err := os.Stat(lock); err != nil || !fi.IsDir() {
+		t.Fatalf("lock must be a directory: %v", err)
+	}
+	if readPidFile(lock) != os.Getpid() {
+		t.Errorf("pid file = %d, want %d", readPidFile(lock), os.Getpid())
+	}
+	// A second acquire while the live owner holds it must be refused.
+	if acquireReindexLock(lock) {
+		t.Error("second acquire should be refused while owner is alive")
+	}
+	releaseReindexLock(lock)
+	if _, err := os.Stat(lock); !os.IsNotExist(err) {
+		t.Error("release should remove the lock directory")
+	}
+
+	// A lock stranded by a dead owner is reclaimed.
+	dead := exec.Command("true")
+	if err := dead.Run(); err != nil {
+		t.Fatalf("spawn dead proc: %v", err)
+	}
+	deadPid := dead.Process.Pid
+	if err := os.Mkdir(lock, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(lock, "pid"), []byte(strconv.Itoa(deadPid)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !acquireReindexLock(lock) {
+		t.Error("acquire should reclaim a lock held by a dead owner")
+	}
+	if readPidFile(lock) != os.Getpid() {
+		t.Errorf("reclaimed pid file = %d, want %d", readPidFile(lock), os.Getpid())
+	}
+	releaseReindexLock(lock)
 }
 
 func TestCommitPinnedOverridesLeakyEnv(t *testing.T) {

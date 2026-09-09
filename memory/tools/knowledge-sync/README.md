@@ -57,7 +57,11 @@ git -C ~/Workspace/knowledge config user.email "you@example.com"
 After a successful pull/merge/push, `knowledge-sync` triggers a bounded,
 best-effort refresh of the derived `memsearch` index (collection `ai`) so the
 index tracks whatever the sync pulled in -- replacing a separate reindex cron.
-It never blocks the sync (the git work is already complete), skips when a
-concurrent refresh holds the shared lock, and is a no-op when `memsearch` is not
-installed. See [../memsearch/README.md](../memsearch/README.md) for the shared
-reindex contract (`MEMSEARCH_REINDEX_TIMEOUT_SECONDS`, the `reindex.lock`).
+It mirrors the capture-side trigger (`memory/hooks/common.sh`
+`refresh_index_async`) exactly -- same `mkdir` lock at
+`${MEMSEARCH_STATE_DIR:-~/.memsearch/state}/reindex.lock`, same
+notes+profile+sessions scope -- so the two never index concurrently. It never
+blocks the sync (the git work is already complete), skips when a refresh is
+already running, and is a no-op when `memsearch` is not installed. See
+[../memsearch/README.md](../memsearch/README.md) for the full shared reindex
+contract (`MEMSEARCH_REINDEX_TIMEOUT`, default 120s).

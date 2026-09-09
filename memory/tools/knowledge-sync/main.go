@@ -172,48 +172,39 @@ func gitConfigValue(repo, key string) string {
 }
 
 // reindexAfterSync runs a bounded, best-effort, non-overlapping memsearch index
-// refresh over the canonical vault into collection "ai". It is a no-op when
-// memsearch is not installed (sync-only nodes) or when another refresh holds the
-// shared lock. It never fails the sync: the git work is already complete.
+// refresh after the vault settles. It mirrors the capture-side trigger
+// (memory/hooks/common.sh refresh_index_async) exactly so the two mutually
+// exclude: same lock path (MEMSEARCH_STATE_DIR/reindex.lock), same atomic
+// mkdir + pid + stale-recovery convention, and the same index scope
+// (notes + profile + sessions/*.md) into the canonical "ai" collection. It is a
+// no-op when memsearch is absent and never fails the sync (git work is done).
 func reindexAfterSync(repo string) {
 	bin, err := exec.LookPath("memsearch")
 	if err != nil {
 		return // sync-only node without a local index engine
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-	stateDir := getenv("MEMSEARCH_HOME", filepath.Join(home, ".memsearch"))
+	stateDir := reindexStateDir()
 	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		return
+		return // best-effort: cannot prepare the state dir, skip
 	}
-	// Shared reindex lock: the same path is used by the reindex-after-capture
-	// trigger so the two never overlap. Non-blocking: if a refresh is already
-	// running, skip this one (the index will catch up on the next trigger).
 	lockPath := filepath.Join(stateDir, "reindex.lock")
-	rlock, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
-	if err != nil {
-		return
-	}
-	defer func() { _ = rlock.Close() }()
-	if err := syscall.Flock(int(rlock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if !acquireReindexLock(lockPath) {
 		fmt.Println("knowledge-sync: reindex already running, skipped")
 		return
 	}
-	defer func() { _ = syscall.Flock(int(rlock.Fd()), syscall.LOCK_UN) }()
+	defer releaseReindexLock(lockPath)
 
 	knowledge := getenv("KNOWLEDGE_DIR", repo)
-	// The automatic trigger always refreshes the canonical "ai" collection.
-	// MEMSEARCH_COLLECTION drift is deliberately ignored so `ai` can never go
-	// silently stale behind an override meant for ad-hoc/manual indexing.
-	collection := canonicalCollection
+	paths := reindexIndexPaths(knowledge)
+
 	ctx, cancel := context.WithTimeout(context.Background(), reindexTimeout())
 	defer cancel()
-
-	// Incremental by default (only files changed by the merge are re-embedded).
-	cmd := exec.CommandContext(ctx, bin, "index", knowledge, "--collection", collection)
+	// Always the canonical "ai" collection; MEMSEARCH_COLLECTION drift is ignored
+	// so `ai` cannot go silently stale.
+	args := append([]string{"index"}, paths...)
+	args = append(args, "--collection", canonicalCollection)
+	cmd := exec.CommandContext(ctx, bin, args...)
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		fmt.Println("knowledge-sync: reindex timed out (best-effort), skipped")
@@ -226,15 +217,99 @@ func reindexAfterSync(repo string) {
 	fmt.Println("knowledge-sync: reindex ok")
 }
 
-// reindexTimeout bounds the best-effort refresh. Override with
-// MEMSEARCH_REINDEX_TIMEOUT_SECONDS; defaults to 300s.
+// reindexStateDir resolves the engine state dir the same way the hooks do:
+// MEMSEARCH_STATE_DIR, else ~/.memsearch/state. The reindex lock lives here so
+// the sync-side and capture-side triggers share exactly one lock.
+func reindexStateDir() string {
+	if v := os.Getenv("MEMSEARCH_STATE_DIR"); v != "" {
+		return v
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".memsearch", "state")
+	}
+	return filepath.Join(home, ".memsearch", "state")
+}
+
+// reindexIndexPaths mirrors the capture side's scope: the notes and profile
+// directories plus every sessions/*.md and *.markdown file.
+func reindexIndexPaths(knowledge string) []string {
+	notes := getenv("NOTES_DIR", filepath.Join(knowledge, "notes"))
+	profile := getenv("PROFILE_DIR", filepath.Join(knowledge, "profile"))
+	sessions := getenv("SESSIONS_DIR", filepath.Join(knowledge, "sessions"))
+	paths := []string{notes, profile}
+	for _, pat := range []string{"*.md", "*.markdown"} {
+		matches, _ := filepath.Glob(filepath.Join(sessions, pat))
+		for _, m := range matches {
+			if fi, err := os.Stat(m); err == nil && !fi.IsDir() {
+				paths = append(paths, m)
+			}
+		}
+	}
+	return paths
+}
+
+// acquireReindexLock implements the capture side's atomic-mkdir lock with pid
+// and stale-recovery. mkdir is atomic: it fails when a refresh already holds the
+// lock. A lock whose recorded owner is gone (e.g. SIGKILLed mid-run) is
+// reclaimed so a dead process can't suppress reindex forever. Returns true when
+// the lock is held by this process.
+func acquireReindexLock(lockPath string) bool {
+	if err := os.Mkdir(lockPath, 0o755); err == nil {
+		writePidFile(lockPath)
+		return true
+	}
+	// Lock exists: reclaim only if its owner is no longer alive.
+	if owner := readPidFile(lockPath); owner > 0 && processAlive(owner) {
+		return false
+	}
+	_ = os.Remove(filepath.Join(lockPath, "pid"))
+	_ = os.Remove(lockPath)
+	if err := os.Mkdir(lockPath, 0o755); err != nil {
+		return false
+	}
+	writePidFile(lockPath)
+	return true
+}
+
+func releaseReindexLock(lockPath string) {
+	_ = os.Remove(filepath.Join(lockPath, "pid"))
+	_ = os.Remove(lockPath)
+}
+
+func writePidFile(lockPath string) {
+	_ = os.WriteFile(filepath.Join(lockPath, "pid"), []byte(strconv.Itoa(os.Getpid())+"\n"), 0o644)
+}
+
+func readPidFile(lockPath string) int {
+	data, err := os.ReadFile(filepath.Join(lockPath, "pid"))
+	if err != nil {
+		return 0
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0
+	}
+	return pid
+}
+
+// processAlive reports whether a pid is a live process, mirroring `kill -0`.
+func processAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	return syscall.Kill(pid, 0) == nil
+}
+
+// reindexTimeout bounds the best-effort refresh, matching the capture side's
+// watchdog knob MEMSEARCH_REINDEX_TIMEOUT (seconds); defaults to 120s.
 func reindexTimeout() time.Duration {
-	if v := os.Getenv("MEMSEARCH_REINDEX_TIMEOUT_SECONDS"); v != "" {
+	if v := os.Getenv("MEMSEARCH_REINDEX_TIMEOUT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			return time.Duration(n) * time.Second
 		}
 	}
-	return 300 * time.Second
+	return 120 * time.Second
 }
 
 func getenv(k, def string) string {
