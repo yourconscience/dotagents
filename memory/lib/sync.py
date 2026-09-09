@@ -37,9 +37,11 @@ def resolve():
         "hermes_user": home / ".hermes" / "memories" / "USER.md",
         "vault_profile": profile_dir / "USER.md",
         "vault_knowledge": sessions_dir / "knowledge.md",
+        "vault_dir": vault_dir,
         "vault_sessions_dir": sessions_dir,
         "vault_notes_dir": notes_dir,
         "vault_profile_dir": profile_dir,
+        "memsearch_home": Path(os.path.expanduser(os.environ.get("MEMSEARCH_HOME", "~/.memsearch"))),
         "collection": os.environ.get("MEMSEARCH_COLLECTION", "ai"),
     }
 
@@ -239,23 +241,46 @@ def vault_to_memory(paths: dict):
 
 # -- Reindex ---------------------------------------------------------------
 def reindex_memsearch(paths: dict):
-    """Reindex the memsearch collection after changes."""
+    """Refresh the derived memsearch index over the canonical vault.
+
+    Indexes the whole vault into collection ``ai`` -- the same scope the
+    knowledge-sync reindex-after-sync trigger uses -- so markdown stays the
+    single source of truth and the index is a disposable per-machine derivative.
+    Best-effort and guarded by the shared reindex lock so it never overlaps a
+    concurrent refresh (reindex-after-sync / reindex-after-capture).
+    """
+    import fcntl
+    import shutil
     import subprocess
-    session_paths = []
-    for pattern in ("*.md", "*.markdown"):
-        session_paths.extend(str(p) for p in sorted(paths["vault_sessions_dir"].glob(pattern)) if p.is_file())
-    cmd = [
-        "memsearch", "index",
-        str(paths["vault_notes_dir"]),
-        str(paths["vault_profile_dir"]),
-        *session_paths,
-        "--collection", paths["collection"],
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0:
-        print("memsearch reindex: done")
-    else:
-        print(f"memsearch reindex: warning - {result.stderr.strip()}")
+
+    if not shutil.which("memsearch"):
+        print("memsearch reindex: memsearch not installed, skipped")
+        return
+
+    state_dir = paths["memsearch_home"]
+    try:
+        state_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    lock_path = state_dir / "reindex.lock"
+    lock = open(lock_path, "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("memsearch reindex: another reindex running, skipped")
+        lock.close()
+        return
+
+    try:
+        cmd = ["memsearch", "index", str(paths["vault_dir"]), "--collection", paths["collection"]]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print("memsearch reindex: done")
+        else:
+            print(f"memsearch reindex: warning - {result.stderr.strip()}")
+    finally:
+        fcntl.flock(lock, fcntl.LOCK_UN)
+        lock.close()
 
 
 # -- Main ------------------------------------------------------------------

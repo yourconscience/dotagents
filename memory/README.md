@@ -38,12 +38,21 @@ dotagents setup --memory memsearch  # indexed search; requires memsearch on PATH
 | `basic` | bounded session digests into the knowledge vault | Python 3 |
 | `memsearch` | adds a derived search index over the vault | `memsearch` |
 
+For the `memsearch` tier, bring any machine to full parity (install, config,
+index, verify) with `tools/memsearch/install-parity.sh`. The per-machine index
+is derived and disposable; only the vault markdown is canonical. Freshness is
+kept by two idempotent triggers (reindex-after-sync in `knowledge-sync`,
+reindex-after-capture in the capture path), not a cron -- see
+[tools/memsearch/README.md](tools/memsearch/README.md) for the parity steps and
+the shared reindex contract.
+
 ## Layout
 
 - `hooks/` — lifecycle entrypoints (session start/end/stop) registered per harness
 - `lib/` — Python implementation: `basic_memory.py` (digests, dream-pass parsing),
   `sync.py` (Hermes memory ↔ vault), `safety.py`
-- `tools/` — Go binaries built by `dotagents sync`: `rem`, `knowledge-sync`
+- `tools/` — `rem` and `knowledge-sync` (Go binaries built by `dotagents sync`),
+  and `memsearch/` (parity installer + reindex contract)
 - `tests/` — reference test suite
 
 ## Relationship to user repos
