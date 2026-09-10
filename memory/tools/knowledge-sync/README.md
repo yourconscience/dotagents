@@ -19,7 +19,7 @@ GOWORK=off go build -o ~/.local/bin/knowledge-sync .
 Configuration is read from environment variables, with defaults in `main.go`:
 
 - `KNOWLEDGE_REPO`, default `$KNOWLEDGE_DIR` or `~/Workspace/knowledge`
-- `KNOWLEDGE_REMOTE`, default `vps`
+- `KNOWLEDGE_REMOTE`, default `origin`. If your vault pushes to a non-`origin` remote, set this env var to that remote name.
 - `KNOWLEDGE_BRANCH`, default `main`
 
 The helper uses a lock file under the knowledge repo git directory, commits dirty vault changes, fetches/merges from the remote branch, and pushes back to the same remote branch.

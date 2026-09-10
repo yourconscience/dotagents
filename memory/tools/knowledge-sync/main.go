@@ -56,7 +56,7 @@ func main() {
 		fatal("user home", err, "")
 	}
 	repo := getenv("KNOWLEDGE_REPO", filepath.Join(home, "Workspace", "knowledge"))
-	remote := getenv("KNOWLEDGE_REMOTE", "vps")
+	remote := getenv("KNOWLEDGE_REMOTE", "origin")
 	branch := getenv("KNOWLEDGE_BRANCH", "main")
 
 	lockPath := filepath.Join(repo, ".git", "knowledge-sync.lock")
