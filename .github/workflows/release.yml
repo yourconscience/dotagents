@@ -49,7 +49,6 @@ jobs:
       - name: Publish
         env:
           NPM_CONFIG_PROVENANCE: true
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           version="${GITHUB_REF_NAME#v}"
           if npm view "@your_conscience/dotagents@$version" version >/dev/null 2>&1; then
