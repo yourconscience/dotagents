@@ -21,6 +21,7 @@ If you use more than one coding agent, you maintain the same skills, MCP servers
 
 ```bash
 brew install yourconscience/tap/dotagents   # or: npm i -g @your_conscience/dotagents
+# no brew/npm? curl -fsSL https://raw.githubusercontent.com/yourconscience/dotagents/main/scripts/install.sh | sh
 dotagents setup                             # detect harnesses, import, first sync
 ```
 
@@ -125,7 +126,7 @@ scripts/release.sh v0.7.0    # verify + tag; CI publishes binaries, brew tap, np
 - [docs/comparison.md](docs/comparison.md) — how dotagents differs from rulesync, ruler, openskills
 - [Troubleshooting](docs/troubleshooting.md)
 
-Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level — one private repo, seven targets deep, pinned externals, review-first memory. Full table in [docs/comparison.md](docs/comparison.md).
+Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level — one private repo, eight targets deep, pinned externals, review-first memory. Full table in [docs/comparison.md](docs/comparison.md).
 
 ## License
 

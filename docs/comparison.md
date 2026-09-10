@@ -13,7 +13,7 @@ Different tools solve different parts of agent-config fragmentation.
 
 ## Detailed comparison
 
-Counts verified 2026-07-15 against each project's docs.
+dotagents' own harness coverage is listed below; competitor breadth is described qualitatively, since their exact tool counts drift over time.
 
 | | dotagents | [rulesync](https://github.com/dyoshikawa/rulesync) | [ruler](https://github.com/intellectronica/ruler) | [openskills](https://github.com/numman-ali/openskills) |
 |---|---|---|---|---|
@@ -25,7 +25,7 @@ Counts verified 2026-07-15 against each project's docs.
 | Root instructions | symlinked per harness | generated files | generated files | no |
 | Memory tooling | built in (`rem`) | no | no | no |
 | Pinned + audited externals | lock file + audit | no pinning | no pinning | tracks source, no pin |
-| Harness coverage | 7 deep | 35 broad | 31 broad | ~5 |
+| Harness coverage | 8 deep | broad | broad | narrow |
 
 ## Positioning
 
