@@ -41,7 +41,7 @@ Install method is still open (release binary vs `cargo install` vs `brew` tap) �
 - Spawns the HK local server (127.0.0.1, token in URL) and opens it locally (suppressible with `--no-open`). Mirrors the external-CLI launch path (`external_cli.go`, `cli_launch_test.go`).
 - Inspection intent, not enforced: `hk serve` has no read-only mode, so HarnessKit's own enable/disable/deploy actions can still write native dirs and bypass dotagents. The launch banner warns against using them on managed surfaces; reconcile drift with `dotagents sync`.
 
-L0–L2 are the concrete near-term scope. All three keep the boundary invariant trivially (no managed-surface writes).
+L0–L2 are the concrete near-term scope. dotagents itself writes no managed surfaces on these paths, but `dotagents view` launches HarnessKit, whose own enable/disable/deploy actions can still write native dirs (including managed surfaces) and bypass dotagents; the launch banner cautions against this and drift is reconciled with `dotagents sync`.
 
 ## Recommended first slice
 
