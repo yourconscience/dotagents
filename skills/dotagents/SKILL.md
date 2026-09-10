@@ -1,6 +1,6 @@
 ---
 name: dotagents
-description: Set up, inspect, and sync a private user-owned agent configuration across Claude Code, Codex, Hermes, Droid, Qwen Code, Pi, and OMP. Use for dotagents setup, status, sync, doctor, skill, MCP, hook, role, memory-tier, or config-root workflows.
+description: Set up, inspect, and sync a private user-owned agent configuration across Claude Code, Codex, Hermes, Droid, OpenCode, Qwen Code, Pi, and OMP. Use for dotagents setup, status, sync, doctor, skill, MCP, hook, role, memory-tier, or config-root workflows.
 ---
 
 # dotagents
@@ -47,7 +47,7 @@ First-run setup:
 8. Patches only the required native harness settings.
 9. Runs the first sync.
 
-The public starter contains `dotagents`, the pinned `grilling` example, five generic roles, and reusable memory scripts. Personal skills, hooks, MCP servers, secrets, and memory data belong only in the private config repository.
+The public starter contains `dotagents`, the pinned `grilling` example, six generic roles (`architect` `builder` `general` `researcher` `reviewer` `tester`), and reusable memory scripts. Personal skills, hooks, MCP servers, secrets, and memory data belong only in the private config repository.
 
 Memory tiers:
 
@@ -89,6 +89,7 @@ Agent roles are canonical Markdown files under `~/.agents/agents/` and render to
 - Claude Code: `~/.claude/agents/<name>.md`
 - Codex: `~/.codex/agents/<name>.toml`
 - Factory Droid: `~/.factory/droids/<name>.md`
+- OpenCode: `~/.config/opencode/agents/<name>.md`
 - OMP: `~/.omp/agent/agents/<name>.md`
 - Qwen Code: `~/.qwen/agents/<name>.md`
 
@@ -154,6 +155,7 @@ dotagents view --ssh-host me@box --host 0.0.0.0 # remote: print an ssh -L tunnel
 | Codex | yes | yes | yes | yes |
 | Factory Droid | yes | yes | yes | yes |
 | Hermes | yes, config-driven | no | yes | yes |
+| OpenCode | yes | yes | yes | no |
 | Pi | yes | no | no | no |
 | OMP | yes | yes | yes | no |
 | Qwen Code | yes, config-driven | yes | yes | yes |

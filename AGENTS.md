@@ -28,6 +28,7 @@ The distribution intentionally contains:
 - `skills/grilling/`
 - `agents/architect.md`
 - `agents/builder.md`
+- `agents/general.md`
 - `agents/researcher.md`
 - `agents/reviewer.md`
 - `agents/tester.md`

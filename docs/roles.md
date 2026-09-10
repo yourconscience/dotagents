@@ -32,6 +32,7 @@ To pin one model for all rendered roles that have no explicit model, set `role_m
 | Claude Code | Markdown | `~/.claude/agents/<name>.md` |
 | Codex | TOML | `~/.codex/agents/<name>.toml` |
 | Factory Droid | Markdown | `~/.factory/droids/<name>.md` |
+| OpenCode | YAML frontmatter | `~/.config/opencode/agents/<name>.md` |
 | OMP | YAML frontmatter | `~/.omp/agent/agents/<name>.md` |
 | Qwen Code | YAML frontmatter | `~/.qwen/agents/<name>.md` |
 
