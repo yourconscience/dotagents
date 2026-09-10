@@ -1,6 +1,6 @@
 # HarnessKit integration — design notes
 
-Status: draft / thinking. Branch: `feat/harnesskit-integration`. Date: 2026-09-06.
+Status: L0 + L2 shipped (`dotagents view`). L1 (opt-in install) and L3 (write-through) remain future work. Original design date 2026-09-06.
 
 ## Finding
 
@@ -31,48 +31,17 @@ Register HarnessKit as an **optional, opt-in** external tool:
 - `dotagents deps check` reports whether HK is present + version; `deps update` bumps it.
 - Honor the existing publish-age gate (`checkExternalPackageAge`, `package_age.go`) — HK is a fast-moving Rust binary; do not auto-pull a release younger than the configured window.
 
-Install method is an **open question** (see below) — do not hardcode one until verified.
+Install method is still open (release binary vs `cargo install` vs `brew` tap) — do not hardcode one until verified.
 
 ### L2 — Launch command (`dotagents view`)
 
-New subcommand that starts `hk serve` and forwards its stdio, which prints the tokenized URL for the user to open:
+`dotagents view` starts `hk serve`, prints the tokenized URL on its own line, and (locally) opens it in the default browser; `--no-open` skips the launch and `--ssh-host user@host` prints an `ssh -L` tunnel command instead.
 
 - HarnessKit does its own harness discovery over the native homes (`~/.claude`, `~/.omp`, `~/.hermes`, …), so `view` does not load or pass the dotagents config root; a nonstandard `--config`/`$DOTAGENTS_HOME` only relocates dotagents' YAML, not the harness homes HK reads.
-- Spawns the HK local server (127.0.0.1, token in URL — as observed at `:7070`) and prints the URL; the launcher does not open a browser itself. Mirrors the existing external-CLI launch path (`external_cli.go`, `cli_launch_test.go`).
+- Spawns the HK local server (127.0.0.1, token in URL) and opens it locally (suppressible with `--no-open`). Mirrors the external-CLI launch path (`external_cli.go`, `cli_launch_test.go`).
 - Inspection intent, not enforced: `hk serve` has no read-only mode, so HarnessKit's own enable/disable/deploy actions can still write native dirs and bypass dotagents. The launch banner warns against using them on managed surfaces; reconcile drift with `dotagents sync`.
 
 L0–L2 are the concrete near-term scope. All three keep the boundary invariant trivially (no managed-surface writes).
-
-### L3 — Write-through (research spike, do not build yet)
-
-The "can we drive changes from HK's UI via dotagents commands" question. HK writes to native dirs directly; dotagents owns those via symlinks/lock. Reconciling them needs one of:
-
-- **(a) HK-as-frontend:** HK calls `dotagents` as its backend for mutations. Requires HK to expose a pluggable write backend — **not known to exist**; would need an upstream change or fork. Verify before assuming.
-- **(b) Watch-and-reconcile:** dotagents watches HK's writes and folds them back into the canonical store + re-syncs. Fragile (race with HK's own convergence writes), and it inverts the source-of-truth direction.
-
-Both risk exactly the drift the boundary invariant forbids. Treat L3 as a spike with a written go/no-go, not a committed feature. Likely outcome: keep writes in dotagents; if HK-authored edits are wanted, add a `dotagents import` path that pulls a specific HK change into the canonical store deliberately, rather than a live bridge.
-
-## Codebase seams (verified in-tree)
-
-- `cmd/dotagents/deps.go` — `deps check`/`update`, already wraps external-package-age. Home for L1.
-- `cmd/dotagents/setup.go`, `setup_scaffold.go` — first-run; add the opt-in HK prompt here.
-- `cmd/dotagents/external.go`, `external_cli.go`, `cli_launch_test.go` — external tool materialization + launch. Model for L2.
-- `cmd/dotagents/detect.go`, `harness.go` — harness detection; useful if HK install is only offered when ≥1 supported harness is present.
-- `cmd/dotagents/report.go`, `inspect.go` — the `status`/`inspect` output; where a "view in HarnessKit" pointer could surface.
-
-## Open questions
-
-Resolved 2026-09-06 by inspecting `hk` 1.10.0 (`hk --help`, `hk serve --help`, `hk list --help`):
-
-1. **HK headless/CLI mode — RESOLVED (yes).** `hk serve` is fully scriptable: `--port`, `--host`, `--token`/`--no-token`, `--name`. The 3-step onboarding is client-side UI state, not a server gate. HK also ships a pure CLI — `hk status`, `hk list --json`, `hk audit`, `hk info`, `hk enable/disable` — so a future text/status integration can consume `hk list --json` without the web server.
-2. **Config-root targeting — RESOLVED (no flag, not needed).** `hk serve`/`hk list` have no `--config`/`--root`; only `HK_SCOPE_LAST_USED` (scope memory). HK reads the native harness homes (`~/.claude`, `~/.codex`, `~/.omp`, `~/.hermes`), which is exactly what dotagents materializes — so `view` targets the right thing for the default `~/.agents` root. Custom `$DOTAGENTS_HOME`/`--config` only relocates dotagents' YAML, not the harness homes HK reads, so no retargeting is required.
-3. **HK binary/version — RESOLVED.** `hk` 1.10.0, Mach-O arm64, installed at `~/.local/bin/hk`.
-
-Still open (gate L1, not L2):
-
-4. **HK install method (L1)** — release binary vs `cargo install` vs `brew` tap. Verify from HK's releases/install docs before wiring an opt-in installer.
-5. **Publish-age policy fit (L1)** — HK's release cadence vs the 3-day external-package rule (`package_age.go`); pick a window.
-6. **Pluggable write backend (L3)** — does HK expose any hook/API to delegate mutations? Assume no until shown.
 
 ## Recommended first slice
 
@@ -80,5 +49,5 @@ Still open (gate L1, not L2):
 
 1. L0 docs pointer — README + `dotagents` SKILL + CLI help. Pointer only, no duplicated harness-compat table.
 2. `dotagents view` — thin launcher: `exec.LookPath("hk")`, forward args to `hk serve`, inspection framing (writes not enforced — banner cautions), install hint when absent. Implemented on this branch (`cmd/dotagents/view.go`, `view_test.go`).
-3. L1 opt-in install — deferred until #4 and #5 are settled.
-4. L3 — separate spike, no code; decision recorded here.
+3. L1 opt-in install — deferred until the install method and publish-age window are settled.
+4. L3 write-through — separate research spike, no code; keep dotagents the only writer until a go/no-go is decided.
