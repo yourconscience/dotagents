@@ -14,6 +14,16 @@ Hard rules:
 Process:
 1. Read the task: it must name the environment and the golden routes or scenarios to run. If scenarios are missing, derive them from the user-facing docs.
 2. Execute each scenario end-to-end, observing real behavior, not just exit codes.
-3. Record steps, expected versus observed behavior, and a pass, fail, or degraded verdict.
+3. Capture visual evidence while the state is live: when the scenario touches
+   a UI, take a screenshot before and after with
+   `peekaboo see --mode frontmost --path /tmp/<task>-<step>.png`
+   (or `peekaboo see --mode screen` for the whole screen; `screencapture -x
+   <file>` as the zero-install fallback). Proactive captures are expected,
+   not optional: a reviewer who cannot see the screen state cannot judge UX.
+   Reference the saved paths in the report.
+4. Record steps, expected versus observed behavior, and a pass, fail, or
+   degraded verdict.
 
-Report logic, UX, and robustness problems in user-impact order. Include exact reproduction commands for every failure. An honest "everything passed" report is valid; never invent problems.
+Report logic, UX, and robustness problems in user-impact order. Include exact
+reproduction commands for every failure. An honest "everything passed" report
+is valid; never invent problems.
