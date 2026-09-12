@@ -3,11 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 func loadContext(opts runOptions) (string, string, config, []agentConfig, error) {
@@ -37,52 +36,16 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 
 	return repoRoot, home, cfg, selected, nil
 }
-
 func loadConfig(repoRoot string, home string, overridePath string) (config, error) {
 	configPath := overridePath
 	if strings.TrimSpace(configPath) == "" {
 		configPath = defaultConfigPath(repoRoot)
 	}
-	configPath = expandPath(configPath, home)
-
-	data, err := os.ReadFile(configPath)
+	doc, err := newConfigDocument(configPath, home)
 	if err != nil {
-		return config{}, fmt.Errorf("read config %s: %w", configPath, err)
-	}
-
-	var cfg config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return config{}, fmt.Errorf("yaml decode: %w", err)
-	}
-	if err := applyLocalOverlay(&cfg, configPath); err != nil {
 		return config{}, err
 	}
-	if err := validateConfig(&cfg, home, true); err != nil {
-		return config{}, err
-	}
-
-	return cfg, nil
-}
-
-// applyLocalOverlay merges a gitignored dotagents.local.yaml (next to the main
-// config) into cfg. Entries match by name (agents, mcp_servers, hooks) or repo
-// name (external_skills): a match replaces the base entry wholesale, anything
-// else is appended. This keeps personal additions out of public git.
-func applyLocalOverlay(cfg *config, configPath string) error {
-	localPath := filepath.Join(filepath.Dir(configPath), "dotagents.local.yaml")
-	data, err := os.ReadFile(localPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("read local config %s: %w", localPath, err)
-	}
-	var local config
-	if err := yaml.Unmarshal(data, &local); err != nil {
-		return fmt.Errorf("yaml decode %s: %w", localPath, err)
-	}
-	mergeConfig(cfg, local)
-	return nil
+	return doc.effective, nil
 }
 
 func mergeConfig(base *config, overlay config) {
@@ -92,6 +55,11 @@ func mergeConfig(base *config, overlay config) {
 	base.Hooks = mergeByKey(base.Hooks, overlay.Hooks, func(h hookConfig) string { return strings.TrimSpace(h.Name) })
 	if overlay.ContextNoteTokens != nil {
 		base.ContextNoteTokens = overlay.ContextNoteTokens
+	}
+	if overlay.UI != nil {
+		copyUI := *overlay.UI
+		copyUI.Links = append([]uiLink(nil), overlay.UI.Links...)
+		base.UI = &copyUI
 	}
 }
 
@@ -274,6 +242,29 @@ func validateConfig(cfg *config, home string, expand bool) error {
 				if _, ok := seen[agentName]; !ok {
 					return fmt.Errorf("config hook %s targets unknown agent %q", cfg.Hooks[i].Name, agentName)
 				}
+			}
+		}
+	}
+
+	if cfg.UI != nil {
+		seenLinks := make(map[string]struct{}, len(cfg.UI.Links))
+		for i := range cfg.UI.Links {
+			link := &cfg.UI.Links[i]
+			link.Name = strings.TrimSpace(link.Name)
+			link.URL = strings.TrimSpace(link.URL)
+			if link.Name == "" {
+				return errors.New("config ui link name cannot be empty")
+			}
+			if _, ok := seenLinks[link.Name]; ok {
+				return fmt.Errorf("config ui link %s is duplicated", link.Name)
+			}
+			seenLinks[link.Name] = struct{}{}
+			if strings.HasPrefix(link.URL, "/") && !strings.HasPrefix(link.URL, "//") {
+				continue
+			}
+			parsed, err := url.Parse(link.URL)
+			if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+				return fmt.Errorf("config ui link %s must be an absolute https URL or origin-relative path", link.Name)
 			}
 		}
 	}

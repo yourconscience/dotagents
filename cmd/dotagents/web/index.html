@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>dotagents config</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><strong>dotagents</strong><span class="eyebrow">canonical config</span></div>
+    <nav id="links" aria-label="Configured links"></nav>
+    <button id="settings" class="quiet">Settings</button>
+  </header>
+  <main class="shell">
+    <aside class="sources" aria-label="Configuration layers">
+      <p class="label">Sources</p>
+      <button class="source active" data-layer="shared">Shared <small>dotagents.yaml</small></button>
+      <button class="source" data-layer="local">Local <small>dotagents.local.yaml</small></button>
+      <button class="source" data-layer="effective">Effective <small>read-only merge</small></button>
+      <div class="source-meta" id="source-meta"></div>
+    </aside>
+    <section class="workspace">
+      <div class="section-head"><div><p class="label">Configuration</p><h1 id="heading">Shared YAML</h1></div><span id="revision" class="mono"></span></div>
+      <div id="structured" class="ledger" aria-live="polite"></div>
+      <label class="label raw-label" for="yaml">Raw YAML</label>
+      <textarea id="yaml" spellcheck="false" aria-label="Editable canonical YAML"></textarea>
+    </section>
+    <aside class="rail">
+      <p class="label">Change rail</p>
+      <p id="status" class="status">Loading canonical config…</p>
+      <pre id="diff" class="diff" aria-label="YAML diff"></pre>
+      <div class="actions"><button id="validate">Validate</button><button id="review">Review changes</button><button id="save" class="primary">Save YAML</button></div>
+      <div class="sync"><p class="label">Sync is separate</p><button id="preview">Preview sync</button><button id="apply" disabled>Sync confirmed plan</button><pre id="plan" class="diff"></pre></div>
+    </aside>
+  </main>
+  <footer class="mobile-actions"><button id="mvalidate">Validate</button><button id="mreview">Review changes</button><button id="msave" class="primary">Save YAML</button></footer>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

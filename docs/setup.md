@@ -31,6 +31,30 @@ git push -u origin main
 
 Subsequent syncs: `dotagents sync --pull` pulls the repo first, then reconciles. Machines without a Go toolchain skip the memory-tools build step; everything else syncs normally.
 
+## Authoring the canonical YAML
+
+After setup, use the authoring surface rather than editing native harness
+files:
+
+```bash
+dotagents config
+dotagents config serve --no-open --addr 127.0.0.1:8765
+dotagents config validate
+dotagents config print
+```
+
+The shared file and `dotagents.local.yaml` remain separate layers. The
+effective view is read-only, and saving YAML never runs `sync`. The web UI
+binds to loopback, requires a session cookie and CSRF header, and keeps sync
+behind an explicit preview/apply confirmation.
+
+For temporary HTTPS access from a tailnet, the operator owns the route:
+
+```bash
+dotagents config serve --no-open --secure-cookie --addr 127.0.0.1:8765
+tailscale serve --bg --set-path /dotagents http://127.0.0.1:8765
+```
+
 ## Memory tier
 
 Choose during setup or reconfigure later:
