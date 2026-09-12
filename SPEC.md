@@ -97,21 +97,20 @@ ui:
 
 - Links are navigation metadata, not a sixth synced harness surface.
 - `url` accepts an absolute `https://` URL or an origin-relative path beginning with `/`.
-- Relative `/usage` is preferred for the personal Tailscale setup: when dotagents is served under `/dotagents` and the existing usage app remains under `/usage`, both use the same tailnet origin without storing a machine hostname in public configuration.
-- The Settings screen edits these links through the same YAML diff/save flow. The user's machine-specific link belongs in `dotagents.local.yaml`; public starter configuration stays machine-neutral.
-- The web header shows **Settings** and configured links such as **Usage**. Links open as normal top-level navigation, never in an iframe, and never proxy credentials or usage data through dotagents.
+- The personal usage dashboard remains an external application. A machine-local overlay may link to its HTTPS URL or same-origin `/usage` route without adding a usage page to dotagents.
+- The web UI renders configured links as read-only top-level navigation. Link values remain YAML-authored and are never proxied or embedded.
 - TUI shows the same links in its UI section and can copy/open the selected URL where the platform supports it.
 
-Raw YAML remains available for future or unknown fields. Unknown fields must survive structured edits even before the forms understand them.
+Raw YAML editing remains available in the TUI and through the canonical file. The web UI deliberately exposes only browser-native selection controls for finite choices such as enablement; unknown fields remain untouched.
 
 ## Mutation flow
 
-Every write follows the same review-first state machine in web and TUI:
+Every write follows the same review-first state machine:
 
 ```text
-Edit → Validate → Preview YAML diff → Save canonical YAML
-                                      ↓ optional, separate action
-                               Preview sync plan → Confirm → Sync
+Select option → Validate → Preview YAML diff → Save canonical YAML
+                                            ↓ optional, separate action
+                                     Preview sync plan → Confirm → Sync
 ```
 
 - Saving YAML does not implicitly run `sync`.
@@ -156,32 +155,26 @@ The Tailscale syntax above was verified against the installed client on 2026-09-
 
 ### Information architecture
 
-Desktop uses a compact editor rather than a card dashboard:
+Desktop uses a compact settings ledger rather than a card dashboard:
 
 ```text
 ┌ Sources ──────┬ Configuration ───────────────────┬ Change rail ─────┐
-│ Shared        │ Agents / MCP / Hooks / Sources   │ YAML lines       │
-│ Local         │ searchable list + detail editor  │ validation       │
-│ Effective     │                                  │ diff + save      │
+│ Shared        │ Agents / MCP / Hooks             │ validation       │
+│ Local         │ selection controls + metadata    │ diff + save      │
+│ Effective     │ read-only merged state           │ sync preview     │
 └───────────────┴──────────────────────────────────┴───────────────────┘
 ```
 
-Mobile becomes a single drill-down stack:
-
-```text
-Sources → Section list → Item editor → Diff / Save
-```
-
-A sticky bottom bar contains only context-valid actions: **Validate**, **Review changes**, **Save YAML**. **Preview sync** and **Sync** remain a separate final screen.
+Mobile collapses the same controls into one vertical page with horizontally scrollable source tabs. A sticky bottom bar contains only context-valid actions: **Validate**, **Review**, and **Save**. **Preview sync** and **Sync** remain separate below the change rail.
 
 ### Visual direction
 
 Treat the product as an instrument panel for configuration provenance, not a generic SaaS dashboard.
 
-- Memorable element: the **change rail**, which maps a structured field to its canonical YAML source lines and layer.
+- Memorable element: the **change rail**, which shows the canonical YAML diff for selected settings.
 - Layout: dense left-aligned ledger rows, clear nesting, no grid of rounded cards.
-- Palette: paper `#F6F7F9`, ink `#18202A`, graphite `#46515F`, cobalt `#155EEF`, success `#16803B`, danger `#B42318`.
-- Type: native UI sans for controls; native monospace only for paths, commands, diffs, and YAML. No network fonts.
+- Palette: Catppuccin Mocha base `#1E1E2E`, surface `#181825`, accent `#B4BEFE`, with accessible semantic colors.
+- Type: native UI sans for controls; native monospace only for paths, revisions, and diffs. No network fonts.
 - Motion: only state transitions for opening an item and revealing validation/diff results; respect reduced motion.
 - Accessibility: semantic controls, visible focus, keyboard navigation, 44px mobile targets, safe-area padding, WCAG AA contrast, and no horizontal page overflow at 320px.
 
@@ -231,9 +224,9 @@ agents  mcp  hooks  external skills  advanced  yaml
 ### Slice 3: web server and desktop UI
 
 - Add `dotagents config serve` with loopback validation, token bootstrap, security headers, revision-aware APIs, and embedded separate assets.
-- Implement all structured fields, raw YAML, diff/save, status, and sync preview.
+- Implement selection-only structured controls, diff/save, status, and sync preview. Raw YAML stays out of the web UI.
 - Keep sync apply behind a separate explicit confirmation screen.
-- Exercise the actual page in a browser against a temporary config root: structured edit → diff → save → reload → raw YAML edit.
+- Exercise the actual page in a browser against a temporary config root: select setting → diff → save → reload.
 
 ### Slice 4: mobile and Tailscale proof
 
@@ -250,26 +243,26 @@ agents  mcp  hooks  external skills  advanced  yaml
 
 ## Acceptance tests
 
-1. A structured edit in web changes the selected YAML node, survives reload, and appears immediately in TUI and raw YAML.
+1. A selection change in web updates the selected YAML node, survives reload, and appears immediately in TUI and raw YAML.
 2. A TUI edit appears in web after reload and changes no native harness file until explicit sync.
-3. A raw YAML edit updates the structured form after validation.
+3. The web UI contains no free-text editing widget; finite YAML choices use native checkboxes, toggles, or selects.
 4. Structured editing preserves comments, unknown keys, ordering, quoting, and unrelated bytes where possible.
 5. Editing `dotagents.local.yaml` changes only the local layer; the effective view reflects the merge and shared YAML remains byte-identical.
 6. Invalid YAML or invalid typed config cannot replace the canonical file.
 7. Concurrent external modification produces `stale_revision`; neither web nor TUI overwrites it.
 8. Save shows the exact YAML diff. Sync shows a separate per-harness plan and rejects a changed digest.
 9. Web server rejects non-loopback binds, unauthenticated API calls, invalid origins, CSRF-less mutations, and arbitrary path requests.
-10. Desktop and 320px mobile browser smoke complete edit → validate → review → save without horizontal page overflow.
+10. Desktop and 320px mobile browser smoke complete select → validate → review → save without horizontal page overflow.
 11. Temporary Tailscale HTTPS access works while the server remains loopback-bound; removing the temporary route removes remote access.
 12. Focused tests and `go test ./...` pass without mutating live harness configuration.
-13. With the personal local overlay containing `ui.links: [{name: Usage, url: /usage}]`, desktop and mobile show a working **Usage** navigation link while the Settings view can edit it through the normal YAML review flow.
+13. A machine-local `ui.links` entry renders as external top-level navigation on desktop and mobile; dotagents does not implement or proxy the linked usage page.
 
 ## Risks / open questions
 
 - `yaml.v3` preserves node metadata but can still normalize formatting around modified nodes. The Slice 1 preservation tests define the acceptable boundary before UI work starts.
 - Environment values may contain secrets. The UI needs masking and log redaction; deciding whether to reveal existing values at all should be made during Slice 1 threat modeling.
-- `dotagents.local.yaml` replacement semantics are whole-entry, not field-level. The editor must explain this; changing overlay semantics is out of scope.
-- Browser text editing on iOS can be awkward. Start with a normal textarea; add a code editor dependency only if live mobile testing shows a concrete failure.
+- `dotagents.local.yaml` replacement semantics are whole-entry, not field-level. The UI presents only safe finite choices; changing overlay semantics is out of scope.
+- Mobile uses native controls and a single vertical page, avoiding a code editor dependency and iOS text-editing problems.
 - Existing experimental dashboard work from May 2026 was a read-only catalog and session launcher on an obsolete repo layout. Reuse its proven loopback guardrails and separate-asset lesson, not its API or information architecture.
 
 ## Codebase notes
@@ -305,9 +298,9 @@ Implemented in the current checkout:
 Known deviations:
 
 - The TUI uses a native minimal textarea rather than a full structured form;
-  every schema field remains editable through its YAML tab, while web
-  structured controls currently expose agent enablement and raw YAML covers
-  the complete schema.
+  every schema field remains editable through its YAML tab. The web UI exposes
+  only finite enablement choices and renders paths, commands, events, and links
+  as read-only context.
 - Browser and temporary Tailscale HTTPS proof require a desktop browser and
   tailnet route outside this checkout. Focused HTTP/API and asset checks are
   included; no persistent route or automation is installed.

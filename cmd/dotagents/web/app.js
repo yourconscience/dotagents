@@ -1,5 +1,4 @@
 const $ = (selector) => document.querySelector(selector);
-const yaml = $('#yaml');
 let layer = 'shared';
 let state = null;
 let plan = null;
@@ -20,69 +19,91 @@ async function api(path, options = {}) {
   return body;
 }
 function pick(object, ...keys) { for (const key of keys) if (object && object[key] !== undefined) return object[key]; return undefined; }
-function esc(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
 function renderLinks(ui) {
   const links = pick(ui, 'Links','links') || [];
-  $('#links').replaceChildren(...links.map((link) => { const a = document.createElement('a'); a.textContent = pick(link,'Name','name'); a.href = pick(link,'URL','url'); a.target = '_top'; return a; }));
+  $('#links').replaceChildren(...links.map((link) => {
+    const anchor = document.createElement('a');
+    anchor.textContent = pick(link,'Name','name');
+    anchor.href = pick(link,'URL','url');
+    anchor.target = '_top';
+    return anchor;
+  }));
 }
-function field(path, value, kind = 'text') {
+function toggle(path, value, labelText) {
+  const label = document.createElement('label');
+  label.className = 'toggle';
   const input = document.createElement('input');
-  input.type = kind;
+  input.type = 'checkbox';
+  input.checked = !!value;
   input.dataset.editPath = path;
-  if (kind === 'checkbox') { input.checked = !!value; } else { input.value = value ?? ''; }
-  if (state.read_only) input.disabled = true;
-  return input;
+  input.disabled = state.read_only;
+  label.append(input, document.createTextNode(labelText));
+  return label;
 }
-function row(keyLabel, valueNode, hintNodes) {
-  const div = document.createElement('div'); div.className = 'ledger-row';
-  const key = document.createElement('span'); key.className = 'key'; key.append(keyLabel);
-  const value = document.createElement('span'); value.className = 'value'; value.append(valueNode);
-  const small = document.createElement('small');
-  hintNodes.forEach(appendHintNode(small));
-  div.append(key, value, small);
+function row(keyLabel, description, controls) {
+  const div = document.createElement('div');
+  div.className = 'ledger-row';
+  const summary = document.createElement('div');
+  const key = document.createElement('strong');
+  key.className = 'key';
+  key.textContent = keyLabel;
+  const detail = document.createElement('small');
+  detail.textContent = description;
+  summary.append(key, detail);
+  const choices = document.createElement('div');
+  choices.className = 'choices';
+  choices.append(...controls);
+  div.append(summary, choices);
   return div;
 }
-function appendHintNode(small) {
-  return (node) => {
-    if (node.nodeType === Node.TEXT_NODE) { small.append(node); return; }
-    small.append(node);
-    small.append(document.createTextNode(' '));
-  };
+function section(label) {
+  const heading = document.createElement('h2');
+  heading.className = 'ledger-section';
+  heading.textContent = label;
+  return heading;
 }
-function text(textValue) { return document.createTextNode(textValue); }
 function renderStructured(config) {
   const agents = pick(config, 'Agents','agents') || [];
   const servers = pick(config, 'MCPServers','mcp_servers') || [];
   const hooks = pick(config, 'Hooks','hooks') || [];
   const links = pick(pick(config, 'UI','ui'), 'Links','links') || [];
   const rows = [];
-  rows.push(row('version', field('/version', pick(config,'Version','version'), 'number'), [text('shared schema')]));
+  if (agents.length) rows.push(section('Agents'));
   for (const agent of agents) {
     const name = pick(agent,'Name','name');
-    rows.push(row(`agent · ${name}`, field(`/agents/${name}/skill_root`, pick(agent,'SkillRoot','skill_root') || ''), [field(`/agents/${name}/enabled`, !!pick(agent,'Enabled','enabled'), 'checkbox'), text('enabled · skill root')]));
-    rows.push(row('agent root', field(`/agents/${name}/agent_root`, pick(agent,'AgentRoot','agent_root') || ''), [field(`/agents/${name}/role_model`, pick(agent,'RoleModel','role_model') || '')]));
+    const roots = [pick(agent,'SkillRoot','skill_root'), pick(agent,'AgentRoot','agent_root')].filter(Boolean).join(' · ');
+    rows.push(row(name, roots, [toggle(`/agents/${name}/enabled`, pick(agent,'Enabled','enabled'), 'Enabled')]));
   }
+  if (servers.length) rows.push(section('MCP servers'));
   for (const server of servers) {
     const name = pick(server,'Name','name');
-    rows.push(row(`MCP · ${name}`, field(`/mcp_servers/${name}/command`, pick(server,'Command','command') || ''), [field(`/mcp_servers/${name}/enabled`, !!pick(server,'Enabled','enabled'), 'checkbox'), text('enabled · command')]));
+    const targets = pick(server,'Agents','agents') || [];
+    rows.push(row(name, targets.length ? `Targets: ${targets.join(', ')}` : 'No targets', [toggle(`/mcp_servers/${name}/enabled`, pick(server,'Enabled','enabled'), 'Enabled')]));
   }
+  if (hooks.length) rows.push(section('Hooks'));
   for (const hook of hooks) {
     const name = pick(hook,'Name','name');
-    rows.push(row(`hook · ${name}`, field(`/hooks/${name}/command`, pick(hook,'Command','command') || ''), [field(`/hooks/${name}/enabled`, !!pick(hook,'Enabled','enabled'), 'checkbox'), text('enabled ·'), field(`/hooks/${name}/event`, pick(hook,'Event','event') || '')]));
+    const event = pick(hook,'Event','event');
+    rows.push(row(name, event ? `Event: ${event}` : 'No event', [toggle(`/hooks/${name}/enabled`, pick(hook,'Enabled','enabled'), 'Enabled')]));
   }
-  links.forEach((link, index) => rows.push(row(`link · ${index}`, field(`/ui/links/${index}/name`, pick(link,'Name','name') || ''), [field(`/ui/links/${index}/url`, pick(link,'URL','url') || ''), text('navigation')])));
+  if (links.length) rows.push(section('Navigation'));
+  links.forEach((link) => rows.push(row(pick(link,'Name','name'), pick(link,'URL','url'), [])));
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'No selectable settings in this layer.';
+    rows.push(empty);
+  }
   const ledger = $('#structured');
   ledger.replaceChildren(...rows);
   ledger.querySelectorAll('[data-edit-path]').forEach((input) => input.addEventListener('change', () => stageStructuredEdit(input)));
 }
 async function stageStructuredEdit(input) {
-  const value = input.dataset.editKind === 'checkbox' ? input.checked : (input.type === 'number' ? Number(input.value) : input.value);
-  pendingOperations.set(input.dataset.editPath, {op:'set', path:input.dataset.editPath, value});
+  pendingOperations.set(input.dataset.editPath, {op:'set', path:input.dataset.editPath, value:input.checked});
   try {
     const result = await api('/api/config/validate', {method:'POST', body:JSON.stringify({layer, operations:[...pendingOperations.values()]})});
-    yaml.value = result.raw_yaml;
     $('#diff').textContent = result.diff || '(no changes)';
-    setStatus('Change staged. Review the YAML diff, then save.', 'ok');
+    setStatus('Change staged. Review the diff, then save.', 'ok');
   } catch (error) {
     pendingOperations.delete(input.dataset.editPath);
     setStatus(error.message, 'error');
@@ -90,13 +111,11 @@ async function stageStructuredEdit(input) {
 }
 function render() {
   const config = state.typed_config;
-  $('#heading').textContent = layer[0].toUpperCase() + layer.slice(1) + (layer === 'effective' ? ' merge' : ' YAML');
+  $('#heading').textContent = layer[0].toUpperCase() + layer.slice(1) + (layer === 'effective' ? ' merge' : ' configuration');
   renderStructured(config);
   renderLinks(state.effective_ui);
   $('#source-meta').textContent = state.paths[layer === 'effective' ? 'shared' : layer] || '';
-  yaml.value = state.raw_yaml || '';
-  yaml.readOnly = state.read_only;
-  renderLinks(state.effective_ui);
+  $('#revision').textContent = state.revision ? state.revision.slice(0, 12) : '';
   $('#save').disabled = state.read_only;
   $('#msave').disabled = state.read_only;
 }
@@ -108,15 +127,23 @@ async function load(nextLayer = layer) {
   catch (error) { setStatus(error.message, 'error'); }
 }
 async function validate() {
-  try { const result = await api('/api/config/validate', {method:'POST', body:JSON.stringify({layer, raw_yaml:yaml.value})}); $('#diff').textContent = result.diff || '(no changes)'; setStatus('YAML and typed config are valid.', 'ok'); }
-  catch (error) { setStatus(error.message, 'error'); }
+  try {
+    const result = await api('/api/config/validate', {method:'POST', body:JSON.stringify({layer, operations:[...pendingOperations.values()]})});
+    $('#diff').textContent = result.diff || '(no changes)';
+    setStatus('Selected settings are valid.', 'ok');
+  } catch (error) { setStatus(error.message, 'error'); }
 }
 async function review() {
-  $('#diff').textContent = state ? (await api('/api/config/validate', {method:'POST', body:JSON.stringify({layer, raw_yaml:yaml.value})})).diff || '(no changes)' : '';
+  await validate();
 }
 async function save() {
-  try { const result = await api('/api/config/raw', {method:'PUT', body:JSON.stringify({layer, expected_revision:state.revision, raw_yaml:yaml.value})}); $('#diff').textContent = result.diff || '(no changes)'; await load(layer); setStatus('Saved canonical YAML. Sync remains separate.', 'ok'); }
-  catch (error) { setStatus(error.message, 'error'); }
+  if (!pendingOperations.size) { setStatus('No changes to save.'); return; }
+  try {
+    const result = await api('/api/config', {method:'PATCH', body:JSON.stringify({layer, expected_revision:state.revision, operations:[...pendingOperations.values()]})});
+    $('#diff').textContent = result.diff || '(no changes)';
+    await load(layer);
+    setStatus('Saved canonical configuration. Sync remains separate.', 'ok');
+  } catch (error) { setStatus(error.message, 'error'); }
 }
 async function previewSync() {
   try { const result = await api('/api/sync/preview', {method:'POST', body:'{}'}); plan = result; $('#plan').textContent = JSON.stringify(result.plan, null, 2); $('#apply').disabled = false; setStatus(`Sync preview ready: ${result.digest.slice(0,12)}.`, 'ok'); }
