@@ -424,7 +424,7 @@ func (m configTUIModel) View() string {
 		}
 	}
 	for i := start; i < len(lines) && i < start+max; i++ {
-		b.WriteString(fmt.Sprintf("%3d  %s\n", i+1, lines[i]))
+		fmt.Fprintf(&b, "%3d  %s\n", i+1, lines[i])
 	}
 	if start+max < len(lines) {
 		b.WriteString(dim.Render(fmt.Sprintf("… %d more lines", len(lines)-(start+max))))

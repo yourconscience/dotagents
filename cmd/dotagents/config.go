@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 func loadContext(opts runOptions) (string, string, config, []agentConfig, error) {
@@ -48,27 +46,6 @@ func loadConfig(repoRoot string, home string, overridePath string) (config, erro
 		return config{}, err
 	}
 	return doc.effective, nil
-}
-
-// applyLocalOverlay merges a gitignored dotagents.local.yaml (next to the main
-// config) into cfg. Entries match by name (agents, mcp_servers, hooks) or repo
-// name (external_skills): a match replaces the base entry wholesale, anything
-// else is appended. This keeps personal additions out of public git.
-func applyLocalOverlay(cfg *config, configPath string) error {
-	localPath := filepath.Join(filepath.Dir(configPath), "dotagents.local.yaml")
-	data, err := os.ReadFile(localPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("read local config %s: %w", localPath, err)
-	}
-	var local config
-	if err := yaml.Unmarshal(data, &local); err != nil {
-		return fmt.Errorf("yaml decode %s: %w", localPath, err)
-	}
-	mergeConfig(cfg, local)
-	return nil
 }
 
 func mergeConfig(base *config, overlay config) {

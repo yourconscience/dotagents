@@ -691,64 +691,6 @@ func operationValue(raw json.RawMessage) (*yaml.Node, error) {
 	return &node, nil
 }
 
-func configEntryMCPNode(server mcpServerConfig) (*yaml.Node, error) {
-	data, err := yaml.Marshal(server)
-	if err != nil {
-		return nil, err
-	}
-	var node yaml.Node
-	if err := yaml.Unmarshal(data, &node); err != nil {
-		return nil, err
-	}
-	return cloneNodePtr(rootMapping(&node)), nil
-}
-
-func (d *configDocument) upsertMCP(server mcpServerConfig) (configSave, error) {
-	node, err := d.layerNode(configLayerShared)
-	if err != nil {
-		return configSave{}, err
-	}
-	root := rootMapping(&node)
-	sequence := mappingValue(root, "mcp_servers")
-	if sequence == nil {
-		sequence = &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
-		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "mcp_servers"}, sequence)
-	}
-	idx := findSequenceEntry(sequence, "mcp_servers", server.Name)
-	entry, err := configEntryMCPNode(server)
-	if err != nil {
-		return configSave{}, err
-	}
-	if idx < 0 {
-		sequence.Content = append(sequence.Content, entry)
-	} else {
-		mergeKnownMapping(sequence.Content[idx], entry)
-	}
-	raw, err := yaml.Marshal(&node)
-	if err != nil {
-		return configSave{}, err
-	}
-	return d.saveRaw(configLayerShared, d.revision(configLayerShared), raw)
-}
-
-func (d *configDocument) removeMCP(name string) (configSave, error) {
-	node, err := d.layerNode(configLayerShared)
-	if err != nil {
-		return configSave{}, err
-	}
-	sequence := mappingValue(rootMapping(&node), "mcp_servers")
-	if sequence == nil || findSequenceEntry(sequence, "mcp_servers", name) < 0 {
-		return configSave{}, fmt.Errorf("MCP server %q not found", name)
-	}
-	idx := findSequenceEntry(sequence, "mcp_servers", name)
-	sequence.Content = append(sequence.Content[:idx], sequence.Content[idx+1:]...)
-	raw, err := yaml.Marshal(&node)
-	if err != nil {
-		return configSave{}, err
-	}
-	return d.saveRaw(configLayerShared, d.revision(configLayerShared), raw)
-}
-
 func unifiedConfigDiff(path string, before, after []byte) string {
 	if bytes.Equal(before, after) {
 		return ""

@@ -51,7 +51,6 @@ type agentConfig struct {
 	RoleModel string `yaml:"role_model,omitempty"`
 }
 
-
 type repoLinkReport struct {
 	Path           string
 	ExpectedTarget string

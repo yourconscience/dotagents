@@ -7,7 +7,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-
 )
 
 type stringListFlag []string
