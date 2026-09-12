@@ -451,7 +451,11 @@ func stableNodeKey(node *yaml.Node, section string) string {
 	if section == "external_skills" {
 		return repoName(valueString(mappingValue(node, "url")))
 	}
-	return strings.TrimSpace(valueString(mappingValue(node, "name")))
+	key := strings.TrimSpace(valueString(mappingValue(node, "name")))
+	if section == "agents" {
+		key = normalizeAgentName(key)
+	}
+	return key
 }
 
 func valueString(node *yaml.Node) string {

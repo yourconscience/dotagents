@@ -51,7 +51,9 @@ function renderStructured(config) {
     rows.push(`<div class="ledger-row"><span class="key">hook · ${esc(name)}</span><span class="value">${field(`/hooks/${name}/command`, pick(hook,'Command','command') || '')}</span><small>${field(`/hooks/${name}/enabled`, !!pick(hook,'Enabled','enabled'), 'checkbox')} enabled · ${field(`/hooks/${name}/event`, pick(hook,'Event','event') || '')}</small></div>`);
   }
   links.forEach((link, index) => rows.push(`<div class="ledger-row"><span class="key">link · ${field(`/ui/links/${index}/name`, pick(link,'Name','name') || '')}</span><span class="value">${field(`/ui/links/${index}/url`, pick(link,'URL','url') || '')}</span><small>navigation</small></div>`));
-  $('#structured').innerHTML = rows.join('');
+  const ledger = $('#structured'); const template = document.createElement('template');
+  template.innerHTML = rows.join('');
+  ledger.replaceChildren(...template.content.children);
   $('#structured').querySelectorAll('[data-edit-path]').forEach((input) => input.addEventListener('change', () => stageStructuredEdit(input)));
 }
 async function stageStructuredEdit(input) {
@@ -70,7 +72,8 @@ async function stageStructuredEdit(input) {
 function render() {
   const config = state.typed_config;
   $('#heading').textContent = layer[0].toUpperCase() + layer.slice(1) + (layer === 'effective' ? ' merge' : ' YAML');
-  $('#revision').textContent = state.revision.slice(0, 12);
+  renderStructured(config);
+  renderLinks(state.effective_ui);
   $('#source-meta').textContent = state.paths[layer === 'effective' ? 'shared' : layer] || '';
   yaml.value = state.raw_yaml || '';
   yaml.readOnly = state.read_only;

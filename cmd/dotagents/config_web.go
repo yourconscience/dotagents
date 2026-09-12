@@ -414,6 +414,9 @@ func buildConfigSyncPlan(doc *configDocument) (syncPlan, error) {
 		for _, item := range report.RemovesAgent {
 			plan.Destructive = append(plan.Destructive, report.Name+": remove role "+item)
 		}
+		for _, item := range report.UpdatesAgent {
+			plan.Destructive = append(plan.Destructive, report.Name+": overwrite role "+item)
+		}
 	}
 	planData, _ := json.Marshal(struct {
 		Repo    repoLinkReport
@@ -449,6 +452,10 @@ func (s *configWebServer) handleSyncApply(w http.ResponseWriter, r *http.Request
 	}
 	var req syncApplyRequest
 	if err := decodeJSONBody(r, &req); err != nil {
+		writeCandidateError(w, err)
+		return
+	}
+	if err := s.doc.reload(); err != nil {
 		writeCandidateError(w, err)
 		return
 	}
