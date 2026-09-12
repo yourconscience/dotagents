@@ -32,6 +32,7 @@ dotagents skill list [--agents ...]
 dotagents skill info <name>
 dotagents skill update [name ...]
 dotagents skill promote <name-or-path> [--dry-run]
+dotagents publish [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]
 dotagents mcp <list|add|import|remove> [options]
 ```
 
@@ -124,6 +125,21 @@ external_skills:
 ```
 
 `dotagents.lock` records exact commits and materialized ownership. `sync` repairs drift to the pin; `skill update` explicitly advances it. `doctor` audits external source content and fails on materialization drift.
+
+## publish
+
+`publish` is the outward analogue of external skills: it pushes canonical skills to a remote skill registry (OpenAI `/v1/skills`) and pins the returned id/version in `dotagents.lock` under `published_skills`. Declare opt-in targets with an explicit skill allowlist in `dotagents.yaml`:
+
+```yaml
+publish_targets:
+  - name: openai
+    kind: openai-skills
+    enabled: true
+    skills: [jobs, tech-search]
+    api_key_env: OPENAI_API_KEY   # key is read from this env var, never inlined
+```
+
+`dotagents publish` uploads only allowlisted skills whose bundle content changed since the last run (content-hash idempotency: create, skip if unchanged, new version if changed). It is inert until a target sets `enabled: true`. Use `--dry-run` to preview, `--target`/`--skills` to narrow, `--json` for machine output, `--yes`/`-y` to skip the confirmation prompt. A real upload always prints a US-only / no-Zero-Data-Retention warning first; do not publish skills carrying secrets or private vault content.
 
 ## MCP management
 

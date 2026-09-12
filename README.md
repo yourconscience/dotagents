@@ -87,6 +87,7 @@ dotagents config serve            # loopback web editor
 dotagents config validate|print
 dotagents view     [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]  # launch HarnessKit (inspection UI)
 dotagents skill    new|list|info|update|promote
+dotagents publish  [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]  # push skills to a remote registry
 dotagents mcp      list|add|import|remove
 ```
 
