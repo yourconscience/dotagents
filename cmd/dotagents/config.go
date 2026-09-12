@@ -278,6 +278,40 @@ func validateConfig(cfg *config, home string, expand bool) error {
 		}
 	}
 
+	seenPub := make(map[string]struct{})
+	for i := range cfg.PublishTargets {
+		t := &cfg.PublishTargets[i]
+		t.Name = strings.TrimSpace(t.Name)
+		t.Kind = strings.TrimSpace(t.Kind)
+		t.VersionStrategy = strings.TrimSpace(t.VersionStrategy)
+		t.APIKeyEnv = strings.TrimSpace(t.APIKeyEnv)
+		if t.Name == "" {
+			return errors.New("config publish target name cannot be empty")
+		}
+		if _, ok := seenPub[t.Name]; ok {
+			return fmt.Errorf("config publish target %s is duplicated", t.Name)
+		}
+		seenPub[t.Name] = struct{}{}
+		if t.Kind == "" {
+			t.Kind = publishKindOpenAISkills
+		}
+		if t.Kind != publishKindOpenAISkills {
+			return fmt.Errorf("config publish target %s has unsupported kind %q (only %q)", t.Name, t.Kind, publishKindOpenAISkills)
+		}
+		if t.VersionStrategy == "" {
+			t.VersionStrategy = publishStrategyNewVersion
+		}
+		if t.VersionStrategy != publishStrategyNewVersion && t.VersionStrategy != publishStrategySetDefault {
+			return fmt.Errorf("config publish target %s has unsupported version_strategy %q (%q or %q)", t.Name, t.VersionStrategy, publishStrategyNewVersion, publishStrategySetDefault)
+		}
+		if t.APIKeyEnv == "" {
+			t.APIKeyEnv = publishDefaultAPIKeyEnv
+		}
+		for j := range t.Skills {
+			t.Skills[j] = strings.TrimSpace(t.Skills[j])
+		}
+	}
+
 	return nil
 }
 

@@ -14,6 +14,7 @@ type config struct {
 	Agents         []agentConfig         `yaml:"agents"`
 	MCPServers     []mcpServerConfig     `yaml:"mcp_servers"`
 	ExternalSkills []externalSkillSource `yaml:"external_skills"`
+	PublishTargets []publishTarget       `yaml:"publish_targets,omitempty"`
 	Hooks          []hookConfig          `yaml:"hooks,omitempty"`
 	// ContextNoteTokens is the estimated skill-listing token threshold above
 	// which `dotagents doctor` prints a soft context advisory note. Absent
@@ -40,6 +41,27 @@ type agentConfig struct {
 	Detect    string `yaml:"detect,omitempty"`
 	RoleModel string `yaml:"role_model,omitempty"`
 }
+
+// publishTarget declares a remote skill registry to push canonical skills to.
+// It is a publish verb, not a sync entity: unlike agentConfig it has no local
+// skill_root to reconcile and no detect key. Skills is an explicit allowlist —
+// only named skills are ever uploaded, so a private or experimental skill is
+// never shipped by accident.
+type publishTarget struct {
+	Name            string   `yaml:"name"`
+	Kind            string   `yaml:"kind"`              // registry kind; only "openai-skills" for now
+	Enabled         bool     `yaml:"enabled"`           // default off; opt in per target
+	Skills          []string `yaml:"skills"`            // allowlist of local skill dir names to publish
+	VersionStrategy string   `yaml:"version_strategy,omitempty"` // new-version (default) | set-default
+	APIKeyEnv       string   `yaml:"api_key_env,omitempty"`      // env var holding the key; default OPENAI_API_KEY
+}
+
+const (
+	publishKindOpenAISkills   = "openai-skills"
+	publishDefaultAPIKeyEnv   = "OPENAI_API_KEY"
+	publishStrategyNewVersion = "new-version"
+	publishStrategySetDefault = "set-default"
+)
 
 type repoLinkReport struct {
 	Path           string
@@ -147,6 +169,8 @@ func run(args []string) error {
 		return runView(args[1:])
 	case "skill":
 		return runSkillCommand(args[1:])
+	case "publish":
+		return runPublishCommand(args[1:])
 	case "mcp":
 		return runMCP(args[1:])
 	case "cron":
@@ -507,6 +531,7 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Command groups:")
 	fmt.Println("  skill    Inspect, create, update, and promote skills")
+	fmt.Println("  publish  Push canonical skills to a remote skill registry")
 	fmt.Println("  mcp      Manage MCP servers")
 	fmt.Println()
 	fmt.Println("Run \"dotagents help --all\" for flags, maintenance commands, and compatibility aliases.")
@@ -526,6 +551,7 @@ func printAllUsage() {
 	fmt.Println("  dotagents skill info <name>")
 	fmt.Println("  dotagents skill update [name ...]")
 	fmt.Println("  dotagents skill promote <name-or-path> [--dry-run]")
+	fmt.Println("  dotagents publish [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]")
 	fmt.Println("  dotagents mcp <list|add|import|remove> [options]")
 	fmt.Println()
 	fmt.Println("Maintenance and compatibility aliases:")

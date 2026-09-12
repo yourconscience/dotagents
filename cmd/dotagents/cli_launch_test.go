@@ -145,7 +145,7 @@ external_skills:
 	}
 }
 
-func TestRootHelpAdvertisesExactlySixDescriptiveFamilies(t *testing.T) {
+func TestRootHelpAdvertisesExactlySevenDescriptiveFamilies(t *testing.T) {
 	stdout, stderr, err := captureCLIOutput(t, func() error {
 		return run([]string{"--help"})
 	})
@@ -167,7 +167,7 @@ func TestRootHelpAdvertisesExactlySixDescriptiveFamilies(t *testing.T) {
 		}
 		families = append(families, fields[0])
 	}
-	if got, want := strings.Join(families, ","), "setup,status,sync,doctor,skill,mcp"; got != want {
+	if got, want := strings.Join(families, ","), "setup,status,sync,doctor,skill,publish,mcp"; got != want {
 		t.Fatalf("short-help families = %q, want %q:\n%s", got, want, stdout)
 	}
 	if !strings.Contains(stdout, `Run "dotagents help --all" for flags, maintenance commands, and compatibility aliases.`) {
