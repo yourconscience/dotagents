@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -139,6 +141,29 @@ func TestSelectPublishTargets(t *testing.T) {
 	}
 	if _, err := selectPublishTargets(cfg, "nope"); err == nil {
 		t.Fatal("expected error selecting unknown target")
+	}
+}
+
+func TestHTTPRegistryRejectsResponseMissingIdentifiers(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+	reg := &httpSkillRegistry{apiKey: "k", client: srv.Client(), baseURL: srv.URL}
+	if _, _, err := reg.createSkill("demo-skill", []byte("zip")); err == nil {
+		t.Fatal("expected error when response omits skill_id/version")
+	}
+}
+
+func TestHTTPRegistryParsesCreateResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"skill_x","version":2}`))
+	}))
+	defer srv.Close()
+	reg := &httpSkillRegistry{apiKey: "k", client: srv.Client(), baseURL: srv.URL}
+	id, version, err := reg.createSkill("demo-skill", []byte("zip"))
+	if err != nil || id != "skill_x" || version != "2" {
+		t.Fatalf("createSkill = (%q, %q, %v), want (skill_x, 2, nil)", id, version, err)
 	}
 }
 

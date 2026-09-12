@@ -57,6 +57,7 @@ type publishOptions struct {
 	AssumeYes  bool
 	Stdin      io.Reader
 	Stdout     io.Writer
+	Stderr     io.Writer
 	Factory    registryFactory
 }
 
@@ -93,6 +94,7 @@ func runPublishCommand(args []string) error {
 	fs.BoolVar(&opts.DryRun, "dry-run", false, "Show what would be published without uploading or writing the lock")
 	fs.BoolVar(&opts.JSON, "json", false, "Emit the plan/result as JSON")
 	fs.BoolVar(&opts.AssumeYes, "yes", false, "Skip the confirmation prompt")
+	fs.BoolVar(&opts.AssumeYes, "y", false, "Skip the confirmation prompt (alias for --yes)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -108,6 +110,9 @@ func runPublish(opts publishOptions) error {
 	}
 	if opts.Stdout == nil {
 		opts.Stdout = os.Stdout
+	}
+	if opts.Stderr == nil {
+		opts.Stderr = os.Stderr
 	}
 	if opts.Factory == nil {
 		opts.Factory = defaultRegistryFactory
@@ -176,18 +181,22 @@ func runPublish(opts publishOptions) error {
 		return emitPublishReport(opts, report)
 	}
 
+	// A real publish sends skill content to an external registry, so always
+	// warn (even with --yes) and keep the warning/plan/prompt on stderr so
+	// --json stdout stays parseable.
+	printPublishWarning(opts.Stderr)
 	if !opts.AssumeYes {
-		ok, err := confirmPublish(opts, report)
+		printPublishPlanText(opts.Stderr, report)
+		ok, err := confirmPublish(opts)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			fmt.Fprintln(opts.Stdout, "publish aborted")
+			fmt.Fprintln(opts.Stderr, "publish aborted")
 			return nil
 		}
 	}
 
-	changed := false
 	for ti := range report.Targets {
 		target := targets[ti]
 		var reg skillRegistry
@@ -213,13 +222,11 @@ func runPublish(opts publishOptions) error {
 				ContentHash: item.ContentHash,
 				PublishedAt: time.Now().UTC().Format(time.RFC3339),
 			})
-			changed = true
-		}
-	}
-
-	if changed {
-		if err := writeLockFile(repoRoot, lock); err != nil {
-			return err
+			// Persist after each successful upload so a later failure in the
+			// same run cannot orphan an already-published skill/version.
+			if err := writeLockFile(repoRoot, lock); err != nil {
+				return err
+			}
 		}
 	}
 	return emitPublishReport(opts, report)
@@ -464,11 +471,13 @@ func parseCommaSet(raw string) map[string]struct{} {
 	return set
 }
 
-func confirmPublish(opts publishOptions, report publishReport) (bool, error) {
-	fmt.Fprintln(opts.Stdout, "About to upload skills to a remote registry (US-only data residency, no Zero Data Retention).")
-	fmt.Fprintln(opts.Stdout, "Do not publish skills that carry secrets or private vault content.")
-	printPublishPlanText(opts.Stdout, report)
-	fmt.Fprint(opts.Stdout, "Proceed? [y/N]: ")
+func printPublishWarning(w io.Writer) {
+	fmt.Fprintln(w, "About to upload skills to a remote registry (US-only data residency, no Zero Data Retention).")
+	fmt.Fprintln(w, "Do not publish skills that carry secrets or private vault content.")
+}
+
+func confirmPublish(opts publishOptions) (bool, error) {
+	fmt.Fprint(opts.Stderr, "Proceed? [y/N]: ")
 	reader := bufio.NewReader(opts.Stdin)
 	line, err := reader.ReadString('\n')
 	if err != nil && err != io.EOF {
@@ -525,28 +534,37 @@ func defaultRegistryFactory(target publishTarget) (skillRegistry, error) {
 	if key == "" {
 		return nil, fmt.Errorf("publish target %s: environment variable %s is not set", target.Name, keyEnv)
 	}
-	return &httpSkillRegistry{apiKey: key, client: http.DefaultClient}, nil
+	return &httpSkillRegistry{apiKey: key, client: http.DefaultClient, baseURL: openAISkillsURL}, nil
 }
 
 type httpSkillRegistry struct {
-	apiKey string
-	client *http.Client
+	apiKey  string
+	client  *http.Client
+	baseURL string
 }
 
 func (r *httpSkillRegistry) createSkill(name string, zipData []byte) (string, string, error) {
-	body, err := r.postZip(openAISkillsURL, name, zipData)
+	body, err := r.postZip(r.baseURL, name, zipData)
 	if err != nil {
 		return "", "", err
 	}
-	return extractSkillID(body), extractVersion(body), nil
+	id, version := extractSkillID(body), extractVersion(body)
+	if id == "" || version == "" {
+		return "", "", fmt.Errorf("registry response missing skill_id or version")
+	}
+	return id, version, nil
 }
 
 func (r *httpSkillRegistry) addVersion(skillID string, zipData []byte) (string, error) {
-	body, err := r.postZip(openAISkillsURL+"/"+skillID+"/versions", skillID, zipData)
+	body, err := r.postZip(r.baseURL+"/"+skillID+"/versions", skillID, zipData)
 	if err != nil {
 		return "", err
 	}
-	return extractVersion(body), nil
+	version := extractVersion(body)
+	if version == "" {
+		return "", fmt.Errorf("registry response missing version")
+	}
+	return version, nil
 }
 
 func (r *httpSkillRegistry) setDefaultVersion(skillID string, version string) error {
@@ -555,7 +573,7 @@ func (r *httpSkillRegistry) setDefaultVersion(skillID string, version string) er
 		return fmt.Errorf("set default version: %q is not an integer version", version)
 	}
 	payload, _ := json.Marshal(map[string]int{"default_version": v})
-	req, err := http.NewRequest(http.MethodPost, openAISkillsURL+"/"+skillID, bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, r.baseURL+"/"+skillID, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

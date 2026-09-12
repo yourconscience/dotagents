@@ -90,6 +90,7 @@ func mergeConfig(base *config, overlay config) {
 	base.ExternalSkills = mergeByKey(base.ExternalSkills, overlay.ExternalSkills, func(s externalSkillSource) string { return repoName(s.URL) })
 	base.MCPServers = mergeByKey(base.MCPServers, overlay.MCPServers, func(s mcpServerConfig) string { return strings.TrimSpace(s.Name) })
 	base.Hooks = mergeByKey(base.Hooks, overlay.Hooks, func(h hookConfig) string { return strings.TrimSpace(h.Name) })
+	base.PublishTargets = mergeByKey(base.PublishTargets, overlay.PublishTargets, func(t publishTarget) string { return strings.TrimSpace(t.Name) })
 	if overlay.ContextNoteTokens != nil {
 		base.ContextNoteTokens = overlay.ContextNoteTokens
 	}
@@ -307,8 +308,16 @@ func validateConfig(cfg *config, home string, expand bool) error {
 		if t.APIKeyEnv == "" {
 			t.APIKeyEnv = publishDefaultAPIKeyEnv
 		}
+		seenSkills := make(map[string]struct{}, len(t.Skills))
 		for j := range t.Skills {
 			t.Skills[j] = strings.TrimSpace(t.Skills[j])
+			if t.Skills[j] == "" {
+				continue
+			}
+			if _, ok := seenSkills[t.Skills[j]]; ok {
+				return fmt.Errorf("config publish target %s lists skill %q more than once", t.Name, t.Skills[j])
+			}
+			seenSkills[t.Skills[j]] = struct{}{}
 		}
 	}
 

@@ -2,7 +2,7 @@
 
 Status: **core implemented on branch `feat/publish-openai-skills` (2026-09-12).** Config schema, lock schema, bundler, upload, and the `dotagents publish` command with dry-run/json/confirmation are built and unit-tested (`publish_test.go`, full suite green). Still inert by default: no targets are configured and every target is opt-in via `enabled: true`. Deferred pending live-API verification: `--prune`, server-side `status` reconcile, and any dependence on list/delete endpoints (undocumented — see §10). No live upload has run yet.
 Date: 2026-09-12
-Author trigger: OpenAI Agents API public beta (Codex harness) — see `~/Workspace/knowledge/research/openai-agents-api-codex-harness-2026-09-11.md`.
+Author trigger: OpenAI Agents API public beta (Codex harness). Background research lives in the maintainer's private knowledge vault under `research/` (not distributed with this repo).
 
 ## 1. Summary
 
@@ -79,7 +79,7 @@ published_skills:
     - target: openai
       skill: jobs
       skill_id: skill_abc123
-      version: 4
+      version: "4"   # string: the registry may return non-numeric pointers (e.g. "latest")
       content_hash: sha256:...   # hash of the bundled skill tree
       published_at: 2026-09-12T10:00:00Z
 ```
@@ -97,7 +97,7 @@ type publishedLockEntry struct {
     Target      string `yaml:"target"`
     Skill       string `yaml:"skill"`
     SkillID     string `yaml:"skill_id"`
-    Version     int    `yaml:"version"`
+    Version     string `yaml:"version"`
     ContentHash string `yaml:"content_hash"`
     PublishedAt string `yaml:"published_at"`
 }

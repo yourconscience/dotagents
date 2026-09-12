@@ -49,9 +49,9 @@ type agentConfig struct {
 // never shipped by accident.
 type publishTarget struct {
 	Name            string   `yaml:"name"`
-	Kind            string   `yaml:"kind"`              // registry kind; only "openai-skills" for now
-	Enabled         bool     `yaml:"enabled"`           // default off; opt in per target
-	Skills          []string `yaml:"skills"`            // allowlist of local skill dir names to publish
+	Kind            string   `yaml:"kind"`                       // registry kind; only "openai-skills" for now
+	Enabled         bool     `yaml:"enabled"`                    // default off; opt in per target
+	Skills          []string `yaml:"skills"`                     // allowlist of local skill dir names to publish
 	VersionStrategy string   `yaml:"version_strategy,omitempty"` // new-version (default) | set-default
 	APIKeyEnv       string   `yaml:"api_key_env,omitempty"`      // env var holding the key; default OPENAI_API_KEY
 }
