@@ -82,6 +82,9 @@ dotagents setup    [--memory off|basic|memsearch] [--yes] [--dry-run] [--json]
 dotagents status   [--verbose] [--agents ...]
 dotagents sync     [--pull] [--agents ...]
 dotagents doctor   [--e2e] [--agents ...]
+dotagents config                  # Bubble Tea canonical YAML editor
+dotagents config serve            # loopback web editor
+dotagents config validate|print
 dotagents view     [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]  # launch HarnessKit (inspection UI)
 dotagents skill    new|list|info|update|promote
 dotagents mcp      list|add|import|remove
@@ -110,6 +113,29 @@ Other tools share the name: npm's [`dotagents`](https://www.npmjs.com/package/do
 ## Configuration
 
 `~/.agents/dotagents.yaml` is the single source of truth; `setup` fills in detected harnesses. Resolution order: `--config <path>` → `$DOTAGENTS_HOME/dotagents.yaml` → `~/.agents/dotagents.yaml`; never walks the current project. Machine-local entries overlay via `dotagents.local.yaml`. Managed entries are marked in native configs; anything else is left untouched.
+
+### Canonical config authoring
+
+`dotagents config` edits the resolved canonical YAML through a review-first
+flow. Shared and `dotagents.local.yaml` are separate editable layers; the
+effective view is read-only. Structured edits preserve comments and unknown
+fields, and a save never runs `sync` implicitly.
+
+```bash
+dotagents config
+dotagents config serve --no-open --addr 127.0.0.1:8765
+dotagents config validate
+dotagents config print
+```
+
+The web server is loopback-only, session-cookie authenticated, and uses a
+separate sync preview/apply step. For deliberate HTTPS tailnet access, expose
+the loopback listener yourself:
+
+```bash
+dotagents config serve --no-open --secure-cookie --addr 127.0.0.1:8765
+tailscale serve --bg --set-path /dotagents http://127.0.0.1:8765
+```
 
 ## Releases
 

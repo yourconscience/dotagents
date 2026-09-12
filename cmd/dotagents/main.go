@@ -15,10 +15,20 @@ type config struct {
 	MCPServers     []mcpServerConfig     `yaml:"mcp_servers"`
 	ExternalSkills []externalSkillSource `yaml:"external_skills"`
 	Hooks          []hookConfig          `yaml:"hooks,omitempty"`
+	UI             *uiConfig             `yaml:"ui,omitempty"`
 	// ContextNoteTokens is the estimated skill-listing token threshold above
 	// which `dotagents doctor` prints a soft context advisory note. Absent
 	// (nil) uses contextNoteTokensDefault; 0 (or negative) disables the note.
 	ContextNoteTokens *int `yaml:"context_note_tokens,omitempty"`
+}
+
+type uiConfig struct {
+	Links []uiLink `yaml:"links,omitempty"`
+}
+
+type uiLink struct {
+	Name string `yaml:"name"`
+	URL  string `yaml:"url"`
 }
 
 type externalSkillSource struct {
@@ -40,6 +50,7 @@ type agentConfig struct {
 	Detect    string `yaml:"detect,omitempty"`
 	RoleModel string `yaml:"role_model,omitempty"`
 }
+
 
 type repoLinkReport struct {
 	Path           string
@@ -143,6 +154,8 @@ func run(args []string) error {
 		return runSyncCommand(args[1:])
 	case "doctor":
 		return runDoctorCommand(args[1:])
+	case "config":
+		return runConfigCommand(args[1:])
 	case "view":
 		return runView(args[1:])
 	case "skill":
@@ -497,13 +510,14 @@ func parseCronFlags(args []string) (cronOptions, error) {
 }
 
 func printUsage() {
-	fmt.Println("dotagents - manage shared skills and MCP config across coding agents")
+	fmt.Println("dotagents - manage shared skills, MCP, and canonical config")
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  setup    Set up this machine and sync configured harnesses")
 	fmt.Println("  status   Show harness, external lock, and memsearch state")
 	fmt.Println("  sync     Regenerate committed artifacts and reconcile harnesses")
 	fmt.Println("  doctor   Check pins, dependencies, and local health")
+	fmt.Println("  config   Author the canonical YAML in a TUI or local web UI")
 	fmt.Println()
 	fmt.Println("Command groups:")
 	fmt.Println("  skill    Inspect, create, update, and promote skills")
@@ -520,6 +534,8 @@ func printAllUsage() {
 	fmt.Println("  dotagents status [--verbose] [--agents ...]")
 	fmt.Println("  dotagents sync [--pull] [--agents ...]")
 	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
+	fmt.Println("  dotagents config [validate|print|serve] [--config PATH]")
+	fmt.Println("  dotagents config serve [--addr 127.0.0.1:8765] [--no-open] [--secure-cookie]")
 	fmt.Println("  dotagents view [--no-open] [--ssh-host user@host] [hk serve flags: --port N, --host ADDR, --no-token]")
 	fmt.Println("  dotagents skill new <name> [--description ...]")
 	fmt.Println("  dotagents skill list [--agents ...]")
@@ -527,7 +543,6 @@ func printAllUsage() {
 	fmt.Println("  dotagents skill update [name ...]")
 	fmt.Println("  dotagents skill promote <name-or-path> [--dry-run]")
 	fmt.Println("  dotagents mcp <list|add|import|remove> [options]")
-	fmt.Println()
 	fmt.Println("Maintenance and compatibility aliases:")
 	fmt.Println("  dotagents cron [--interval 30m|--deps|--remove]")
 	fmt.Println("  dotagents deps <check|update> [options]")

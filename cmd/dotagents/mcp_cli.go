@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v3"
 )
 
 type stringListFlag []string
@@ -227,27 +226,15 @@ func loadEditableMCPConfig(overridePath string) (config, string, error) {
 	if err != nil {
 		return config{}, "", fmt.Errorf("resolve home: %w", err)
 	}
-	repoRoot, _, err := findRoots()
+	path, err := resolveConfigPath(overridePath, home)
 	if err != nil {
 		return config{}, "", err
 	}
-	path := overridePath
-	if strings.TrimSpace(path) == "" {
-		path = defaultConfigPath(repoRoot)
-	}
-	path = expandPath(path, home)
-	data, err := os.ReadFile(path)
+	doc, err := newConfigDocument(path, home)
 	if err != nil {
-		return config{}, "", fmt.Errorf("read config %s: %w", path, err)
-	}
-	var cfg config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return config{}, "", fmt.Errorf("yaml decode: %w", err)
-	}
-	if err := validateConfig(&cfg, home, false); err != nil {
 		return config{}, "", err
 	}
-	return cfg, path, nil
+	return doc.shared, doc.sharedPath, nil
 }
 
 func writeEditableMCPConfig(path string, cfg config) error {
@@ -255,17 +242,7 @@ func writeEditableMCPConfig(path string, cfg config) error {
 	if err != nil {
 		return fmt.Errorf("resolve home: %w", err)
 	}
-	if err := validateConfig(&cfg, home, false); err != nil {
-		return err
-	}
-	out, err := yaml.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("yaml encode: %w", err)
-	}
-	if err := os.WriteFile(path, out, 0o644); err != nil {
-		return fmt.Errorf("write config %s: %w", path, err)
-	}
-	return nil
+	return saveConfigDocument(path, home, cfg)
 }
 
 func resolveMCPAgents(cfg config, agentsCSV string) ([]string, error) {
