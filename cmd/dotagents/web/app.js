@@ -26,35 +26,54 @@ function renderLinks(ui) {
   $('#links').replaceChildren(...links.map((link) => { const a = document.createElement('a'); a.textContent = pick(link,'Name','name'); a.href = pick(link,'URL','url'); a.target = '_top'; return a; }));
 }
 function field(path, value, kind = 'text') {
-  const disabled = state.read_only ? 'disabled' : '';
-  if (kind === 'checkbox') return `<input type="checkbox" data-edit-path="${esc(path)}" data-edit-kind="checkbox" ${value ? 'checked' : ''} ${disabled}>`;
-  return `<input type="${kind}" data-edit-path="${esc(path)}" value="${esc(value)}" ${disabled}>`;
+  const input = document.createElement('input');
+  input.type = kind;
+  input.dataset.editPath = path;
+  if (kind === 'checkbox') { input.checked = !!value; } else { input.value = value ?? ''; }
+  if (state.read_only) input.disabled = true;
+  return input;
 }
+function row(keyLabel, valueNode, hintNodes) {
+  const div = document.createElement('div'); div.className = 'ledger-row';
+  const key = document.createElement('span'); key.className = 'key'; key.append(keyLabel);
+  const value = document.createElement('span'); value.className = 'value'; value.append(valueNode);
+  const small = document.createElement('small');
+  hintNodes.forEach(appendHintNode(small));
+  div.append(key, value, small);
+  return div;
+}
+function appendHintNode(small) {
+  return (node) => {
+    if (node.nodeType === Node.TEXT_NODE) { small.append(node); return; }
+    small.append(node);
+    small.append(document.createTextNode(' '));
+  };
+}
+function text(textValue) { return document.createTextNode(textValue); }
 function renderStructured(config) {
   const agents = pick(config, 'Agents','agents') || [];
   const servers = pick(config, 'MCPServers','mcp_servers') || [];
   const hooks = pick(config, 'Hooks','hooks') || [];
   const links = pick(pick(config, 'UI','ui'), 'Links','links') || [];
   const rows = [];
-  rows.push(`<div class="ledger-row"><span class="key">version</span><span class="value">${field('/version', pick(config,'Version','version'), 'number')}</span><small>shared schema</small></div>`);
+  rows.push(row('version', field('/version', pick(config,'Version','version'), 'number'), [text('shared schema')]));
   for (const agent of agents) {
     const name = pick(agent,'Name','name');
-    rows.push(`<div class="ledger-row"><span class="key">agent · ${esc(name)}</span><span class="value">${field(`/agents/${name}/skill_root`, pick(agent,'SkillRoot','skill_root') || '')}</span><small>${field(`/agents/${name}/enabled`, !!pick(agent,'Enabled','enabled'), 'checkbox')} enabled · skill root</small></div>`);
-    rows.push(`<div class="ledger-row subrow"><span class="key">agent root</span><span class="value">${field(`/agents/${name}/agent_root`, pick(agent,'AgentRoot','agent_root') || '')}</span><small>${field(`/agents/${name}/role_model`, pick(agent,'RoleModel','role_model') || '')}</small></div>`);
+    rows.push(row(`agent · ${name}`, field(`/agents/${name}/skill_root`, pick(agent,'SkillRoot','skill_root') || ''), [field(`/agents/${name}/enabled`, !!pick(agent,'Enabled','enabled'), 'checkbox'), text('enabled · skill root')]));
+    rows.push(row('agent root', field(`/agents/${name}/agent_root`, pick(agent,'AgentRoot','agent_root') || ''), [field(`/agents/${name}/role_model`, pick(agent,'RoleModel','role_model') || '')]));
   }
   for (const server of servers) {
     const name = pick(server,'Name','name');
-    rows.push(`<div class="ledger-row"><span class="key">MCP · ${esc(name)}</span><span class="value">${field(`/mcp_servers/${name}/command`, pick(server,'Command','command') || '')}</span><small>${field(`/mcp_servers/${name}/enabled`, !!pick(server,'Enabled','enabled'), 'checkbox')} enabled · command</small></div>`);
+    rows.push(row(`MCP · ${name}`, field(`/mcp_servers/${name}/command`, pick(server,'Command','command') || ''), [field(`/mcp_servers/${name}/enabled`, !!pick(server,'Enabled','enabled'), 'checkbox'), text('enabled · command')]));
   }
   for (const hook of hooks) {
     const name = pick(hook,'Name','name');
-    rows.push(`<div class="ledger-row"><span class="key">hook · ${esc(name)}</span><span class="value">${field(`/hooks/${name}/command`, pick(hook,'Command','command') || '')}</span><small>${field(`/hooks/${name}/enabled`, !!pick(hook,'Enabled','enabled'), 'checkbox')} enabled · ${field(`/hooks/${name}/event`, pick(hook,'Event','event') || '')}</small></div>`);
+    rows.push(row(`hook · ${name}`, field(`/hooks/${name}/command`, pick(hook,'Command','command') || ''), [field(`/hooks/${name}/enabled`, !!pick(hook,'Enabled','enabled'), 'checkbox'), text('enabled ·'), field(`/hooks/${name}/event`, pick(hook,'Event','event') || '')]));
   }
-  links.forEach((link, index) => rows.push(`<div class="ledger-row"><span class="key">link · ${field(`/ui/links/${index}/name`, pick(link,'Name','name') || '')}</span><span class="value">${field(`/ui/links/${index}/url`, pick(link,'URL','url') || '')}</span><small>navigation</small></div>`));
-  const ledger = $('#structured'); const template = document.createElement('template');
-  template.innerHTML = rows.join('');
-  ledger.replaceChildren(...template.content.children);
-  $('#structured').querySelectorAll('[data-edit-path]').forEach((input) => input.addEventListener('change', () => stageStructuredEdit(input)));
+  links.forEach((link, index) => rows.push(row(`link · ${index}`, field(`/ui/links/${index}/name`, pick(link,'Name','name') || ''), [field(`/ui/links/${index}/url`, pick(link,'URL','url') || ''), text('navigation')])));
+  const ledger = $('#structured');
+  ledger.replaceChildren(...rows);
+  ledger.querySelectorAll('[data-edit-path]').forEach((input) => input.addEventListener('change', () => stageStructuredEdit(input)));
 }
 async function stageStructuredEdit(input) {
   const value = input.dataset.editKind === 'checkbox' ? input.checked : (input.type === 'number' ? Number(input.value) : input.value);
