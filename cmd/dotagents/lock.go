@@ -14,8 +14,24 @@ import (
 const lockFileName = "dotagents.lock"
 
 type lockFile struct {
-	Version        int                 `yaml:"version"`
-	ExternalSkills []externalLockEntry `yaml:"external_skills"`
+	Version         int                  `yaml:"version"`
+	ExternalSkills  []externalLockEntry  `yaml:"external_skills"`
+	PublishedSkills []publishedLockEntry `yaml:"published_skills,omitempty"`
+}
+
+// publishedLockEntry pins one skill pushed to a remote skill registry. It is the
+// outward analogue of externalLockEntry: instead of recording an upstream commit
+// we materialize inward, it records the registry id/version we published, keyed
+// by (target, skill). ContentHash is the idempotency key: publish skips a skill
+// whose current bundle hashes to the value already recorded here. All fields are
+// comparable so entries compare with ==.
+type publishedLockEntry struct {
+	Target      string `yaml:"target"`
+	Skill       string `yaml:"skill"`
+	SkillID     string `yaml:"skill_id"`
+	Version     string `yaml:"version"`
+	ContentHash string `yaml:"content_hash"`
+	PublishedAt string `yaml:"published_at"`
 }
 
 type externalLockEntry struct {
