@@ -23,6 +23,10 @@ type configServeOptions struct {
 	Addr         string
 	NoOpen       bool
 	SecureCookie bool
+	// SSHHost, when set, prints a ready-to-copy `ssh -L` tunnel command for
+	// reaching the loopback-bound UI from this host instead of auto-opening a
+	// browser on a remote box.
+	SSHHost string
 }
 
 func runConfigCommand(args []string) error {
@@ -34,12 +38,6 @@ func runConfigCommand(args []string) error {
 		return runConfigTUI(opts)
 	}
 	switch args[0] {
-	case "serve":
-		opts, err := parseConfigServeFlags(args[1:])
-		if err != nil {
-			return err
-		}
-		return runConfigServe(opts)
 	case "validate":
 		opts, err := parseConfigFlags(args[1:])
 		if err != nil {
@@ -67,23 +65,6 @@ func parseConfigFlags(args []string) (configCommandOptions, error) {
 	}
 	if fs.NArg() != 0 {
 		return configCommandOptions{}, errors.New("config does not accept positional arguments")
-	}
-	return opts, nil
-}
-
-func parseConfigServeFlags(args []string) (configServeOptions, error) {
-	fs := flag.NewFlagSet("config serve", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	var opts configServeOptions
-	fs.StringVar(&opts.ConfigPath, "config", "", "Path to dotagents YAML config")
-	fs.StringVar(&opts.Addr, "addr", "127.0.0.1:8765", "Loopback listen address")
-	fs.BoolVar(&opts.NoOpen, "no-open", false, "Do not open the browser")
-	fs.BoolVar(&opts.SecureCookie, "secure-cookie", false, "Mark the session cookie Secure for HTTPS loopback access")
-	if err := fs.Parse(args); err != nil {
-		return configServeOptions{}, err
-	}
-	if fs.NArg() != 0 {
-		return configServeOptions{}, errors.New("config serve does not accept positional arguments")
 	}
 	return opts, nil
 }
@@ -282,8 +263,29 @@ func (m *configTUIModel) applySync() {
 		m.status = "destructive sync is armed; press x again to apply the reviewed plan"
 		return
 	}
+	// Reload from disk and re-verify the reviewed plan immediately before syncing
+	// (mirrors the web handleSyncApply). An external edit between preview and
+	// apply must invalidate the reviewed plan rather than let runSync apply a
+	// different, possibly more destructive plan than the one shown.
+	if err := m.doc.reload(); err != nil {
+		m.status = "reload failed: " + err.Error()
+		return
+	}
 	if m.doc.revision(configLayerShared) != m.syncRevision {
-		m.status = "sync plan is stale; press p to preview again"
+		m.syncPlan = nil
+		m.syncArmed = false
+		m.status = "config changed on disk; press p to preview again"
+		return
+	}
+	plan, err := buildConfigSyncPlan(m.doc)
+	if err != nil {
+		m.status = "sync preview failed: " + err.Error()
+		return
+	}
+	if plan.Digest != m.syncPlan.Digest {
+		m.syncPlan = nil
+		m.syncArmed = false
+		m.status = "sync plan changed; press p to preview again"
 		return
 	}
 	if err := runSync(runOptions{ConfigPath: m.doc.sharedPath, Stdout: io.Discard, Stdin: strings.NewReader("n\n")}); err != nil {

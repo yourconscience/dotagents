@@ -38,7 +38,7 @@ files:
 
 ```bash
 dotagents config
-dotagents config serve --no-open --addr 127.0.0.1:8765
+dotagents view --no-open --addr 127.0.0.1:8765
 dotagents config validate
 dotagents config print
 ```
@@ -51,7 +51,7 @@ behind an explicit preview/apply confirmation.
 For temporary HTTPS access from a tailnet, the operator owns the route:
 
 ```bash
-dotagents config serve --no-open --secure-cookie --addr 127.0.0.1:8765
+dotagents view --no-open --secure-cookie --addr 127.0.0.1:8765
 tailscale serve --bg --set-path /dotagents http://127.0.0.1:8765
 ```
 

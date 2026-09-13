@@ -60,12 +60,10 @@ func runConfigServe(opts configServeOptions) error {
 		origin = "http://" + net.JoinHostPort(host, portString(listener.Addr()))
 	}
 	server := &configWebServer{doc: doc, secureCookie: opts.SecureCookie, origin: origin, token: token, csrf: csrf}
-	fmt.Fprintf(os.Stdout, "dotagents config UI: %s/?token=%s\n", origin, url.QueryEscape(token))
-	if !opts.NoOpen {
-		if err := openInBrowser(origin + "/?token=" + url.QueryEscape(token)); err != nil {
-			fmt.Fprintf(os.Stdout, "browser open failed: %v\n", err)
-		}
-	}
+	startURL := origin + "/?token=" + url.QueryEscape(token)
+	remote := os.Getenv("SSH_CONNECTION") != ""
+	sshHost := resolveSSHHost(opts.SSHHost, os.Getenv)
+	announceView(os.Stdout, startURL, opts, remote, sshHost)
 	httpServer := &http.Server{Handler: server.handler(), ReadHeaderTimeout: 5 * time.Second}
 	return httpServer.Serve(listener)
 }
@@ -81,14 +79,14 @@ func portString(addr net.Addr) string {
 func validateLoopbackAddr(addr string) error {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil || host == "" || port == "" {
-		return fmt.Errorf("config serve requires an explicit loopback address, got %q", addr)
+		return fmt.Errorf("view requires an explicit loopback address, got %q", addr)
 	}
 	if host == "localhost" {
 		return nil
 	}
 	ip := net.ParseIP(host)
 	if ip == nil || !ip.IsLoopback() {
-		return fmt.Errorf("config serve refuses non-loopback address %q", addr)
+		return fmt.Errorf("view refuses non-loopback address %q", addr)
 	}
 	return nil
 }
@@ -230,6 +228,13 @@ func (s *configWebServer) requestOriginAllowed(r *http.Request) bool {
 
 func (s *configWebServer) handleState(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || !s.authorizeAPI(w, r, false) {
+		return
+	}
+	// Reflect on-disk changes (another pane's TUI, `dotagents mcp add`, sync, an
+	// editor, git) so a refresh shows current content and a current revision;
+	// otherwise the served revision goes stale and every save 409s until restart.
+	if err := s.doc.reload(); err != nil {
+		writeCandidateError(w, err)
 		return
 	}
 	layer := configLayer(r.URL.Query().Get("layer"))
@@ -431,6 +436,10 @@ func (s *configWebServer) handleSyncPreview(w http.ResponseWriter, r *http.Reque
 	if r.Method != http.MethodPost || !s.authorizeAPI(w, r, true) {
 		return
 	}
+	if err := s.doc.reload(); err != nil {
+		writeCandidateError(w, err)
+		return
+	}
 	plan, err := buildConfigSyncPlan(s.doc)
 	if err != nil {
 		writeCandidateError(w, err)
@@ -485,6 +494,10 @@ func (s *configWebServer) handleSyncApply(w http.ResponseWriter, r *http.Request
 
 func (s *configWebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || !s.authorizeAPI(w, r, false) {
+		return
+	}
+	if err := s.doc.reload(); err != nil {
+		writeCandidateError(w, err)
 		return
 	}
 	plan, err := buildConfigSyncPlan(s.doc)

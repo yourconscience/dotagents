@@ -82,10 +82,10 @@ dotagents setup    [--memory off|basic|memsearch] [--yes] [--dry-run] [--json]
 dotagents status   [--verbose] [--agents ...]
 dotagents sync     [--pull] [--agents ...]
 dotagents doctor   [--e2e] [--agents ...]
-dotagents config                  # Bubble Tea canonical YAML editor
-dotagents config serve            # loopback web editor
+dotagents config                  # Bubble Tea canonical YAML editor (terminal)
 dotagents config validate|print
-dotagents view     [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]  # launch HarnessKit (inspection UI)
+dotagents view     [--addr 127.0.0.1:8765] [--no-open] [--secure-cookie] [--ssh-host user@host]  # loopback web config UI
+dotagents inspect  [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]  # launch HarnessKit (cross-harness inspector)
 dotagents skill    new|list|info|update|promote
 dotagents publish  [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]  # push skills to a remote registry
 dotagents mcp      list|add|import|remove
@@ -95,7 +95,7 @@ dotagents mcp      list|add|import|remove
 
 `dotagents skill list` shows, per detected harness, every entry in its skill root with provenance: managed links (with the external source and pinned commit when applicable), foreign symlinks (other tools' plugins), unmanaged directories, drifted and broken links — plus the estimated context cost of each harness's skill listing. `dotagents skill info <name>` answers "where does this skill come from and who sees it".
 
-`dotagents view` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for an inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. It prints the tokenized URL on its own line and opens it in your default browser locally; use `--no-open` to skip the launch, or `--ssh-host user@host` on a remote box to print an `ssh -L` tunnel command instead (inside an SSH session the host is derived from `SSH_CONNECTION`). HarnessKit does its own harness discovery and can also enable/disable/deploy; those writes bypass dotagents, so use `view` to inspect and reconcile any changes with `dotagents sync`. Install HarnessKit separately.
+`dotagents inspect` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for a read-mostly inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. It prints the tokenized URL on its own line and opens it in your default browser locally; use `--no-open` to skip the launch, or `--ssh-host user@host` on a remote box to print an `ssh -L` tunnel command instead (inside an SSH session the host is derived from `SSH_CONNECTION`). Other flags (`--port`, `--host`, `--no-token`) are forwarded to `hk serve`. HarnessKit does its own harness discovery and can also enable/disable/deploy; those writes bypass dotagents, so use `inspect` to look and reconcile any changes with `dotagents sync`. Install HarnessKit separately. (`dotagents inspect` was `dotagents view` before v0.9.0, when `view` became the config UI.)
 
 ## Installing skills without dotagents
 
@@ -117,24 +117,30 @@ Other tools share the name: npm's [`dotagents`](https://www.npmjs.com/package/do
 
 ### Canonical config authoring
 
-`dotagents config` edits the resolved canonical YAML through a review-first
-flow. Shared and `dotagents.local.yaml` are separate editable layers; the
-effective view is read-only. Structured edits preserve comments and unknown
-fields, and a save never runs `sync` implicitly.
+`dotagents config` (terminal TUI) and `dotagents view` (browser web UI) edit the
+resolved canonical YAML through the same review-first flow. Shared and
+`dotagents.local.yaml` are separate editable layers; the effective view is
+read-only. Structured edits preserve comments and unknown fields, and a save
+never runs `sync` implicitly.
 
 ```bash
-dotagents config
-dotagents config serve --no-open --addr 127.0.0.1:8765
+dotagents config                       # interactive terminal editor
+dotagents view --no-open --addr 127.0.0.1:8765   # loopback web UI, print the URL
 dotagents config validate
 dotagents config print
 ```
 
-The web server is loopback-only, session-cookie authenticated, and uses a
-separate sync preview/apply step. For deliberate HTTPS tailnet access, expose
-the loopback listener yourself:
+The `view` web server is loopback-only, session-cookie authenticated (a
+one-time startup token swapped for an `HttpOnly`, `SameSite=Strict` cookie),
+CSRF- and origin-checked on mutations, guards saves by revision, and keeps sync
+as a separate preview/confirm step. It prints the tokenized URL on its own line
+and opens your default browser locally; `--no-open` skips that, and
+`--ssh-host user@host` (or an SSH session, via `SSH_CONNECTION`) prints an
+`ssh -L` tunnel command for reaching the loopback UI from another machine. For
+deliberate HTTPS tailnet access, expose the loopback listener yourself:
 
 ```bash
-dotagents config serve --no-open --secure-cookie --addr 127.0.0.1:8765
+dotagents view --no-open --secure-cookie --addr 127.0.0.1:8765
 tailscale serve --bg --set-path /dotagents http://127.0.0.1:8765
 ```
 
