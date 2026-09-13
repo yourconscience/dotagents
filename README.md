@@ -155,7 +155,7 @@ scripts/release.sh v0.7.0    # verify + tag; CI publishes binaries, brew tap, np
 - [docs/comparison.md](docs/comparison.md) — how dotagents differs from rulesync, ruler, openskills
 - [Troubleshooting](docs/troubleshooting.md)
 
-Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level — one private repo, eight targets deep, pinned externals, review-first memory. Full table in [docs/comparison.md](docs/comparison.md).
+Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level — one private repo, nine targets deep, pinned externals, review-first memory. Full table in [docs/comparison.md](docs/comparison.md).
 
 ## License
 

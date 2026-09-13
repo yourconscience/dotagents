@@ -456,6 +456,11 @@ func inspectAmpAgent(agent agentConfig, expected map[string]string, agentsSkillR
 	if err := augmentHookReport(&report, agent, cfg, home); err != nil {
 		return agentReport{}, err
 	}
+	if h := harnessFor(agent.Name); h != nil && h.RootInstructions != nil {
+		if err := inspectRootInstructions(&report, h.RootInstructions, filepath.Dir(agentsSkillRoot), home); err != nil {
+			return agentReport{}, err
+		}
+	}
 
 	sortReportLists(&report)
 	report.Synced = isReportSynced(report)
