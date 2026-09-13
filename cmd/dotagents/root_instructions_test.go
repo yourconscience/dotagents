@@ -127,6 +127,14 @@ func codexRootInstructions() *RootInstructionsCapability {
 	return h.RootInstructions
 }
 
+func ampRootInstructions() *RootInstructionsCapability {
+	h := harnessFor("amp")
+	if h == nil || h.RootInstructions == nil {
+		panic("amp harness missing RootInstructions")
+	}
+	return h.RootInstructions
+}
+
 func TestRootInstructionsNativePaths(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := filepath.Join(home, ".agents")
@@ -135,6 +143,7 @@ func TestRootInstructionsNativePaths(t *testing.T) {
 		cap      *RootInstructionsCapability
 		wantLink string
 	}{
+		{"amp", ampRootInstructions(), filepath.Join(home, ".config", "amp", "AGENTS.md")},
 		{agentClaudeCode, claudeCodeRootInstructions(), filepath.Join(home, ".claude", "CLAUDE.md")},
 		{agentCodex, codexRootInstructions(), filepath.Join(home, ".codex", "AGENTS.md")},
 	} {
@@ -154,6 +163,7 @@ func TestInspectClaudeAndCodexRootInstructions(t *testing.T) {
 		dir   string
 		file  string
 	}{
+		{"amp", ampRootInstructions, ".config/amp", "AGENTS.md"},
 		{agentClaudeCode, claudeCodeRootInstructions, ".claude", "CLAUDE.md"},
 		{agentCodex, codexRootInstructions, ".codex", "AGENTS.md"},
 	} {
@@ -219,6 +229,7 @@ func TestApplyAgentRootInstructionSyncClaudeAndCodex(t *testing.T) {
 		agent    string
 		linkPath string
 	}{
+		{"amp", ".config/amp/AGENTS.md"},
 		{agentClaudeCode, ".claude/CLAUDE.md"},
 		{agentCodex, ".codex/AGENTS.md"},
 	} {
