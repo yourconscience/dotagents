@@ -247,10 +247,10 @@ func initHarnesses() {
 		},
 
 		agentPiDesktop: {
-			Detect:         detectPiDesktop,
-			Skills:         SkillsSymlink,
-			TrailerExample: "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
-			IntegrationNote: "Pi Desktop GUI app uses ~/.pi/agent/; configure MCP and other settings via the app's Settings UI",
+			Detect:          detectPiDesktop,
+			Skills:          SkillsConfigDriven, // Uses generated plugin, not simple symlinks
+			InspectSkills:   inspectPiDesktopPlugin,
+			IntegrationNote: "generates a loadable plugin at .pi-desktop-plugin/ with canonical skills and roles; load once via Pi Desktop GUI (PluginScaffold or manual directory load)",
 		},
 
 		agentOMP: {

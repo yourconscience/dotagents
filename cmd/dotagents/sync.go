@@ -117,6 +117,18 @@ func runSync(opts runOptions) error {
 		return err
 	}
 
+	// Generate Pi Desktop plugin if detected
+	piDesktopDetected := false
+	for _, report := range reports {
+		if report.Name == agentPiDesktop && report.Detected {
+			piDesktopDetected = true
+			break
+		}
+	}
+	if err := applyPiDesktopPluginSync(piDesktopDetected, repoRoot, home); err != nil {
+		return err
+	}
+
 	repoReport, err = inspectRepoLink(repoRoot, home)
 	if err != nil {
 		return err

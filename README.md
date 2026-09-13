@@ -47,12 +47,16 @@ Five surfaces, each rendered into the harness's own format — dotagents does no
 | Qwen Code | yes, config-driven | yes | yes | yes | skills + MCP§ |
 | OMP (pi fork) | yes | yes | yes | --‡ | -- |
 | Pi* | yes | --* | --* | -- | -- |
+| Pi Desktop¶ | yes | -- | -- | -- | -- |
+| Selesai Code** | yes, filtered | -- | -- | -- | -- |
 
 \* Vanilla [pi](https://github.com/earendil-works/pi) is skills-only by design; the OMP fork is detected as its own target.
 † OpenCode reads `~/.agents/skills/` natively; its only hook surface is a JS plugin API.
 ‡ OMP has no managed hook surface yet; register memory hooks manually if needed.
 § Qwen Code natively loads Agent Plugins v1 skills and MCP servers; dotagents manages those same surfaces without rewriting the plugin.
 ⁑ Amp's hook and role surfaces use plugin-based models incompatible with dotagents' script-based hooks and per-agent role files.
+¶ Pi Desktop is a GUI application using `~/.pi/agent/skills`; MCP and other settings are configured via the app's Settings UI.
+** [Selesai Code](https://github.com/SelesaiInTech/selesai-code) uses `~/.selesai/agent/skills`; dotagents syncs only non-bundled skills to avoid conflicts with Selesai's 27 built-in skills.
 
 OpenClaw is not currently supported. Native skill discovery from `~/.agents/skills` may work due to OpenClaw's multi-tier skill precedence, but this is unverified and unmanaged. A managed harness entry is planned for a future release. A "yes" above only appears after end-to-end verification.
 
