@@ -22,6 +22,10 @@ dotagents setup [--memory off|basic|memsearch] [--agents ...] [--yes] [--dry-run
 dotagents status [--verbose] [--agents ...]
 dotagents sync [--pull] [--agents ...]
 dotagents doctor [--e2e] [--agents ...]
+dotagents config
+dotagents config serve [--no-open] [--addr 127.0.0.1:8765] [--secure-cookie]
+dotagents config validate
+dotagents config print
 dotagents view [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]
 dotagents skill new <name> [--description ...]
 dotagents skill list [--agents ...]
@@ -31,6 +35,12 @@ dotagents skill promote <name-or-path> [--dry-run]
 dotagents publish [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]
 dotagents mcp <list|add|import|remove> [options]
 ```
+
+`config` is the canonical authoring surface. It edits shared YAML or the
+machine-local overlay; effective configuration is read-only. Saves validate
+and show a YAML diff, but never run `sync` implicitly. `config serve` binds
+only to loopback and uses a session cookie plus CSRF protection. `view` remains
+the HarnessKit inspection boundary.
 
 Run `dotagents help --all` for maintenance commands and compatibility aliases. Do not use hidden aliases in new scripts or documentation.
 

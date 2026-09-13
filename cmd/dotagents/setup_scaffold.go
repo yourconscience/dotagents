@@ -130,20 +130,7 @@ func loadSetupConfig(configPath string, home string) (config, error) {
 }
 
 func writeSetupConfig(configPath string, cfg config, home string) error {
-	if err := validateConfig(&cfg, home, false); err != nil {
-		return err
-	}
-	out, err := yaml.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("yaml encode: %w", err)
-	}
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", filepath.Dir(configPath), err)
-	}
-	if err := os.WriteFile(configPath, out, 0o644); err != nil {
-		return fmt.Errorf("write config %s: %w", configPath, err)
-	}
-	return nil
+	return saveConfigDocument(configPath, home, cfg)
 }
 
 func defaultAgentConfigs() []agentConfig {
