@@ -6,6 +6,7 @@ __pycache__/
 # Canonical user-config runtime state
 external/
 dotagents.local.yaml
+/subagents/
 memsearch.conf
 .skill-lock.json
 

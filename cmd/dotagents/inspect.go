@@ -77,7 +77,11 @@ func discoverLocalSkills(repoRoot string, _ string) ([]discoveredSkill, error) {
 	return discovered, nil
 }
 
-func expectedSkillsForAgent(base map[string]string, _ string, _ config, _ string) (map[string]string, error) {
+func expectedSkillsForAgent(base map[string]string, _ string, _ config, agentName string) (map[string]string, error) {
+	// Filter bundled skills for Selesai to avoid conflicts
+	if agentName == agentSelesai {
+		return filterSelesaiExpectedSkills(base)
+	}
 	return base, nil
 }
 

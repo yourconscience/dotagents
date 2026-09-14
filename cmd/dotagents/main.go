@@ -121,6 +121,10 @@ type agentReport struct {
 
 func isDetected(agent agentConfig) bool {
 	if agent.Detect == "" {
+		// No executable required, but check harness-specific detection if available
+		if harness := harnessFor(agent.Name); harness != nil && harness.Detect != nil {
+			return harness.Detect("")
+		}
 		return true
 	}
 	executable, err := exec.LookPath(agent.Detect)

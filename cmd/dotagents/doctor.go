@@ -23,8 +23,10 @@ const (
 	agentHermes              = "hermes"
 	agentOpenCode            = "opencode"
 	agentPi                  = "pi"
+	agentPiDesktop           = "pi-desktop"
 	agentOMP                 = "omp"
 	agentQwenCode            = "qwen-code"
+	agentSelesai             = "selesai"
 	dotagentsSkillsPathValue = "~/.agents/skills"
 )
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -245,6 +246,13 @@ func initHarnesses() {
 			TrailerExample: "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
 		},
 
+		agentPiDesktop: {
+			Detect:          detectPiDesktop,
+			Skills:          SkillsSymlink,
+			Roles:           &RolesCapability{Extension: ".md", Render: renderPiDesktopAgentRole},
+			IntegrationNote: "uses Pi Desktop's supported global ~/.agents/skills and ~/.agents/subagents roots; no app internals or plugin package",
+		},
+
 		agentOMP: {
 			Skills: SkillsSymlink,
 			MCP: mcpTargetPtr(mcpTarget{
@@ -256,6 +264,13 @@ func initHarnesses() {
 				rootKey:    "mcpServers",
 			}),
 			Roles: &RolesCapability{Extension: ".md", Render: renderOMPAgentRole},
+		},
+
+		agentSelesai: {
+			Detect:          detectSelesai,
+			Skills:          SkillsSymlink,
+			TrailerExample:  "Co-authored-by: selesai[bot] <selesai[bot]@users.noreply.github.com>",
+			IntegrationNote: "syncs only non-bundled skills to avoid conflicts with Selesai's installed bundled skills",
 		},
 
 		agentQwenCode: {
@@ -347,4 +362,17 @@ func detectVanillaPi(executable string) bool {
 	// executable is the absolute path returned by exec.LookPath in isDetected.
 	version, _ := exec.Command(executable, "--version").CombinedOutput() // nosemgrep: go.lang.security.audit.dangerous-exec-command
 	return !bytes.HasPrefix(bytes.TrimSpace(version), []byte("omp/"))
+}
+
+func detectPiDesktop(executable string) bool {
+	// Pi Desktop is a GUI application. Detect by checking if the app bundle exists.
+	// The executable might be 'pi' from the PATH, but we check for the desktop app.
+	info, err := os.Stat("/Applications/PI-Desktop.app")
+	return err == nil && info.IsDir()
+}
+
+func detectSelesai(executable string) bool {
+	// Verify this is actually the selesai command, not something else named 'selesai'.
+	version, _ := exec.Command(executable, "--version").CombinedOutput() // nosemgrep: go.lang.security.audit.dangerous-exec-command
+	return bytes.Contains(bytes.ToLower(version), []byte("selesai"))
 }
