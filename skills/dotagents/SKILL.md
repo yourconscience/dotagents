@@ -102,10 +102,11 @@ Agent roles are canonical Markdown files under `~/.agents/agents/` and render to
 - Codex: `~/.codex/agents/<name>.toml`
 - Factory Droid: `~/.factory/droids/<name>.md`
 - OpenCode: `~/.config/opencode/agents/<name>.md`
+- Pi with `pi-subagents`: `~/.pi/agent/agents/<name>.md`
 - OMP: `~/.omp/agent/agents/<name>.md`
 - Qwen Code: `~/.qwen/agents/<name>.md`
 
-Pi has a managed skill root only. OMP is a separate target with skills, roles, and MCP support.
+Pi always has managed skills. With `pi-subagents` installed, dotagents renders canonical roles into Pi's user agent directory. With `pi-mcp-adapter` installed, it patches canonical and Agent Plugin MCP entries into `~/.pi/agent/mcp.json`. The files remain inert when those packages are absent. OMP is a separate target.
 
 For MCP servers, sync patches only named canonical entries and preserves unrelated native servers. Import redacts literal environment values to `${KEY}` references; list output never prints values.
 
@@ -147,7 +148,7 @@ publish_targets:
 ```bash
 dotagents mcp list
 dotagents mcp add local --command uvx --arg pkg@1.2.3 --env KEY=value
-dotagents mcp import claude-code local --agents=codex,hermes,droid,omp
+dotagents mcp import claude-code local --agents=codex,hermes,droid,pi,omp
 dotagents sync
 dotagents mcp remove local
 ```
@@ -197,7 +198,7 @@ dotagents inspect --ssh-host me@box --host 0.0.0.0 # remote: print an ssh -L tun
 | Factory Droid | yes | yes | yes | yes |
 | Hermes | yes, config-driven | no | yes | yes |
 | OpenCode | yes | yes | yes | no |
-| Pi | yes | no | no | no |
+| Pi | yes | yes, via `pi-subagents` | yes, via `pi-mcp-adapter` | no |
 | OMP | yes | yes | yes | no |
 | Qwen Code | yes, config-driven | yes | yes | yes |
 

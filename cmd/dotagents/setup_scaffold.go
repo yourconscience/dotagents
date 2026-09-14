@@ -141,7 +141,7 @@ func defaultAgentConfigs() []agentConfig {
 		{Name: agentHermes, Enabled: true, SkillRoot: "~/.hermes/skills", Detect: "hermes"},
 		{Name: agentOMP, Enabled: true, SkillRoot: "~/.omp/agent/skills", AgentRoot: "~/.omp/agent/agents", Detect: "omp"},
 		{Name: agentOpenCode, Enabled: true, SkillRoot: "~/.config/opencode/skills", AgentRoot: "~/.config/opencode/agents", Detect: "opencode"},
-		{Name: agentPi, Enabled: true, SkillRoot: "~/.pi/agent/skills", Detect: "pi"},
+		{Name: agentPi, Enabled: true, SkillRoot: "~/.pi/agent/skills", AgentRoot: "~/.pi/agent/agents", Detect: "pi"},
 		{Name: agentQwenCode, Enabled: true, SkillRoot: "~/.qwen/skills", AgentRoot: "~/.qwen/agents", Detect: "qwen"},
 	}
 }
@@ -688,10 +688,11 @@ func renderCanonicalRoleMarkdown(role agentRole) ([]byte, error) {
 		Droid       droidRoleOptions    `yaml:"droid,omitempty"`
 		Opencode    opencodeRoleOptions `yaml:"opencode,omitempty"`
 		OMP         ompRoleOptions      `yaml:"omp,omitempty"`
+		Pi          piRoleOptions       `yaml:"pi,omitempty"`
 	}{
 		Name: role.Name, Description: role.Description, Model: role.Model, Effort: role.Effort,
 		Tools: role.Tools, Color: role.Color, Claude: role.Claude, Codex: role.Codex,
-		Droid: role.Droid, Opencode: role.Opencode, OMP: role.OMP,
+		Droid: role.Droid, Opencode: role.Opencode, OMP: role.OMP, Pi: role.Pi,
 	}
 	meta, err := yaml.Marshal(front)
 	if err != nil {

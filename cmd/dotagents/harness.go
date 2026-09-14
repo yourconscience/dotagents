@@ -240,9 +240,23 @@ func initHarnesses() {
 		},
 
 		agentPi: {
-			Detect:         detectVanillaPi,
-			Skills:         SkillsSymlink,
-			TrailerExample: "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
+			Detect: detectVanillaPi,
+			Skills: SkillsSymlink,
+			MCP: mcpTargetPtr(mcpTarget{
+				agentName:  agentPi,
+				configPath: func(home string) string { return filepath.Join(home, ".pi", "agent", "mcp.json") },
+				inspect:    inspectJSONMCPServer,
+				patch:      patchJSONMCPServer,
+				read:       readJSONMCPServer,
+				rootKey:    "mcpServers",
+			}),
+			Roles: &RolesCapability{Extension: ".md", Render: renderPiAgentRole},
+			RootInstructions: &RootInstructionsCapability{
+				Path:     func(home string) string { return filepath.Join(home, ".pi", "agent", "AGENTS.md") },
+				Expected: func(repoRoot string) string { return filepath.Join(repoRoot, "AGENTS.md") },
+			},
+			IntegrationNote: "MCP and roles require pi-mcp-adapter and pi-subagents; Agent Plugins project through managed skills and MCP",
+			TrailerExample:  "Co-authored-by: pi[bot] <pi[bot]@users.noreply.github.com>",
 		},
 
 		agentOMP: {

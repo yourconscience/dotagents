@@ -33,7 +33,10 @@ To pin one model for all rendered roles that have no explicit model, set `role_m
 | Codex | TOML | `~/.codex/agents/<name>.toml` |
 | Factory Droid | Markdown | `~/.factory/droids/<name>.md` |
 | OpenCode | YAML frontmatter | `~/.config/opencode/agents/<name>.md` |
+| Pi (`pi-subagents`) | YAML frontmatter | `~/.pi/agent/agents/<name>.md` |
 | OMP | YAML frontmatter | `~/.omp/agent/agents/<name>.md` |
 | Qwen Code | YAML frontmatter | `~/.qwen/agents/<name>.md` |
+
+Pi role files are inert unless the `pi-subagents` package is installed. Legacy model tiers are omitted so Pi inherits its configured model; use a `pi.model` exact override when needed.
 
 Roles are regenerated on every `dotagents sync`; edit the canonical `.md`, never the rendered output.

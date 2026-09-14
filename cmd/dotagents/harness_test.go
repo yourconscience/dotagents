@@ -18,11 +18,14 @@ func TestPiAndOMPHarnessCapabilities(t *testing.T) {
 	if pi.Skills != SkillsSymlink {
 		t.Fatalf("Pi skills capability = %v, want symlink", pi.Skills)
 	}
-	if pi.MCP != nil {
-		t.Fatal("Pi unexpectedly exposes MCP support")
+	if pi.MCP == nil {
+		t.Fatal("Pi does not expose MCP adapter support")
 	}
-	if pi.Roles != nil {
-		t.Fatal("Pi unexpectedly exposes agent-role support")
+	if pi.Roles == nil || pi.Roles.Extension != ".md" {
+		t.Fatalf("Pi roles capability = %#v, want pi-subagents Markdown roles", pi.Roles)
+	}
+	if pi.RootInstructions == nil {
+		t.Fatal("Pi does not expose root-instruction support")
 	}
 
 	omp := harnessFor(agentOMP)
@@ -45,15 +48,19 @@ func TestPublicTemplateStartsWithoutConfiguredAgents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	home := t.TempDir()
-	cfg, err := loadConfig(repoRoot, home, filepath.Join(repoRoot, "dotagents.yaml"))
+	data, err := os.ReadFile(filepath.Join(repoRoot, "dotagents.yaml"))
 	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		t.Fatal(err)
 	}
 	if len(cfg.Agents) != 0 {
 		t.Fatalf("public template agents = %#v, want none before setup detection", cfg.Agents)
 	}
 
+	home := t.TempDir()
 	target, err := mcpTargetForHarness(agentOMP)
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +70,7 @@ func TestPublicTemplateStartsWithoutConfiguredAgents(t *testing.T) {
 	}
 }
 
-func TestConfigRejectsPiMCPButAcceptsOMP(t *testing.T) {
+func TestConfigAcceptsPiAndOMPMCP(t *testing.T) {
 	home := t.TempDir()
 	baseAgents := []agentConfig{
 		{Name: agentPi, Enabled: true, SkillRoot: filepath.Join(home, ".pi", "agent", "skills")},
@@ -78,10 +85,10 @@ func TestConfigRejectsPiMCPButAcceptsOMP(t *testing.T) {
 		}},
 	}
 	if err := validateConfig(&piConfig, home, true); err != nil {
-		t.Fatalf("Pi MCP target must degrade with a warning, not fail: %v", err)
+		t.Fatalf("Pi MCP config rejected: %v", err)
 	}
-	if len(piConfig.MCPServers[0].Agents) != 0 {
-		t.Fatalf("pi MCP target must be dropped: %#v", piConfig.MCPServers[0].Agents)
+	if !reflect.DeepEqual(piConfig.MCPServers[0].Agents, []string{agentPi}) {
+		t.Fatalf("Pi MCP target changed: %#v", piConfig.MCPServers[0].Agents)
 	}
 
 	ompConfig := config{
@@ -96,7 +103,7 @@ func TestConfigRejectsPiMCPButAcceptsOMP(t *testing.T) {
 	}
 }
 
-func TestOMPMCPPatchUsesOMPConfig(t *testing.T) {
+func TestPiAndOMPMCPPatchesUseSeparateConfigs(t *testing.T) {
 	home := t.TempDir()
 	server := testMCPServer()
 	server.Agents = []string{agentOMP}
@@ -114,24 +121,33 @@ func TestOMPMCPPatchUsesOMPConfig(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(home, ".omp", "agent", "mcp.json")); err != nil {
 		t.Fatalf("OMP MCP config was not written to native path: %v", err)
 	}
-	if err := patchMCPServer(agentPi, server, home); err == nil || !strings.Contains(err.Error(), "no MCP support") {
-		t.Fatalf("Pi MCP patch error = %v, want unsupported-agent error", err)
+	server.Agents = []string{agentPi}
+	if err := patchMCPServer(agentPi, server, home); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".pi", "agent", "mcp.json")); err != nil {
+		t.Fatalf("Pi MCP adapter config was not written to native path: %v", err)
 	}
 }
 
-func TestOMPRendererProducesNativeRoleAndPiSkipsRoles(t *testing.T) {
+func TestPiAndOMPRenderersProduceNativeRoles(t *testing.T) {
 	role := agentRole{
 		Name:         "researcher",
 		Description:  "Find reliable evidence",
 		Model:        "opus",
+		Effort:       "high",
 		OMP:          ompRoleOptions{Model: "gpt-5.6-luna-high"},
 		Tools:        []string{"Read", "WebSearch", "Write", "NotebookEdit", "read"},
 		Instructions: "Compare the sources.",
 	}
 	home := t.TempDir()
 
-	if path, content, ok := renderAgentRole(role, agentConfig{Name: agentPi, AgentRoot: filepath.Join(home, ".pi", "agent", "agents")}); ok || path != "" || content != "" {
-		t.Fatalf("Pi rendered unsupported role: path=%q ok=%v content=%q", path, ok, content)
+	piPath, piContent, ok := renderAgentRole(role, agentConfig{Name: agentPi, AgentRoot: filepath.Join(home, ".pi", "agent", "agents")})
+	if !ok || piPath != filepath.Join(home, ".pi", "agent", "agents", "researcher.md") {
+		t.Fatalf("Pi role path=%q ok=%v", piPath, ok)
+	}
+	if !strings.Contains(piContent, `thinking: "high"`) || strings.Contains(piContent, `model: "opus"`) {
+		t.Fatalf("Pi role should map effort and omit legacy model tier:\n%s", piContent)
 	}
 
 	path, content, ok := renderAgentRole(role, agentConfig{Name: agentOMP, AgentRoot: filepath.Join(home, ".omp", "agent", "agents")})
