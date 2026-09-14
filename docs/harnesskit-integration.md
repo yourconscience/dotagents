@@ -1,6 +1,6 @@
 # HarnessKit integration — design notes
 
-Status: L0 + L2 shipped. The launcher is `dotagents inspect` (it was `dotagents inspect` until v0.9.0, when `view` became the config web UI). L1 (opt-in install) and L3 (write-through) remain future work. Original design date 2026-09-06.
+Status: L0 + L2 shipped. The launcher is `dotagents inspect` (it was `dotagents view` until v0.9.0, when `view` became the config web UI). L1 (opt-in install) and L3 (write-through) remain future work. Original design date 2026-09-06.
 
 ## Finding
 

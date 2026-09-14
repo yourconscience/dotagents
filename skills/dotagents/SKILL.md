@@ -174,7 +174,7 @@ dotagents view --no-open --addr 127.0.0.1:8765        # print the URL, do not op
 dotagents view --ssh-host me@box                      # remote: print an ssh -L tunnel command
 ```
 
-Legacy HarnessKit flags on `view` (`--port`, `--host`, `--no-token`) are rejected with a one-line pointer to `dotagents inspect`; they do not launch HarnessKit.
+Legacy HarnessKit flags on `view` (`--port`, `--host`, `--no-token`, `--name`) are rejected with a one-line pointer to `dotagents inspect`; they do not launch HarnessKit.
 
 ## inspect
 
