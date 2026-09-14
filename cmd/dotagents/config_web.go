@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -33,6 +33,8 @@ type configWebServer struct {
 	token        string
 	csrf         string
 }
+
+var configSyncMu sync.Mutex
 
 func runConfigServe(opts configServeOptions) error {
 	doc, _, err := openConfigDocument(configCommandOptions{ConfigPath: opts.ConfigPath})
@@ -60,12 +62,10 @@ func runConfigServe(opts configServeOptions) error {
 		origin = "http://" + net.JoinHostPort(host, portString(listener.Addr()))
 	}
 	server := &configWebServer{doc: doc, secureCookie: opts.SecureCookie, origin: origin, token: token, csrf: csrf}
-	fmt.Fprintf(os.Stdout, "dotagents config UI: %s/?token=%s\n", origin, url.QueryEscape(token))
-	if !opts.NoOpen {
-		if err := openInBrowser(origin + "/?token=" + url.QueryEscape(token)); err != nil {
-			fmt.Fprintf(os.Stdout, "browser open failed: %v\n", err)
-		}
-	}
+	startURL := origin + "/?token=" + url.QueryEscape(token)
+	remote := os.Getenv("SSH_CONNECTION") != ""
+	sshHost := resolveSSHHost(opts.SSHHost, os.Getenv)
+	announceView(os.Stdout, startURL, opts, remote, sshHost)
 	httpServer := &http.Server{Handler: server.handler(), ReadHeaderTimeout: 5 * time.Second}
 	return httpServer.Serve(listener)
 }
@@ -81,14 +81,14 @@ func portString(addr net.Addr) string {
 func validateLoopbackAddr(addr string) error {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil || host == "" || port == "" {
-		return fmt.Errorf("config serve requires an explicit loopback address, got %q", addr)
+		return fmt.Errorf("view requires an explicit loopback address, got %q", addr)
 	}
 	if host == "localhost" {
 		return nil
 	}
 	ip := net.ParseIP(host)
 	if ip == nil || !ip.IsLoopback() {
-		return fmt.Errorf("config serve refuses non-loopback address %q", addr)
+		return fmt.Errorf("view refuses non-loopback address %q", addr)
 	}
 	return nil
 }
@@ -232,6 +232,10 @@ func (s *configWebServer) handleState(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || !s.authorizeAPI(w, r, false) {
 		return
 	}
+	if err := s.doc.reload(); err != nil {
+		writeCandidateError(w, err)
+		return
+	}
 	layer := configLayer(r.URL.Query().Get("layer"))
 	if layer == "" {
 		layer = configLayerShared
@@ -240,14 +244,16 @@ func (s *configWebServer) handleState(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "invalid_config", "layer must be shared, local, or effective")
 		return
 	}
-	cfg := maskConfigSecrets(s.doc.typed(layer))
+	s.doc.mu.Lock()
+	defer s.doc.mu.Unlock()
+	cfg := maskConfigSecrets(s.doc.typedLocked(layer))
 	response := map[string]interface{}{
 		"paths":        map[string]string{"shared": s.doc.sharedPath, "local": s.doc.localPath},
 		"active_layer": layer,
 		"typed_config": cfg,
 		"effective_ui": s.doc.effective.UI,
-		"raw_yaml":     string(s.doc.bytes(layer)),
-		"revision":     s.doc.revision(layer),
+		"raw_yaml":     string(s.doc.bytesLocked(layer)),
+		"revision":     s.doc.revisionLocked(layer),
 		"read_only":    layer == configLayerEffective,
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -386,27 +392,29 @@ type syncPlan struct {
 	Digest      string         `json:"digest"`
 }
 
-func buildConfigSyncPlan(doc *configDocument) (syncPlan, error) {
-	cfg := doc.effective
-	repoRoot := filepath.Dir(doc.sharedPath)
-	home := doc.home
+func buildConfigSyncPlan(doc *configDocument) (syncPlan, config, string, error) {
+	snapshot, err := doc.syncSnapshot()
+	if err != nil {
+		return syncPlan{}, config{}, "", err
+	}
+	cfg := snapshot.cfg
 	selected, err := selectAgents(cfg, "")
 	if err != nil {
-		return syncPlan{}, err
+		return syncPlan{}, config{}, "", err
 	}
-	repo, err := inspectRepoLink(repoRoot, home)
+	repo, err := inspectRepoLink(snapshot.repoRoot, snapshot.home)
 	if err != nil {
-		return syncPlan{}, err
+		return syncPlan{}, config{}, "", err
 	}
-	expected, err := expectedSkills(repoRoot, home, cfg)
+	expected, err := expectedSkills(snapshot.repoRoot, snapshot.home, cfg)
 	if err != nil {
-		return syncPlan{}, err
+		return syncPlan{}, config{}, "", err
 	}
-	reports, err := inspectAgents(selected, expected, repoRoot, home, cfg)
+	reports, err := inspectAgents(selected, expected, snapshot.repoRoot, snapshot.home, cfg)
 	if err != nil {
-		return syncPlan{}, err
+		return syncPlan{}, config{}, "", err
 	}
-	plan := syncPlan{RepoRoot: repoRoot, Repo: repo, Reports: reports}
+	plan := syncPlan{RepoRoot: snapshot.repoRoot, Repo: repo, Reports: reports}
 	for _, report := range reports {
 		for _, item := range report.Removes {
 			plan.Destructive = append(plan.Destructive, report.Name+": remove "+item)
@@ -424,20 +432,24 @@ func buildConfigSyncPlan(doc *configDocument) (syncPlan, error) {
 	}{plan.Repo, plan.Reports})
 	digest := sha256.Sum256(planData)
 	plan.Digest = hex.EncodeToString(digest[:])
-	return plan, nil
+	return plan, cfg, snapshot.revision, nil
 }
 
 func (s *configWebServer) handleSyncPreview(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost || !s.authorizeAPI(w, r, true) {
 		return
 	}
-	plan, err := buildConfigSyncPlan(s.doc)
+	if err := s.doc.reload(); err != nil {
+		writeCandidateError(w, err)
+		return
+	}
+	plan, _, revision, err := buildConfigSyncPlan(s.doc)
 	if err != nil {
 		writeCandidateError(w, err)
 		return
 	}
 	planData, _ := json.Marshal(plan)
-	writeJSON(w, http.StatusOK, map[string]interface{}{"plan": json.RawMessage(planData), "revision": s.doc.revision(configLayerShared), "digest": plan.Digest})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"plan": json.RawMessage(planData), "revision": revision, "digest": plan.Digest})
 }
 
 type syncApplyRequest struct {
@@ -455,17 +467,19 @@ func (s *configWebServer) handleSyncApply(w http.ResponseWriter, r *http.Request
 		writeCandidateError(w, err)
 		return
 	}
+	configSyncMu.Lock()
+	defer configSyncMu.Unlock()
 	if err := s.doc.reload(); err != nil {
 		writeCandidateError(w, err)
 		return
 	}
-	if s.doc.revision(configLayerShared) != req.ExpectedRevision {
-		writeAPIError(w, http.StatusConflict, "stale_revision", "canonical config changed; preview again")
-		return
-	}
-	plan, err := buildConfigSyncPlan(s.doc)
+	plan, cfg, revision, err := buildConfigSyncPlan(s.doc)
 	if err != nil {
 		writeCandidateError(w, err)
+		return
+	}
+	if revision != req.ExpectedRevision {
+		writeAPIError(w, http.StatusConflict, "stale_revision", "canonical config changed; preview again")
 		return
 	}
 	if plan.Digest != req.PlanDigest {
@@ -476,23 +490,27 @@ func (s *configWebServer) handleSyncApply(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, http.StatusConflict, "invalid_config", "confirm every destructive sync item before applying")
 		return
 	}
-	if err := runSync(runOptions{ConfigPath: s.doc.sharedPath, Stdout: io.Discard, Stdin: strings.NewReader("n\n")}); err != nil {
+	if err := runSync(runOptions{ConfigPath: s.doc.sharedPath, ConfigOverride: &cfg, Stdout: io.Discard, Stdin: strings.NewReader("n\n")}); err != nil {
 		writeCandidateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"applied": true, "revision": s.doc.revision(configLayerShared)})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"applied": true, "revision": revision})
 }
 
 func (s *configWebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || !s.authorizeAPI(w, r, false) {
 		return
 	}
-	plan, err := buildConfigSyncPlan(s.doc)
+	if err := s.doc.reload(); err != nil {
+		writeCandidateError(w, err)
+		return
+	}
+	plan, _, revision, err := buildConfigSyncPlan(s.doc)
 	if err != nil {
 		writeCandidateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"repo": plan.Repo, "reports": plan.Reports, "revision": s.doc.revision(configLayerShared)})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"repo": plan.Repo, "reports": plan.Reports, "revision": revision})
 }
 
 func sameStrings(left, right []string) bool {

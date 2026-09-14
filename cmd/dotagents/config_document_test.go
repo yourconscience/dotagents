@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -260,5 +261,165 @@ func TestConfigServeRejectsWildcardAddresses(t *testing.T) {
 		if err := validateLoopbackAddr(addr); err != nil {
 			t.Fatalf("validateLoopbackAddr(%q) = %v", addr, err)
 		}
+	}
+}
+
+// Blocker #1: a typed rewrite that clears an omitempty field (e.g. re-adding an
+// MCP server with no args/env) must drop the stale value, not silently keep it,
+// while preserving unknown keys and comments.
+func TestReplaceTypedClearsOmittedSchemaFields(t *testing.T) {
+	root := t.TempDir()
+	home := t.TempDir()
+	path := filepath.Join(root, "dotagents.yaml")
+	data := []byte("# keep this comment\nversion: 1\nfuture_key: preserve\nagents:\n  - name: codex\n    enabled: true\n    skill_root: ~/.codex/skills\nmcp_servers:\n  - name: linkedin\n    enabled: true\n    command: old-command\n    args:\n      - --port\n      - \"9999\"\n    env:\n      SECRET_TOKEN: sk-super-secret-old\n    agents:\n      - codex\n")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := newConfigDocument(path, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := cloneConfig(doc.shared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range cfg.MCPServers {
+		if cfg.MCPServers[i].Name == "linkedin" {
+			cfg.MCPServers[i].Command = "new-command"
+			cfg.MCPServers[i].Args = nil
+			cfg.MCPServers[i].Env = nil
+		}
+	}
+	if _, err := doc.replaceTyped(configLayerShared, doc.revision(configLayerShared), cfg); err != nil {
+		t.Fatal(err)
+	}
+	saved, _ := os.ReadFile(path)
+	s := string(saved)
+	if strings.Contains(s, "SECRET_TOKEN") || strings.Contains(s, "sk-super-secret-old") {
+		t.Fatalf("stale env survived the typed rewrite:\n%s", s)
+	}
+	if strings.Contains(s, "args:") || strings.Contains(s, "9999") {
+		t.Fatalf("stale args survived the typed rewrite:\n%s", s)
+	}
+	if !strings.Contains(s, "command: new-command") {
+		t.Fatalf("command was not updated:\n%s", s)
+	}
+	if !strings.Contains(s, "future_key: preserve") || !strings.Contains(s, "keep this comment") {
+		t.Fatalf("typed rewrite dropped an unknown key or comment:\n%s", s)
+	}
+}
+
+// Blocker #4: two concurrent saves with the same expected revision must not both
+// win; exactly one succeeds and the other gets a stale-revision error.
+func TestSaveRawSerializesConcurrentWrites(t *testing.T) {
+	root := t.TempDir()
+	home := t.TempDir()
+	path := writeCanonicalTestConfig(t, root)
+	doc, err := newConfigDocument(path, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rev := doc.revision(configLayerShared)
+	base := doc.bytes(configLayerShared)
+	candidate := func(n string) []byte {
+		return append(append([]byte(nil), base...), []byte("context_note_tokens: "+n+"\n")...)
+	}
+	cands := [][]byte{candidate("111"), candidate("222")}
+	results := make([]error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for i := 0; i < 2; i++ {
+		go func(i int) {
+			defer wg.Done()
+			_, results[i] = doc.saveRaw(configLayerShared, rev, cands[i])
+		}(i)
+	}
+	wg.Wait()
+	ok, stale := 0, 0
+	for _, err := range results {
+		switch {
+		case err == nil:
+			ok++
+		case errors.Is(err, errStaleRevision):
+			stale++
+		default:
+			t.Fatalf("unexpected save error: %v", err)
+		}
+	}
+	if ok != 1 || stale != 1 {
+		t.Fatalf("concurrent same-revision saves: ok=%d stale=%d, want 1/1", ok, stale)
+	}
+}
+
+// Blocker #2: the web state read reflects an external on-disk change on the next
+// request, instead of serving a stale revision that then wedges saves on 409.
+func TestConfigWebStateReloadsExternalChanges(t *testing.T) {
+	root := t.TempDir()
+	home := t.TempDir()
+	path := writeCanonicalTestConfig(t, root)
+	doc, err := newConfigDocument(path, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &configWebServer{doc: doc, origin: "http://127.0.0.1:8765", token: "session", csrf: "csrf"}
+	handler := server.handler()
+
+	stateReq := func() *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8765/api/state", nil)
+		request.AddCookie(&http.Cookie{Name: "dotagents_session", Value: "session"})
+		request.Header.Set("Origin", server.origin)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	first := stateReq()
+	if first.Code != http.StatusOK {
+		t.Fatalf("first state = %d: %s", first.Code, first.Body.String())
+	}
+	// External edit under the running server (another pane, mcp add, editor, git).
+	external := append([]byte("# external edit\n"), doc.bytes(configLayerShared)...)
+	if err := os.WriteFile(path, external, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	second := stateReq()
+	if second.Code != http.StatusOK {
+		t.Fatalf("second state = %d: %s", second.Code, second.Body.String())
+	}
+	if !strings.Contains(second.Body.String(), "external edit") {
+		t.Fatalf("state read did not observe the external change:\n%s", second.Body.String())
+	}
+}
+
+// Finding #5: a one-field structured edit produces a diff touching only the
+// changed line(s), not the whole file (indent preserved + minimal diff).
+func TestOneFieldEditProducesMinimalDiff(t *testing.T) {
+	root := t.TempDir()
+	home := t.TempDir()
+	path := writeCanonicalTestConfig(t, root)
+	doc, err := newConfigDocument(path, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, _ := json.Marshal(true)
+	saved, err := doc.applyOperations(configLayerShared, doc.revision(configLayerShared), []configOperation{{Path: "/agents/codex/enabled", Op: "set", Value: value}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	removed, added := 0, 0
+	for _, line := range strings.Split(saved.Diff, "\n") {
+		switch {
+		case strings.HasPrefix(line, "---"), strings.HasPrefix(line, "+++"):
+			continue
+		case strings.HasPrefix(line, "-"):
+			removed++
+		case strings.HasPrefix(line, "+"):
+			added++
+		}
+	}
+	if removed > 1 || added > 1 {
+		t.Fatalf("one-field toggle diff changed %d removed / %d added line(s), want <=1 each:\n%s", removed, added, saved.Diff)
+	}
+	if !strings.Contains(saved.Diff, "enabled: true") {
+		t.Fatalf("diff does not show the changed line:\n%s", saved.Diff)
 	}
 }

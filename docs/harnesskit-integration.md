@@ -1,6 +1,6 @@
 # HarnessKit integration — design notes
 
-Status: L0 + L2 shipped (`dotagents view`). L1 (opt-in install) and L3 (write-through) remain future work. Original design date 2026-09-06.
+Status: L0 + L2 shipped. The launcher is `dotagents inspect` (it was `dotagents inspect` until v0.9.0, when `view` became the config web UI). L1 (opt-in install) and L3 (write-through) remain future work. Original design date 2026-09-06.
 
 ## Finding
 
@@ -33,21 +33,21 @@ Register HarnessKit as an **optional, opt-in** external tool:
 
 Install method is still open (release binary vs `cargo install` vs `brew` tap) — do not hardcode one until verified.
 
-### L2 — Launch command (`dotagents view`)
+### L2 — Launch command (`dotagents inspect`)
 
-`dotagents view` starts `hk serve`, prints the tokenized URL on its own line, and (locally) opens it in the default browser; `--no-open` skips the launch and `--ssh-host user@host` prints an `ssh -L` tunnel command instead.
+`dotagents inspect` starts `hk serve`, prints the tokenized URL on its own line, and (locally) opens it in the default browser; `--no-open` skips the launch and `--ssh-host user@host` prints an `ssh -L` tunnel command instead.
 
-- HarnessKit does its own harness discovery over the native homes (`~/.claude`, `~/.omp`, `~/.hermes`, …), so `view` does not load or pass the dotagents config root; a nonstandard `--config`/`$DOTAGENTS_HOME` only relocates dotagents' YAML, not the harness homes HK reads.
+- HarnessKit does its own harness discovery over the native homes (`~/.claude`, `~/.omp`, `~/.hermes`, …), so `inspect` does not load or pass the dotagents config root; a nonstandard `--config`/`$DOTAGENTS_HOME` only relocates dotagents' YAML, not the harness homes HK reads.
 - Spawns the HK local server (127.0.0.1, token in URL) and opens it locally (suppressible with `--no-open`). Mirrors the external-CLI launch path (`external_cli.go`, `cli_launch_test.go`).
 - Inspection intent, not enforced: `hk serve` has no read-only mode, so HarnessKit's own enable/disable/deploy actions can still write native dirs and bypass dotagents. The launch banner warns against using them on managed surfaces; reconcile drift with `dotagents sync`.
 
-L0–L2 are the concrete near-term scope. dotagents itself writes no managed surfaces on these paths, but `dotagents view` launches HarnessKit, whose own enable/disable/deploy actions can still write native dirs (including managed surfaces) and bypass dotagents; the launch banner cautions against this and drift is reconciled with `dotagents sync`.
+L0–L2 are the concrete near-term scope. dotagents itself writes no managed surfaces on these paths, but `dotagents inspect` launches HarnessKit, whose own enable/disable/deploy actions can still write native dirs (including managed surfaces) and bypass dotagents; the launch banner cautions against this and drift is reconciled with `dotagents sync`.
 
 ## Recommended first slice
 
 **L0 + L2, now unblocked** (open questions #1–#3 resolved in HK's favor):
 
 1. L0 docs pointer — README + `dotagents` SKILL + CLI help. Pointer only, no duplicated harness-compat table.
-2. `dotagents view` — thin launcher: `exec.LookPath("hk")`, forward args to `hk serve`, inspection framing (writes not enforced — banner cautions), install hint when absent. Implemented on this branch (`cmd/dotagents/view.go`, `view_test.go`).
+2. `dotagents inspect` — thin launcher: `exec.LookPath("hk")`, forward args to `hk serve`, inspection framing (writes not enforced — banner cautions), install hint when absent. Implemented in `cmd/dotagents/harnesskit.go` and `inspect_test.go`.
 3. L1 opt-in install — deferred until the install method and publish-age window are settled.
 4. L3 write-through — separate research spike, no code; keep dotagents the only writer until a go/no-go is decided.

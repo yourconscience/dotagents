@@ -10,8 +10,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -30,6 +32,11 @@ var (
 )
 
 type configDocument struct {
+	// mu serializes read-check-write on the shared/local files so two
+	// same-revision saves cannot both pass the stale-revision guard and clobber
+	// each other, and so a read that reloads from disk sees a consistent state.
+	mu sync.Mutex
+
 	home       string
 	sharedPath string
 	localPath  string
@@ -87,7 +94,16 @@ func newConfigDocument(path string, home string) (*configDocument, error) {
 	return doc, nil
 }
 
+// reload re-reads both config files from disk and rebuilds the effective merge,
+// taking the document lock so it is safe to call from a request handler while a
+// save may be in flight. Callers that already hold the lock use reloadLocked.
 func (d *configDocument) reload() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.reloadLocked()
+}
+
+func (d *configDocument) reloadLocked() error {
 	sharedBytes, err := os.ReadFile(d.sharedPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -141,6 +157,98 @@ func decodeConfigDocument(data []byte, home string, expand bool) (yaml.Node, con
 	}
 	return node, cfg, nil
 }
+
+// marshalConfigYAML encodes a config value or YAML node with 2-space indent to
+// match the indentation setup writes, so a typed rewrite of one field does not
+// reflow the whole file (2->4 space) and swamp the review diff with noise.
+func marshalConfigYAML(value interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(value); err != nil {
+		_ = enc.Close()
+		return nil, err
+	}
+	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// schemaYAMLKeys returns the set of YAML key names declared by a config struct
+// type, so a typed rewrite can distinguish known schema fields (safe to drop
+// when omitted) from unknown keys a user added (which must be preserved).
+func schemaYAMLKeys(v interface{}) map[string]bool {
+	t := reflect.TypeOf(v)
+	keys := make(map[string]bool, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		name := strings.Split(t.Field(i).Tag.Get("yaml"), ",")[0]
+		if name != "" && name != "-" {
+			keys[name] = true
+		}
+	}
+	return keys
+}
+
+// sequenceEntrySchema maps each top-level config sequence section to the known
+// YAML keys of its entry type.
+func sequenceEntrySchema() map[string]map[string]bool {
+	return map[string]map[string]bool{
+		"agents":          schemaYAMLKeys(agentConfig{}),
+		"mcp_servers":     schemaYAMLKeys(mcpServerConfig{}),
+		"external_skills": schemaYAMLKeys(externalSkillSource{}),
+		"hooks":           schemaYAMLKeys(hookConfig{}),
+		"publish_targets": schemaYAMLKeys(publishTarget{}),
+	}
+}
+
+// pruneOmittedSchemaKeys removes known schema keys from dst that the marshaled
+// typed source omitted, at the document level, per sequence entry, and inside
+// the ui block. Unknown keys (not part of the schema) are left in place. This
+// is what makes a typed replace clear an emptied field (a removed MCP arg/env,
+// a dropped hooks/ui block) instead of merging it and keeping the stale value.
+func pruneOmittedSchemaKeys(dst, src *yaml.Node) {
+	dstRoot, srcRoot := rootMapping(dst), rootMapping(src)
+	if dstRoot == nil || srcRoot == nil || dstRoot.Kind != yaml.MappingNode || srcRoot.Kind != yaml.MappingNode {
+		return
+	}
+	removeKnownAbsent(dstRoot, srcRoot, schemaYAMLKeys(config{}))
+	for section, entryKeys := range sequenceEntrySchema() {
+		dstSeq := mappingValue(dstRoot, section)
+		srcSeq := mappingValue(srcRoot, section)
+		if dstSeq == nil || srcSeq == nil || dstSeq.Kind != yaml.SequenceNode || srcSeq.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, dstEntry := range dstSeq.Content {
+			if dstEntry.Kind != yaml.MappingNode {
+				continue
+			}
+			idx := findSequenceEntry(srcSeq, section, stableNodeKey(dstEntry, section))
+			if idx < 0 {
+				continue
+			}
+			removeKnownAbsent(dstEntry, srcSeq.Content[idx], entryKeys)
+		}
+	}
+	if dstUI := mappingValue(dstRoot, "ui"); dstUI != nil && dstUI.Kind == yaml.MappingNode {
+		if srcUI := mappingValue(srcRoot, "ui"); srcUI != nil && srcUI.Kind == yaml.MappingNode {
+			removeKnownAbsent(dstUI, srcUI, schemaYAMLKeys(uiConfig{}))
+		}
+	}
+}
+
+// removeKnownAbsent drops the key/value pairs of dst whose key is a known schema
+// key not present in src, leaving unknown keys untouched.
+func removeKnownAbsent(dst, src *yaml.Node, known map[string]bool) {
+	for i := 0; i+1 < len(dst.Content); {
+		if key := dst.Content[i].Value; known[key] && mappingIndex(src, key) < 0 {
+			dst.Content = append(dst.Content[:i], dst.Content[i+2:]...)
+			continue
+		}
+		i += 2
+	}
+}
+
 func cloneConfig(cfg config) (config, error) {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -161,18 +269,24 @@ func (d *configDocument) path(layer configLayer) string {
 }
 
 func (d *configDocument) bytes(layer configLayer) []byte {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.bytesLocked(layer)
+}
+
+func (d *configDocument) bytesLocked(layer configLayer) []byte {
 	switch layer {
 	case configLayerLocal:
 		return append([]byte(nil), d.localBytes...)
 	case configLayerEffective:
-		data, _ := yaml.Marshal(d.effective)
+		data, _ := marshalConfigYAML(d.effective)
 		return data
 	default:
 		return append([]byte(nil), d.sharedBytes...)
 	}
 }
 
-func (d *configDocument) typed(layer configLayer) config {
+func (d *configDocument) typedLocked(layer configLayer) config {
 	switch layer {
 	case configLayerLocal:
 		return d.local
@@ -184,10 +298,35 @@ func (d *configDocument) typed(layer configLayer) config {
 }
 
 func (d *configDocument) revision(layer configLayer) string {
-	if layer == configLayerEffective {
-		return revisionOf(d.bytes(layer))
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.revisionLocked(layer)
+}
+
+func (d *configDocument) revisionLocked(layer configLayer) string {
+	return revisionOf(d.bytesLocked(layer))
+}
+
+type configSyncSnapshot struct {
+	cfg      config
+	repoRoot string
+	home     string
+	revision string
+}
+
+func (d *configDocument) syncSnapshot() (configSyncSnapshot, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	cfg, err := cloneConfig(d.effective)
+	if err != nil {
+		return configSyncSnapshot{}, fmt.Errorf("clone effective config: %w", err)
 	}
-	return revisionOf(d.bytes(layer))
+	return configSyncSnapshot{
+		cfg:      cfg,
+		repoRoot: filepath.Dir(d.sharedPath),
+		home:     d.home,
+		revision: revisionOf(d.sharedBytes),
+	}, nil
 }
 
 func revisionOf(data []byte) string {
@@ -196,6 +335,12 @@ func revisionOf(data []byte) string {
 }
 
 func (d *configDocument) validateRaw(layer configLayer, raw []byte) (config, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.validateRawLocked(layer, raw)
+}
+
+func (d *configDocument) validateRawLocked(layer configLayer, raw []byte) (config, error) {
 	if layer == configLayerEffective {
 		return config{}, errReadOnlyLayer
 	}
@@ -227,7 +372,9 @@ func (d *configDocument) saveRaw(layer configLayer, expectedRevision string, raw
 	if layer == configLayerEffective {
 		return configSave{}, errReadOnlyLayer
 	}
-	if _, err := d.validateRaw(layer, raw); err != nil {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if _, err := d.validateRawLocked(layer, raw); err != nil {
 		return configSave{}, err
 	}
 	before, err := os.ReadFile(d.path(layer))
@@ -251,17 +398,23 @@ func (d *configDocument) saveRaw(layer configLayer, expectedRevision string, raw
 	if err := atomicConfigWrite(d.path(layer), raw, mode); err != nil {
 		return configSave{}, err
 	}
-	if err := d.reload(); err != nil {
+	if err := d.reloadLocked(); err != nil {
 		return configSave{}, err
 	}
-	return configSave{Layer: layer, Before: before, After: append([]byte(nil), raw...), Revision: d.revision(layer), Diff: unifiedConfigDiff(d.path(layer), before, raw)}, nil
+	return configSave{Layer: layer, Before: before, After: append([]byte(nil), raw...), Revision: d.revisionLocked(layer), Diff: unifiedConfigDiff(d.path(layer), before, raw)}, nil
 }
 
 func (d *configDocument) operationsRaw(layer configLayer, operations []configOperation) ([]byte, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.operationsRawLocked(layer, operations)
+}
+
+func (d *configDocument) operationsRawLocked(layer configLayer, operations []configOperation) ([]byte, error) {
 	if layer == configLayerEffective {
 		return nil, errReadOnlyLayer
 	}
-	node, err := d.layerNode(layer)
+	node, err := d.layerNodeLocked(layer)
 	if err != nil {
 		return nil, err
 	}
@@ -270,11 +423,11 @@ func (d *configDocument) operationsRaw(layer configLayer, operations []configOpe
 			return nil, err
 		}
 	}
-	raw, err := yaml.Marshal(&node)
+	raw, err := marshalConfigYAML(&node)
 	if err != nil {
 		return nil, fmt.Errorf("marshal config: %w", err)
 	}
-	if _, err := d.validateRaw(layer, raw); err != nil {
+	if _, err := d.validateRawLocked(layer, raw); err != nil {
 		return nil, err
 	}
 	return raw, nil
@@ -289,6 +442,12 @@ func (d *configDocument) applyOperations(layer configLayer, expectedRevision str
 }
 
 func (d *configDocument) layerNode(layer configLayer) (yaml.Node, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.layerNodeLocked(layer)
+}
+
+func (d *configDocument) layerNodeLocked(layer configLayer) (yaml.Node, error) {
 	switch layer {
 	case configLayerShared:
 		return cloneYAMLNode(d.sharedNode)
@@ -331,16 +490,13 @@ func (d *configDocument) replaceTyped(layer configLayer, expectedRevision string
 		return configSave{}, err
 	}
 	mergeKnownMapping(rootMapping(&node), rootMapping(&source))
-	if len(cfg.Hooks) == 0 {
-		removeMappingKey(rootMapping(&node), "hooks")
-	}
-	if cfg.UI == nil {
-		removeMappingKey(rootMapping(&node), "ui")
-	}
-	if cfg.ContextNoteTokens == nil {
-		removeMappingKey(rootMapping(&node), "context_note_tokens")
-	}
-	raw, err := yaml.Marshal(&node)
+	// The marshaled typed config is the authoritative, complete value for every
+	// known schema key. Drop known keys the source omitted (empty omitempty
+	// fields such as a cleared MCP args/env, or a removed hooks/ui block) so a
+	// typed rewrite does not silently retain stale entries — while leaving any
+	// unknown keys a user added untouched.
+	pruneOmittedSchemaKeys(&node, &source)
+	raw, err := marshalConfigYAML(&node)
 	if err != nil {
 		return configSave{}, fmt.Errorf("marshal config: %w", err)
 	}
@@ -396,7 +552,7 @@ func saveConfigDocument(path string, home string, cfg config) error {
 		if err := validateConfig(&cfg, home, false); err != nil {
 			return err
 		}
-		data, err := yaml.Marshal(cfg)
+		data, err := marshalConfigYAML(cfg)
 		if err != nil {
 			return fmt.Errorf("yaml encode: %w", err)
 		}
@@ -437,11 +593,6 @@ func mappingIndex(mapping *yaml.Node, key string) int {
 		}
 	}
 	return -1
-}
-func removeMappingKey(mapping *yaml.Node, key string) {
-	if idx := mappingIndex(mapping, key); idx >= 0 {
-		mapping.Content = append(mapping.Content[:idx], mapping.Content[idx+2:]...)
-	}
 }
 
 func stableNodeKey(node *yaml.Node, section string) string {
@@ -700,27 +851,108 @@ func unifiedConfigDiff(path string, before, after []byte) string {
 	if bytes.Equal(before, after) {
 		return ""
 	}
-	oldLines := strings.Split(string(before), "\n")
-	newLines := strings.Split(string(after), "\n")
-	if len(oldLines) > 0 && oldLines[len(oldLines)-1] == "" {
-		oldLines = oldLines[:len(oldLines)-1]
-	}
-	if len(newLines) > 0 && newLines[len(newLines)-1] == "" {
-		newLines = newLines[:len(newLines)-1]
-	}
+	oldLines := splitDiffLines(before)
+	newLines := splitDiffLines(after)
 	var out strings.Builder
-	fmt.Fprintf(&out, "--- %s\n+++ %s\n@@ -1,%d +1,%d @@\n", path, path, len(oldLines), len(newLines))
-	for _, line := range oldLines {
-		out.WriteByte('-')
-		out.WriteString(line)
-		out.WriteByte('\n')
-	}
-	for _, line := range newLines {
-		out.WriteByte('+')
+	fmt.Fprintf(&out, "--- %s\n+++ %s\n", path, path)
+	for _, line := range diffLines(oldLines, newLines) {
 		out.WriteString(line)
 		out.WriteByte('\n')
 	}
 	return out.String()
+}
+
+func splitDiffLines(data []byte) []string {
+	lines := strings.Split(string(data), "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
+}
+
+// diffLines returns a line-oriented diff of old vs new, each line prefixed
+// with '-' (removed), '+' (added), or ' ' (context).
+func diffLines(oldLines, newLines []string) []string {
+	prefix := 0
+	for prefix < len(oldLines) && prefix < len(newLines) && oldLines[prefix] == newLines[prefix] {
+		prefix++
+	}
+	oldEnd, newEnd := len(oldLines), len(newLines)
+	for oldEnd > prefix && newEnd > prefix && oldLines[oldEnd-1] == newLines[newEnd-1] {
+		oldEnd--
+		newEnd--
+	}
+
+	out := make([]string, 0, len(oldLines)+len(newLines))
+	for _, line := range oldLines[:prefix] {
+		out = append(out, " "+line)
+	}
+	oldMiddle, newMiddle := oldLines[prefix:oldEnd], newLines[prefix:newEnd]
+	switch {
+	case len(oldMiddle) == 0:
+		for _, line := range newMiddle {
+			out = append(out, "+"+line)
+		}
+	case len(newMiddle) == 0:
+		for _, line := range oldMiddle {
+			out = append(out, "-"+line)
+		}
+	case len(oldMiddle) > (1<<20)/len(newMiddle):
+		for _, line := range oldMiddle {
+			out = append(out, "-"+line)
+		}
+		for _, line := range newMiddle {
+			out = append(out, "+"+line)
+		}
+	default:
+		out = append(out, boundedDiffLines(oldMiddle, newMiddle)...)
+	}
+	for _, line := range oldLines[oldEnd:] {
+		out = append(out, " "+line)
+	}
+	return out
+}
+
+func boundedDiffLines(oldLines, newLines []string) []string {
+	m, n := len(oldLines), len(newLines)
+	lcs := make([][]int, m+1)
+	for i := range lcs {
+		lcs[i] = make([]int, n+1)
+	}
+	for i := m - 1; i >= 0; i-- {
+		for j := n - 1; j >= 0; j-- {
+			if oldLines[i] == newLines[j] {
+				lcs[i][j] = lcs[i+1][j+1] + 1
+			} else if lcs[i+1][j] >= lcs[i][j+1] {
+				lcs[i][j] = lcs[i+1][j]
+			} else {
+				lcs[i][j] = lcs[i][j+1]
+			}
+		}
+	}
+	var out []string
+	i, j := 0, 0
+	for i < m && j < n {
+		switch {
+		case oldLines[i] == newLines[j]:
+			out = append(out, " "+oldLines[i])
+			i++
+			j++
+		case lcs[i+1][j] >= lcs[i][j+1]:
+			out = append(out, "-"+oldLines[i])
+			i++
+		default:
+			out = append(out, "+"+newLines[j])
+			j++
+		}
+	}
+	for ; i < m; i++ {
+		out = append(out, "-"+oldLines[i])
+	}
+	for ; j < n; j++ {
+		out = append(out, "+"+newLines[j])
+	}
+	return out
 }
 
 func configPathFor(opts runOptions, home string) (string, error) {

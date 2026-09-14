@@ -14,7 +14,6 @@ The web UI ships inside the existing `dotagents` binary and runs as a standalone
 
 ## Non-goals
 
-- Replacing HarnessKit as the native-harness inspection and audit viewer. `dotagents view` remains the HarnessKit launcher.
 - Moving skill bodies, role Markdown, plugin source, memory, or lock data into `dotagents.yaml`. These remain canonical repo files; YAML owns configuration and references to those files.
 - Editing arbitrary files outside the resolved dotagents config root.
 - Installing a LaunchAgent, daemon, Tailscale Serve rule, or public tunnel automatically.
@@ -23,18 +22,18 @@ The web UI ships inside the existing `dotagents` binary and runs as a standalone
 
 ## Commands
 
-Keep the new surface under one command family so first-run ownership stays with `setup` and the short top-level command list does not grow unnecessarily.
+The canonical configuration experience is reached two ways: `dotagents config` for the terminal TUI (plus `validate`/`print`) and `dotagents view` for the browser web UI. Both are projections of the same document. `view` takes over the `dotagents view` name from the former HarnessKit launcher, which is renamed to `dotagents inspect` (a separate read-mostly cross-harness inspector, not an authoring surface).
 
 ```text
 dotagents config                         # interactive TUI
-dotagents config serve                   # web UI, loopback only, opens browser
-dotagents config serve --no-open
-dotagents config serve --addr 127.0.0.1:8765
+dotagents view                           # web UI, loopback only, opens browser
+dotagents view --no-open
+dotagents view --addr 127.0.0.1:8765
 dotagents config validate                # validate canonical YAML without writing
 dotagents config print                   # print resolved paths and effective config
 ```
 
-If no canonical config exists, `dotagents config` and `config serve` direct the user to `dotagents setup`; they do not implement a second first-run flow.
+If no canonical config exists, `dotagents config` and `dotagents view` direct the user to `dotagents setup`; they do not implement a second first-run flow.
 
 ## Canonical configuration model
 
@@ -138,14 +137,14 @@ No generic filesystem, shell, command, or path endpoint. Responses must not expo
 ## Web security and mobile access
 
 - Bind only to loopback. Reject wildcard and non-loopback addresses.
-- Generate a random startup token. Bootstrap it into an `HttpOnly`, `SameSite=Strict` session cookie and remove the token from the visible URL. `dotagents config serve --secure-cookie` additionally marks it `Secure` and is required when the browser reaches the loopback server through Tailscale HTTPS; plain local HTTP omits that flag.
+- Generate a random startup token. Bootstrap it into an `HttpOnly`, `SameSite=Strict` session cookie and remove the token from the visible URL. `dotagents view --secure-cookie` additionally marks it `Secure` and is required when the browser reaches the loopback server through Tailscale HTTPS; plain local HTTP omits that flag.
 - Require the session for every API request, validate `Origin`, and require a CSRF header for mutations.
 - Send `Cache-Control: no-store`, a restrictive CSP, `X-Content-Type-Options: nosniff`, and `frame-ancestors 'none'`.
 - Keep configuration and secrets in memory only for the request lifecycle; never log request bodies or tokens.
 - Tailscale access is an explicit operator step, for example:
 
 ```bash
-dotagents config serve --no-open --secure-cookie --addr 127.0.0.1:8765
+dotagents view --no-open --secure-cookie --addr 127.0.0.1:8765
 tailscale serve --bg --set-path /dotagents http://127.0.0.1:8765
 ```
 
@@ -223,7 +222,7 @@ agents  mcp  hooks  external skills  advanced  yaml
 
 ### Slice 3: web server and desktop UI
 
-- Add `dotagents config serve` with loopback validation, token bootstrap, security headers, revision-aware APIs, and embedded separate assets.
+- Add `dotagents view` (the web UI) with loopback validation, token bootstrap, security headers, revision-aware APIs, and embedded separate assets.
 - Implement selection-only structured controls, diff/save, status, and sync preview. Raw YAML stays out of the web UI.
 - Keep sync apply behind a separate explicit confirmation screen.
 - Exercise the actual page in a browser against a temporary config root: select setting → diff → save → reload.
@@ -238,7 +237,7 @@ agents  mcp  hooks  external skills  advanced  yaml
 
 - Complete preview-digest guarded sync apply in web and TUI.
 - Update README, CLI help, `skills/dotagents/SKILL.md`, setup docs, and release-site copy together.
-- Keep `dotagents view` documented as HarnessKit inspection; document `dotagents config` as canonical authoring.
+- Document `dotagents config` (TUI) and `dotagents view` (web UI) as the two projections of canonical authoring; the former HarnessKit launcher is renamed to `dotagents inspect`.
 - Remove throwaway smoke scripts and update this spec with Outcome / Deviations.
 
 ## Acceptance tests
@@ -270,7 +269,7 @@ agents  mcp  hooks  external skills  advanced  yaml
 - Existing typed schema: `cmd/dotagents/main.go`, `mcp.go`, and `hooks.go`.
 - Existing resolution, overlay, validation, and worktree safety: `cmd/dotagents/config.go`.
 - Existing TUI foundation: `cmd/dotagents/review.go` and `review_apply.go`.
-- Existing HarnessKit boundary: `cmd/dotagents/view.go` and `docs/harnesskit-integration.md`.
+- Config web UI launcher: `cmd/dotagents/view.go` (serves the loopback web UI in `config_web.go`).
 - Existing whole-document writers: `writeSetupConfig` and `writeEditableMCPConfig`; these are insufficient for comment/unknown-field-preserving interactive edits.
 
 ## Outcome / Deviations
@@ -287,13 +286,13 @@ Implemented in the current checkout:
 - `dotagents config`, `config validate`, and `config print` are wired. The
   Bubble Tea editor has shared/local/effective tabs, raw YAML editing,
   validation, diff review, save, and stale-revision protection.
-- `config serve` embeds separate HTML/CSS/ES-module assets and exposes the
+- `dotagents view` embeds separate HTML/CSS/ES-module assets and exposes the
   revision-aware state, validation, raw/structured mutation, sync preview,
   guarded sync apply, and status APIs. Loopback binding, startup-token
   bootstrap, strict session cookies, origin/CSRF checks, security headers,
   secret masking, and `--secure-cookie` are implemented.
 - Public help, README, skill documentation, setup documentation, and release
-  site copy describe canonical authoring separately from HarnessKit `view`.
+  site copy describe canonical authoring through `dotagents config` (TUI) and `dotagents view` (web UI).
 
 Known deviations:
 

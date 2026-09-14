@@ -15,7 +15,11 @@ async function api(path, options = {}) {
   const headers = {'Accept':'application/json', ...(options.body ? {'Content-Type':'application/json'} : {}), ...(options.method && options.method !== 'GET' ? {'X-Dotagents-CSRF':csrf()} : {})};
   const response = await fetch(new URL(path.replace(/^\//, ''), baseURL), {...options, headers});
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error?.message || `request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(body.error?.message || `request failed (${response.status})`);
+    error.code = body.error?.code || '';
+    throw error;
+  }
   return body;
 }
 function pick(object, ...keys) { for (const key of keys) if (object && object[key] !== undefined) return object[key]; return undefined; }
@@ -138,12 +142,23 @@ async function review() {
 }
 async function save() {
   if (!pendingOperations.size) { setStatus('No changes to save.'); return; }
+  const staged = [...pendingOperations.values()];
   try {
-    const result = await api('/api/config', {method:'PATCH', body:JSON.stringify({layer, expected_revision:state.revision, operations:[...pendingOperations.values()]})});
+    const result = await api('/api/config', {method:'PATCH', body:JSON.stringify({layer, expected_revision:state.revision, operations:staged})});
     $('#diff').textContent = result.diff || '(no changes)';
     await load(layer);
     setStatus('Saved canonical configuration. Sync remains separate.', 'ok');
-  } catch (error) { setStatus(error.message, 'error'); }
+  } catch (error) {
+    if (error.code === 'stale_revision') {
+      // The file changed on disk under us. Reload to the current revision so the
+      // user can reapply, instead of wedging on 409 until the server restarts.
+      await load(layer);
+      staged.forEach((op) => pendingOperations.set(op.path, op));
+      setStatus('Config changed on disk; reloaded to the latest. Review the diff and save again.', 'error');
+      return;
+    }
+    setStatus(error.message, 'error');
+  }
 }
 async function previewSync() {
   try { const result = await api('/api/sync/preview', {method:'POST', body:'{}'}); plan = result; $('#plan').textContent = JSON.stringify(result.plan, null, 2); $('#apply').disabled = false; setStatus(`Sync preview ready: ${result.digest.slice(0,12)}.`, 'ok'); }

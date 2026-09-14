@@ -1,86 +1,80 @@
 package main
 
 import (
-	"errors"
-	"reflect"
 	"strings"
 	"testing"
 )
 
-func TestHKServeArgs(t *testing.T) {
-	if got := hkServeArgs(nil); !reflect.DeepEqual(got, []string{"serve"}) {
-		t.Fatalf("hkServeArgs(nil) = %v, want [serve]", got)
-	}
-	got := hkServeArgs([]string{"--port", "8080"})
-	want := []string{"serve", "--port", "8080"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("hkServeArgs passthrough = %v, want %v", got, want)
-	}
-}
-
-func TestRunViewMissingBinary(t *testing.T) {
-	orig := hkLookPath
-	t.Cleanup(func() { hkLookPath = orig })
-	hkLookPath = func(string) (string, error) { return "", errors.New("not found") }
-
-	err := runView(nil)
-	if err == nil {
-		t.Fatal("expected error when hk binary is missing")
-	}
-	if !strings.Contains(err.Error(), "HarnessKit") || !strings.Contains(err.Error(), "github.com/RealZST/HarnessKit") {
-		t.Fatalf("error should guide install, got: %v", err)
-	}
-}
-
-func TestParseViewArgs(t *testing.T) {
-	opts, passthrough, err := parseViewArgs([]string{"--no-open", "--ssh-host", "kirill@box", "--port", "8080", "--no-token"})
+func TestParseViewFlags(t *testing.T) {
+	opts, err := parseViewFlags([]string{"--no-open", "--secure-cookie", "--addr", "127.0.0.1:9000", "--ssh-host", "kirill@box"})
 	if err != nil {
-		t.Fatalf("parseViewArgs error: %v", err)
+		t.Fatalf("parseViewFlags error: %v", err)
 	}
 	if !opts.NoOpen {
 		t.Fatal("--no-open not parsed")
 	}
+	if !opts.SecureCookie {
+		t.Fatal("--secure-cookie not parsed")
+	}
+	if opts.Addr != "127.0.0.1:9000" {
+		t.Fatalf("Addr = %q, want 127.0.0.1:9000", opts.Addr)
+	}
 	if opts.SSHHost != "kirill@box" {
 		t.Fatalf("SSHHost = %q, want kirill@box", opts.SSHHost)
 	}
-	if want := []string{"--port", "8080", "--no-token"}; !reflect.DeepEqual(passthrough, want) {
-		t.Fatalf("passthrough = %v, want %v", passthrough, want)
-	}
 }
 
-func TestParseViewArgsSSHHostEquals(t *testing.T) {
-	opts, passthrough, err := parseViewArgs([]string{"--ssh-host=user@1.2.3.4"})
+func TestParseViewFlagsDefaults(t *testing.T) {
+	opts, err := parseViewFlags(nil)
 	if err != nil {
-		t.Fatalf("parseViewArgs error: %v", err)
+		t.Fatalf("parseViewFlags error: %v", err)
 	}
-	if opts.SSHHost != "user@1.2.3.4" {
-		t.Fatalf("SSHHost = %q", opts.SSHHost)
+	if opts.Addr != "127.0.0.1:8765" {
+		t.Fatalf("default Addr = %q, want 127.0.0.1:8765", opts.Addr)
 	}
-	if len(passthrough) != 0 {
-		t.Fatalf("passthrough = %v, want empty", passthrough)
-	}
-}
-
-func TestParseViewArgsSSHHostMissingValue(t *testing.T) {
-	if _, _, err := parseViewArgs([]string{"--ssh-host"}); err == nil {
-		t.Fatal("expected error for --ssh-host without a value")
+	if opts.NoOpen || opts.SecureCookie || opts.SSHHost != "" || opts.ConfigPath != "" {
+		t.Fatalf("unexpected non-default view options: %+v", opts)
 	}
 }
 
-func TestExtractServeURL(t *testing.T) {
-	line := "HarnessKit Web UI [host] running at http://127.0.0.1:7070/?token=abc123"
-	url, ok := extractServeURL(line)
-	if !ok || url != "http://127.0.0.1:7070/?token=abc123" {
-		t.Fatalf("extractServeURL = %q, %v", url, ok)
+func TestParseViewFlagsRejectsPositional(t *testing.T) {
+	if _, err := parseViewFlags([]string{"serve"}); err == nil {
+		t.Fatal("expected error for positional argument")
 	}
-	if _, ok := extractServeURL("Auth token: abc123"); ok {
-		t.Fatal("extractServeURL should not match a non-URL line")
+}
+
+func TestRunViewLegacyHarnessKitFlagsGiveRenameGuidance(t *testing.T) {
+	for _, flag := range []string{"--port", "--host", "--no-token", "--name"} {
+		t.Run(flag, func(t *testing.T) {
+			// Legacy HarnessKit args must not launch anything; they point at inspect.
+			for _, args := range [][]string{{flag, "7070"}, {flag + "=x"}} {
+				err := runView(args)
+				if err == nil {
+					t.Fatalf("runView(%v) = nil, want rename guidance error", args)
+				}
+				if !strings.Contains(err.Error(), "dotagents inspect") || !strings.Contains(err.Error(), flag) {
+					t.Fatalf("runView(%v) error = %q, want guidance naming %s and inspect", args, err, flag)
+				}
+			}
+		})
+	}
+}
+
+func TestFirstLegacyInspectFlag(t *testing.T) {
+	if got := firstLegacyInspectFlag([]string{"--no-open", "--addr", "127.0.0.1:8765"}); got != "" {
+		t.Fatalf("firstLegacyInspectFlag on config-UI flags = %q, want empty", got)
+	}
+	if got := firstLegacyInspectFlag([]string{"--no-open", "--port", "7070"}); got != "--port" {
+		t.Fatalf("firstLegacyInspectFlag = %q, want --port", got)
+	}
+	if got := firstLegacyInspectFlag([]string{"--host=0.0.0.0"}); got != "--host" {
+		t.Fatalf("firstLegacyInspectFlag equals form = %q, want --host", got)
 	}
 }
 
 func TestPortFromURL(t *testing.T) {
-	if got := portFromURL("http://127.0.0.1:7070/?token=x"); got != "7070" {
-		t.Fatalf("portFromURL = %q, want 7070", got)
+	if got := portFromURL("http://127.0.0.1:8765/?token=x"); got != "8765" {
+		t.Fatalf("portFromURL = %q, want 8765", got)
 	}
 	if got := portFromURL("http://example.com/path"); got != "" {
 		t.Fatalf("portFromURL without port = %q, want empty", got)
@@ -113,24 +107,12 @@ func TestResolveSSHHost(t *testing.T) {
 }
 
 func TestTunnelCommand(t *testing.T) {
-	cmd, ok := tunnelCommand("http://127.0.0.1:7070/?token=x", "user@host")
-	if !ok || cmd != "ssh -L 7070:localhost:7070 user@host" {
+	cmd, ok := tunnelCommand("http://127.0.0.1:8765/?token=x", "user@host")
+	if !ok || cmd != "ssh -L 8765:localhost:8765 user@host" {
 		t.Fatalf("tunnelCommand = %q, %v", cmd, ok)
 	}
-	if _, ok := tunnelCommand("http://127.0.0.1:7070/", ""); ok {
+	if _, ok := tunnelCommand("http://127.0.0.1:8765/", ""); ok {
 		t.Fatal("tunnelCommand should fail without a host")
-	}
-}
-
-func TestHKBannerNoise(t *testing.T) {
-	if !hkBannerNoise("Access via SSH tunnel: ssh -L 7070:localhost:7070 your-server") {
-		t.Fatal("tunnel line should be suppressible")
-	}
-	if !hkBannerNoise("Auth token: abc123") {
-		t.Fatal("token line should be suppressible")
-	}
-	if hkBannerNoise("some runtime log line") {
-		t.Fatal("ordinary lines must not be suppressed")
 	}
 }
 
@@ -141,8 +123,8 @@ func TestAnnounceViewLocalOpensBrowser(t *testing.T) {
 	openInBrowser = func(url string) error { opened = url; return nil }
 
 	var b strings.Builder
-	url := "http://127.0.0.1:7070/?token=abc"
-	announceView(&b, url, viewOptions{}, false, "")
+	url := "http://127.0.0.1:8765/?token=abc"
+	announceView(&b, url, configServeOptions{}, false, "")
 
 	out := b.String()
 	if !strings.Contains(out, url) {
@@ -154,6 +136,9 @@ func TestAnnounceViewLocalOpensBrowser(t *testing.T) {
 	if !strings.Contains(out, "default browser") {
 		t.Fatalf("missing browser notice: %q", out)
 	}
+	if !strings.Contains(out, "config UI") {
+		t.Fatalf("banner should name the config UI: %q", out)
+	}
 }
 
 func TestAnnounceViewNoOpen(t *testing.T) {
@@ -163,12 +148,12 @@ func TestAnnounceViewNoOpen(t *testing.T) {
 	openInBrowser = func(string) error { called = true; return nil }
 
 	var b strings.Builder
-	announceView(&b, "http://127.0.0.1:7070/?token=abc", viewOptions{NoOpen: true}, false, "")
+	announceView(&b, "http://127.0.0.1:8765/?token=abc", configServeOptions{NoOpen: true}, false, "")
 
 	if called {
 		t.Fatal("--no-open must not open a browser")
 	}
-	if !strings.Contains(b.String(), "http://127.0.0.1:7070/?token=abc") {
+	if !strings.Contains(b.String(), "http://127.0.0.1:8765/?token=abc") {
 		t.Fatal("URL should still be printed with --no-open")
 	}
 }
@@ -180,13 +165,13 @@ func TestAnnounceViewRemoteShowsTunnelNotBrowser(t *testing.T) {
 	openInBrowser = func(string) error { called = true; return nil }
 
 	var b strings.Builder
-	announceView(&b, "http://127.0.0.1:7070/?token=abc", viewOptions{}, true, "kirill@10.0.0.9")
+	announceView(&b, "http://127.0.0.1:8765/?token=abc", configServeOptions{}, true, "kirill@10.0.0.9")
 
 	out := b.String()
 	if called {
 		t.Fatal("remote host must not open a local browser")
 	}
-	if !strings.Contains(out, "ssh -L 7070:localhost:7070 kirill@10.0.0.9") {
+	if !strings.Contains(out, "ssh -L 8765:localhost:8765 kirill@10.0.0.9") {
 		t.Fatalf("missing tunnel command: %q", out)
 	}
 }

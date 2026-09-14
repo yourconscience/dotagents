@@ -24,9 +24,14 @@ func loadContext(opts runOptions) (string, string, config, []agentConfig, error)
 		return "", "", config{}, nil, err
 	}
 
-	cfg, err := loadConfig(repoRoot, home, configPath)
-	if err != nil {
-		return "", "", config{}, nil, err
+	var cfg config
+	if opts.ConfigOverride != nil {
+		cfg = *opts.ConfigOverride
+	} else {
+		cfg, err = loadConfig(repoRoot, home, configPath)
+		if err != nil {
+			return "", "", config{}, nil, err
+		}
 	}
 
 	selected, err := selectAgents(cfg, opts.Agents)

@@ -23,10 +23,10 @@ dotagents status [--verbose] [--agents ...]
 dotagents sync [--pull] [--agents ...]
 dotagents doctor [--e2e] [--agents ...]
 dotagents config
-dotagents config serve [--no-open] [--addr 127.0.0.1:8765] [--secure-cookie]
 dotagents config validate
 dotagents config print
-dotagents view [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]
+dotagents view [--addr 127.0.0.1:8765] [--no-open] [--secure-cookie] [--ssh-host user@host]
+dotagents inspect [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]
 dotagents skill new <name> [--description ...]
 dotagents skill list [--agents ...]
 dotagents skill info <name>
@@ -36,11 +36,12 @@ dotagents publish [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]
 dotagents mcp <list|add|import|remove> [options]
 ```
 
-`config` is the canonical authoring surface. It edits shared YAML or the
-machine-local overlay; effective configuration is read-only. Saves validate
-and show a YAML diff, but never run `sync` implicitly. `config serve` binds
-only to loopback and uses a session cookie plus CSRF protection. `view` remains
-the HarnessKit inspection boundary.
+`config` (terminal TUI) and `view` (browser web UI) are the canonical authoring
+surfaces. Both edit shared YAML or the machine-local overlay; effective
+configuration is read-only. Saves validate and show a YAML diff, but never run
+`sync` implicitly. `view` binds only to loopback and uses a session cookie plus
+CSRF and origin protection. `inspect` is a separate read-mostly HarnessKit
+launcher, not an authoring surface (before v0.9.0 that launcher was `view`).
 
 Run `dotagents help --all` for maintenance commands and compatibility aliases. Do not use hidden aliases in new scripts or documentation.
 
@@ -163,14 +164,28 @@ dotagents doctor --e2e
 
 ## view
 
-Launches [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) as an inspection web UI over every detected harness — skills, MCP, hooks, and configs in one place, with a security audit. The `view` command writes nothing, but HarnessKit's own enable/disable/deploy actions bypass dotagents; treat `view` as inspect/audit and reconcile any HarnessKit changes with `dotagents sync`. Requires `hk` on `PATH` (install HarnessKit separately).
+Opens the canonical config UI in your browser: the same review-first authoring surface as `dotagents config`, served over a loopback-only HTTP listener embedded in the `dotagents` binary (no HarnessKit, Node, or separate daemon). It authors the shared YAML and the machine-local overlay, shows a read-only effective merge, guards saves by revision, and keeps sync as a separate preview/confirm step. Loopback-only bind, tokenized startup URL bootstrapped into an `HttpOnly`, `SameSite=Strict` session cookie, plus CSRF and origin checks on mutations.
+
+It prints the tokenized URL on its own line and, when running locally, opens it in your default browser. `--no-open` suppresses the browser launch. `--addr` sets the loopback bind (default `127.0.0.1:8765`). `--secure-cookie` marks the session cookie `Secure` for HTTPS loopback access (e.g. behind a Tailscale HTTPS proxy). On a remote host, pass `--ssh-host user@host` (or run inside an SSH session, where it derives the host from `SSH_CONNECTION`) to print a ready `ssh -L` tunnel command instead of auto-opening.
+
+```bash
+dotagents view                                        # open the config UI locally
+dotagents view --no-open --addr 127.0.0.1:8765        # print the URL, do not open a browser
+dotagents view --ssh-host me@box                      # remote: print an ssh -L tunnel command
+```
+
+Legacy HarnessKit flags on `view` (`--port`, `--host`, `--no-token`) are rejected with a one-line pointer to `dotagents inspect`; they do not launch HarnessKit.
+
+## inspect
+
+Launches [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) as a read-mostly inspection web UI over every detected harness — skills, MCP, hooks, and configs in one place, with a security audit. `inspect` writes nothing, but HarnessKit's own enable/disable/deploy actions bypass dotagents; treat `inspect` as look/audit and reconcile any HarnessKit changes with `dotagents sync`. Requires `hk` on `PATH` (install HarnessKit separately). This launcher was `dotagents view` before v0.9.0, when `view` became the config UI.
 
 It prints the tokenized URL on its own line and, when running locally, opens it in your default browser. `--no-open` suppresses the browser launch. On a remote host, pass `--ssh-host user@host` (or run inside an SSH session, where it derives the host from `SSH_CONNECTION`) to print a ready `ssh -L` tunnel command instead of auto-opening. Any other flags (`--port`, `--host`, `--no-token`, `--name`) are forwarded to `hk serve`.
 
 ```bash
-dotagents view                                 # open the inspector locally
-dotagents view --no-open --port 7070           # print the URL, do not open a browser
-dotagents view --ssh-host me@box --host 0.0.0.0 # remote: print an ssh -L tunnel command
+dotagents inspect                                 # open the inspector locally
+dotagents inspect --no-open --port 7070           # print the URL, do not open a browser
+dotagents inspect --ssh-host me@box --host 0.0.0.0 # remote: print an ssh -L tunnel command
 ```
 
 ## Capability matrix
