@@ -88,28 +88,3 @@ func filterSelesaiExpectedSkills(expected map[string]string) (map[string]string,
 
 	return filtered, nil
 }
-
-// getSelesaiBundledSkillNames returns a sorted list of bundled skill names for display.
-func getSelesaiBundledSkillNames() []string {
-	bundled, err := getSelesaiBundledSkills()
-	if err != nil || len(bundled) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(bundled))
-	for name := range bundled {
-		names = append(names, name)
-	}
-	return sortedStrings(names)
-}
-
-func sortedStrings(s []string) []string {
-	sorted := append([]string{}, s...)
-	for i := 0; i < len(sorted)-1; i++ {
-		for j := i + 1; j < len(sorted); j++ {
-			if sorted[i] > sorted[j] {
-				sorted[i], sorted[j] = sorted[j], sorted[i]
-			}
-		}
-	}
-	return sorted
-}
