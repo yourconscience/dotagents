@@ -269,6 +269,12 @@ func (d *configDocument) path(layer configLayer) string {
 }
 
 func (d *configDocument) bytes(layer configLayer) []byte {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.bytesLocked(layer)
+}
+
+func (d *configDocument) bytesLocked(layer configLayer) []byte {
 	switch layer {
 	case configLayerLocal:
 		return append([]byte(nil), d.localBytes...)
@@ -281,6 +287,12 @@ func (d *configDocument) bytes(layer configLayer) []byte {
 }
 
 func (d *configDocument) typed(layer configLayer) config {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.typedLocked(layer)
+}
+
+func (d *configDocument) typedLocked(layer configLayer) config {
 	switch layer {
 	case configLayerLocal:
 		return d.local
@@ -292,10 +304,35 @@ func (d *configDocument) typed(layer configLayer) config {
 }
 
 func (d *configDocument) revision(layer configLayer) string {
-	if layer == configLayerEffective {
-		return revisionOf(d.bytes(layer))
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.revisionLocked(layer)
+}
+
+func (d *configDocument) revisionLocked(layer configLayer) string {
+	return revisionOf(d.bytesLocked(layer))
+}
+
+type configSyncSnapshot struct {
+	cfg      config
+	repoRoot string
+	home     string
+	revision string
+}
+
+func (d *configDocument) syncSnapshot() (configSyncSnapshot, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	cfg, err := cloneConfig(d.effective)
+	if err != nil {
+		return configSyncSnapshot{}, fmt.Errorf("clone effective config: %w", err)
 	}
-	return revisionOf(d.bytes(layer))
+	return configSyncSnapshot{
+		cfg:      cfg,
+		repoRoot: filepath.Dir(d.sharedPath),
+		home:     d.home,
+		revision: revisionOf(d.sharedBytes),
+	}, nil
 }
 
 func revisionOf(data []byte) string {
@@ -304,6 +341,12 @@ func revisionOf(data []byte) string {
 }
 
 func (d *configDocument) validateRaw(layer configLayer, raw []byte) (config, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.validateRawLocked(layer, raw)
+}
+
+func (d *configDocument) validateRawLocked(layer configLayer, raw []byte) (config, error) {
 	if layer == configLayerEffective {
 		return config{}, errReadOnlyLayer
 	}
@@ -335,11 +378,9 @@ func (d *configDocument) saveRaw(layer configLayer, expectedRevision string, raw
 	if layer == configLayerEffective {
 		return configSave{}, errReadOnlyLayer
 	}
-	// Serialize the read-check-write so two concurrent same-revision saves
-	// cannot both pass the stale-revision guard below and clobber each other.
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if _, err := d.validateRaw(layer, raw); err != nil {
+	if _, err := d.validateRawLocked(layer, raw); err != nil {
 		return configSave{}, err
 	}
 	before, err := os.ReadFile(d.path(layer))
@@ -366,14 +407,20 @@ func (d *configDocument) saveRaw(layer configLayer, expectedRevision string, raw
 	if err := d.reloadLocked(); err != nil {
 		return configSave{}, err
 	}
-	return configSave{Layer: layer, Before: before, After: append([]byte(nil), raw...), Revision: d.revision(layer), Diff: unifiedConfigDiff(d.path(layer), before, raw)}, nil
+	return configSave{Layer: layer, Before: before, After: append([]byte(nil), raw...), Revision: d.revisionLocked(layer), Diff: unifiedConfigDiff(d.path(layer), before, raw)}, nil
 }
 
 func (d *configDocument) operationsRaw(layer configLayer, operations []configOperation) ([]byte, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.operationsRawLocked(layer, operations)
+}
+
+func (d *configDocument) operationsRawLocked(layer configLayer, operations []configOperation) ([]byte, error) {
 	if layer == configLayerEffective {
 		return nil, errReadOnlyLayer
 	}
-	node, err := d.layerNode(layer)
+	node, err := d.layerNodeLocked(layer)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +433,7 @@ func (d *configDocument) operationsRaw(layer configLayer, operations []configOpe
 	if err != nil {
 		return nil, fmt.Errorf("marshal config: %w", err)
 	}
-	if _, err := d.validateRaw(layer, raw); err != nil {
+	if _, err := d.validateRawLocked(layer, raw); err != nil {
 		return nil, err
 	}
 	return raw, nil
@@ -401,6 +448,12 @@ func (d *configDocument) applyOperations(layer configLayer, expectedRevision str
 }
 
 func (d *configDocument) layerNode(layer configLayer) (yaml.Node, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.layerNodeLocked(layer)
+}
+
+func (d *configDocument) layerNodeLocked(layer configLayer) (yaml.Node, error) {
 	switch layer {
 	case configLayerShared:
 		return cloneYAMLNode(d.sharedNode)
@@ -505,7 +558,7 @@ func saveConfigDocument(path string, home string, cfg config) error {
 		if err := validateConfig(&cfg, home, false); err != nil {
 			return err
 		}
-		data, err := yaml.Marshal(cfg)
+		data, err := marshalConfigYAML(cfg)
 		if err != nil {
 			return fmt.Errorf("yaml encode: %w", err)
 		}
@@ -823,11 +876,50 @@ func splitDiffLines(data []byte) []string {
 	return lines
 }
 
-// diffLines returns a line-oriented LCS diff of old vs new, each line prefixed
-// with '-' (removed), '+' (added), or ' ' (context). Keeping unchanged lines as
-// context makes a one-field edit show only the changed line(s) instead of
-// marking the whole file removed-and-re-added.
+// diffLines returns a line-oriented diff of old vs new, each line prefixed
+// with '-' (removed), '+' (added), or ' ' (context).
 func diffLines(oldLines, newLines []string) []string {
+	prefix := 0
+	for prefix < len(oldLines) && prefix < len(newLines) && oldLines[prefix] == newLines[prefix] {
+		prefix++
+	}
+	oldEnd, newEnd := len(oldLines), len(newLines)
+	for oldEnd > prefix && newEnd > prefix && oldLines[oldEnd-1] == newLines[newEnd-1] {
+		oldEnd--
+		newEnd--
+	}
+
+	out := make([]string, 0, len(oldLines)+len(newLines))
+	for _, line := range oldLines[:prefix] {
+		out = append(out, " "+line)
+	}
+	oldMiddle, newMiddle := oldLines[prefix:oldEnd], newLines[prefix:newEnd]
+	switch {
+	case len(oldMiddle) == 0:
+		for _, line := range newMiddle {
+			out = append(out, "+"+line)
+		}
+	case len(newMiddle) == 0:
+		for _, line := range oldMiddle {
+			out = append(out, "-"+line)
+		}
+	case len(oldMiddle) > (1<<20)/len(newMiddle):
+		for _, line := range oldMiddle {
+			out = append(out, "-"+line)
+		}
+		for _, line := range newMiddle {
+			out = append(out, "+"+line)
+		}
+	default:
+		out = append(out, boundedDiffLines(oldMiddle, newMiddle)...)
+	}
+	for _, line := range oldLines[oldEnd:] {
+		out = append(out, " "+line)
+	}
+	return out
+}
+
+func boundedDiffLines(oldLines, newLines []string) []string {
 	m, n := len(oldLines), len(newLines)
 	lcs := make([][]int, m+1)
 	for i := range lcs {

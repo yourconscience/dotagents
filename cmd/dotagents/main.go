@@ -135,6 +135,7 @@ func isDetected(agent agentConfig) bool {
 
 type runOptions struct {
 	ConfigPath     string
+	ConfigOverride *config
 	Agents         string
 	Pull           bool
 	E2E            bool

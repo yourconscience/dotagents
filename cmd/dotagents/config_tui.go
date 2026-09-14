@@ -242,13 +242,13 @@ func (m *configTUIModel) previewSync() {
 		m.status = "select shared or local before previewing sync"
 		return
 	}
-	plan, err := buildConfigSyncPlan(m.doc)
+	plan, _, revision, err := buildConfigSyncPlan(m.doc)
 	if err != nil {
 		m.status = "sync preview failed: " + err.Error()
 		return
 	}
 	m.syncPlan = &plan
-	m.syncRevision = m.doc.revision(configLayerShared)
+	m.syncRevision = revision
 	m.syncArmed = false
 	m.status = fmt.Sprintf("sync preview %s; %d destructive item(s), press x to review/apply", plan.Digest[:12], len(plan.Destructive))
 }
@@ -263,23 +263,21 @@ func (m *configTUIModel) applySync() {
 		m.status = "destructive sync is armed; press x again to apply the reviewed plan"
 		return
 	}
-	// Reload from disk and re-verify the reviewed plan immediately before syncing
-	// (mirrors the web handleSyncApply). An external edit between preview and
-	// apply must invalidate the reviewed plan rather than let runSync apply a
-	// different, possibly more destructive plan than the one shown.
+	configSyncMu.Lock()
+	defer configSyncMu.Unlock()
 	if err := m.doc.reload(); err != nil {
 		m.status = "reload failed: " + err.Error()
 		return
 	}
-	if m.doc.revision(configLayerShared) != m.syncRevision {
+	plan, cfg, revision, err := buildConfigSyncPlan(m.doc)
+	if err != nil {
+		m.status = "sync preview failed: " + err.Error()
+		return
+	}
+	if revision != m.syncRevision {
 		m.syncPlan = nil
 		m.syncArmed = false
 		m.status = "config changed on disk; press p to preview again"
-		return
-	}
-	plan, err := buildConfigSyncPlan(m.doc)
-	if err != nil {
-		m.status = "sync preview failed: " + err.Error()
 		return
 	}
 	if plan.Digest != m.syncPlan.Digest {
@@ -288,7 +286,7 @@ func (m *configTUIModel) applySync() {
 		m.status = "sync plan changed; press p to preview again"
 		return
 	}
-	if err := runSync(runOptions{ConfigPath: m.doc.sharedPath, Stdout: io.Discard, Stdin: strings.NewReader("n\n")}); err != nil {
+	if err := runSync(runOptions{ConfigPath: m.doc.sharedPath, ConfigOverride: &cfg, Stdout: io.Discard, Stdin: strings.NewReader("n\n")}); err != nil {
 		m.status = "sync failed: " + err.Error()
 		return
 	}
