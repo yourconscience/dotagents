@@ -286,11 +286,6 @@ func (d *configDocument) bytesLocked(layer configLayer) []byte {
 	}
 }
 
-func (d *configDocument) typed(layer configLayer) config {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.typedLocked(layer)
-}
 
 func (d *configDocument) typedLocked(layer configLayer) config {
 	switch layer {
