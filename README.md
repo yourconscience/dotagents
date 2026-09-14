@@ -2,7 +2,6 @@
 
 Dotfiles for your AI agents.
 
-
 [![Release](https://img.shields.io/github/v/release/yourconscience/dotagents)](https://github.com/yourconscience/dotagents/releases) [![brew](https://img.shields.io/badge/brew-yourconscience%2Ftap-orange)](https://github.com/yourconscience/homebrew-tap) [![npm](https://img.shields.io/npm/v/@your_conscience%2fdotagents)](https://www.npmjs.com/package/@your_conscience/dotagents) [![CI](https://github.com/yourconscience/dotagents/actions/workflows/ci.yml/badge.svg)](https://github.com/yourconscience/dotagents/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 ```bash
@@ -16,6 +15,8 @@ brew install yourconscience/tap/dotagents
 ## Why
 
 If you use more than one coding agent, you maintain the same skills, MCP servers, hooks, and roles in a different place and format for each one. Copying them by hand drifts within a week. Skills have converged on one open convention ([agentskills.io](https://agentskills.io)), plugins on [agent-plugins-spec](https://agent-plugins.org), and root instructions on `AGENTS.md` — but every harness still stores and renders config in its own native format. dotagents applies the dotfiles pattern to that last mile: one versioned repo, rendered natively per harness, with memory tooling built in.
+
+![Web UI](README-assets/webui-demo-1.png)
 
 ## Quick start
 
@@ -97,7 +98,7 @@ dotagents mcp      list|add|import|remove
 
 `dotagents skill list` shows, per detected harness, every entry in its skill root with provenance: managed links (with the external source and pinned commit when applicable), foreign symlinks (other tools' plugins), unmanaged directories, drifted and broken links — plus the estimated context cost of each harness's skill listing. `dotagents skill info <name>` answers "where does this skill come from and who sees it".
 
-`dotagents inspect` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for a read-mostly inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. It prints the tokenized URL on its own line and opens it in your default browser locally; use `--no-open` to skip the launch, or `--ssh-host user@host` on a remote box to print an `ssh -L` tunnel command instead (inside an SSH session the host is derived from `SSH_CONNECTION`). Other flags (`--port`, `--host`, `--no-token`) are forwarded to `hk serve`. HarnessKit does its own harness discovery and can also enable/disable/deploy; those writes bypass dotagents, so use `inspect` to look and reconcile any changes with `dotagents sync`. Install HarnessKit separately. (`dotagents inspect` was `dotagents view` before v0.9.0, when `view` became the config UI.)
+`dotagents inspect` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for a read-mostly inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. It prints the tokenized URL and opens your browser; `--no-open` skips the launch, and `--ssh-host user@host` prints an `ssh -L` tunnel command on a remote box (inside an SSH session the host is derived from `SSH_CONNECTION`). Other flags (`--port`, `--host`, `--no-token`, `--name`) forward to `hk serve`. HarnessKit can also enable/disable/deploy; those writes bypass dotagents, so use `inspect` to look and reconcile changes with `dotagents sync`. Install HarnessKit from its repo.
 
 ## Installing skills without dotagents
 
@@ -115,15 +116,16 @@ Other tools share the name: npm's [`dotagents`](https://www.npmjs.com/package/do
 
 ## Configuration
 
-`~/.agents/dotagents.yaml` is the single source of truth; `setup` fills in detected harnesses. Resolution order: `--config <path>` → `$DOTAGENTS_HOME/dotagents.yaml` → `~/.agents/dotagents.yaml`; never walks the current project. Machine-local entries overlay via `dotagents.local.yaml`. Managed entries are marked in native configs; anything else is left untouched.
-
 ### Canonical config authoring
+`~/.agents/dotagents.yaml` is the single source of truth; `setup` fills in detected harnesses. Resolution order: `--config <path>` → `$DOTAGENTS_HOME/dotagents.yaml` → `~/.agents/dotagents.yaml`; never walks the current project. Machine-local entries overlay via `dotagents.local.yaml`. Managed entries are marked in native configs; anything else is left untouched.
 
 `dotagents config` (terminal TUI) and `dotagents view` (browser web UI) edit the
 resolved canonical YAML through the same review-first flow. Shared and
 `dotagents.local.yaml` are separate editable layers; the effective view is
 read-only. Structured edits preserve comments and unknown fields, and a save
 never runs `sync` implicitly.
+
+![Sync preview](README-assets/webui-demo-2.png)
 
 ```bash
 dotagents config                       # interactive terminal editor
@@ -134,12 +136,10 @@ dotagents config print
 
 The `view` web server is loopback-only, session-cookie authenticated (a
 one-time startup token swapped for an `HttpOnly`, `SameSite=Strict` cookie),
-CSRF- and origin-checked on mutations, guards saves by revision, and keeps sync
-as a separate preview/confirm step. It prints the tokenized URL on its own line
-and opens your default browser locally; `--no-open` skips that, and
-`--ssh-host user@host` (or an SSH session, via `SSH_CONNECTION`) prints an
-`ssh -L` tunnel command for reaching the loopback UI from another machine. For
-deliberate HTTPS tailnet access, expose the loopback listener yourself:
+CSRF- and origin-checked on mutations, and guards saves by revision. It prints
+the tokenized URL and opens your browser; `--no-open` skips that, and
+`--ssh-host user@host` (or an SSH session) prints an `ssh -L` tunnel command.
+For deliberate HTTPS tailnet access, expose the loopback listener yourself:
 
 ```bash
 dotagents view --no-open --secure-cookie --addr 127.0.0.1:8765
