@@ -368,6 +368,8 @@
           <tr><th scope="row">Qwen Code</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="y">QWEN.md link</td></tr>
           <tr><th scope="row">OMP (pi fork)</th><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="n">--‡</td><td style="color:var(--gold)">AGENTS.md</td></tr>
           <tr><th scope="row">Pi*</th><td class="y">yes</td><td class="n">--*</td><td class="n">--*</td><td class="n">--</td><td class="n">--</td></tr>
+          <tr><th scope="row">Pi Desktop¶</th><td class="y">yes</td><td class="y">yes</td><td class="n">--</td><td class="n">--</td><td class="n">--</td></tr>
+          <tr><th scope="row">Selesai Code**</th><td class="y">yes, filtered</td><td class="n">--</td><td class="n">--</td><td class="n">--</td><td class="n">--</td></tr>
         </tbody>
       </table>
       </div>
@@ -375,6 +377,8 @@
       <p class="section-sub" style="margin:4px 24px 4px; font-size: 13px">&dagger; OpenCode reads <code>~/.agents/skills/</code> natively — skills need no mirror when the config root is <code>~/.agents</code>. Its only hook surface is a JS plugin API.</p>
       <p class="section-sub" style="margin:4px 24px 4px; font-size: 13px">&#8225; OMP has no managed hook surface in <code>dotagents.yaml</code> yet; register memory hooks manually if needed.</p>
       <p class="section-sub" style="margin:4px 24px 12px; font-size: 13px">⁑ Amp's hook and role surfaces use plugin-based models incompatible with dotagents' script-based hooks and per-agent role files.</p>
+      <p class="section-sub" style="margin:4px 24px 4px; font-size: 13px">&para; Pi Desktop uses the supported global <code>~/.agents/skills/</code> and <code>~/.agents/subagents/</code> roots; configure MCP in its Settings UI.</p>
+      <p class="section-sub" style="margin:4px 24px 12px; font-size: 13px">** Selesai keeps its bundled skill names; dotagents links only user-only skills and reports conflicts.</p>
     </div>
   </section>
 

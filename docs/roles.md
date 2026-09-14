@@ -2,6 +2,8 @@
 
 A role is a Markdown file in `~/.agents/agents/` with frontmatter (`name`, `description`, `model`, `effort`, `tools`, optional per-harness overrides) and the system prompt as body. dotagents renders it into each harness's native format — e.g. TOML for Codex. Six generic starter roles ship with the tool: `architect` `builder` `general` `researcher` `reviewer` `tester`. A same-name file in your `~/.agents/agents/` always wins over the starter.
 
+Pi Desktop consumes the same Markdown frontmatter for its global subagents in `~/.agents/subagents/`. Because the canonical repository is linked at `~/.agents`, dotagents writes generated Pi Desktop roles to the ignored top-level `subagents/` directory; edit the source role under `agents/`, never the generated output.
+
 ## Model tiers and overrides
 
 Claude Code and Droid render the tier natively in their own model family. Codex neutralizes the tier and uses its own default unless an exact per-harness `codex.model` override is set. Harnesses without a tier concept use native inheritance or an exact per-harness override:
@@ -34,6 +36,7 @@ To pin one model for all rendered roles that have no explicit model, set `role_m
 | Factory Droid | Markdown | `~/.factory/droids/<name>.md` |
 | OpenCode | YAML frontmatter | `~/.config/opencode/agents/<name>.md` |
 | OMP | YAML frontmatter | `~/.omp/agent/agents/<name>.md` |
+| Pi Desktop | YAML frontmatter | `~/.agents/subagents/<name>.md` |
 | Qwen Code | YAML frontmatter | `~/.qwen/agents/<name>.md` |
 
 Roles are regenerated on every `dotagents sync`; edit the canonical `.md`, never the rendered output.

@@ -8,6 +8,8 @@
 4. Before its first sync touches a harness that already has content, shows exactly what would be removed or overwritten there and asks per harness. Declining keeps that harness's files.
 5. Offers to `git init` the new repository, and runs the first sync.
 
+When Pi Desktop is installed, the first sync also renders canonical roles into its supported global `~/.agents/subagents/` directory. Its global skills already use the canonical `~/.agents/skills/` directory; configure MCP and other desktop settings in Pi Desktop's Settings UI.
+
 The review screen in step 3 looks like this — `space` cycles share/keep/skip per row, `enter` applies:
 
 ```

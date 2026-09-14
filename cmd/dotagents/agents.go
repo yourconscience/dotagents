@@ -439,6 +439,12 @@ func renderClaudeAgentRole(role agentRole) string {
 	return b.String()
 }
 
+// renderPiDesktopAgentRole emits the Markdown frontmatter consumed by
+// Pi Desktop's global ~/.agents/subagents directory.
+func renderPiDesktopAgentRole(role agentRole) string {
+	return renderClaudeAgentRole(role)
+}
+
 func renderCodexAgentRole(role agentRole) string {
 	model := strings.TrimSpace(role.Codex.Model)
 	if model == "" {

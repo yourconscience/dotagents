@@ -248,9 +248,9 @@ func initHarnesses() {
 
 		agentPiDesktop: {
 			Detect:          detectPiDesktop,
-			Skills:          SkillsConfigDriven, // Uses generated plugin, not simple symlinks
-			InspectSkills:   inspectPiDesktopPlugin,
-			IntegrationNote: "generates a loadable plugin at .pi-desktop-plugin/ with canonical skills and roles; load once via Pi Desktop GUI (PluginScaffold or manual directory load)",
+			Skills:          SkillsSymlink,
+			Roles:           &RolesCapability{Extension: ".md", Render: renderPiDesktopAgentRole},
+			IntegrationNote: "uses Pi Desktop's supported global ~/.agents/skills and ~/.agents/subagents roots; no app internals or plugin package",
 		},
 
 		agentOMP: {
@@ -267,10 +267,10 @@ func initHarnesses() {
 		},
 
 		agentSelesai: {
-			Detect:         detectSelesai,
-			Skills:         SkillsSymlink,
-			TrailerExample: "Co-authored-by: selesai[bot] <selesai[bot]@users.noreply.github.com>",
-			IntegrationNote: "syncs only non-bundled skills to avoid conflicts with Selesai's 27 built-in skills",
+			Detect:          detectSelesai,
+			Skills:          SkillsSymlink,
+			TrailerExample:  "Co-authored-by: selesai[bot] <selesai[bot]@users.noreply.github.com>",
+			IntegrationNote: "syncs only non-bundled skills to avoid conflicts with Selesai's installed bundled skills",
 		},
 
 		agentQwenCode: {

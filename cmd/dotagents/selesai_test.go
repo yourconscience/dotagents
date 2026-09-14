@@ -43,11 +43,11 @@ func TestSelesaiUsesDistinctPath(t *testing.T) {
 	home := t.TempDir()
 	configs := []agentConfig{
 		{Name: agentPi, Enabled: true, SkillRoot: filepath.Join(home, ".pi", "agent", "skills")},
-		{Name: agentPiDesktop, Enabled: true, SkillRoot: filepath.Join(home, ".pi", "agent", "skills")},
+		{Name: agentPiDesktop, Enabled: true, SkillRoot: filepath.Join(home, ".agents", "skills")},
 		{Name: agentSelesai, Enabled: true, SkillRoot: filepath.Join(home, ".selesai", "agent", "skills")},
 	}
 
-	// Selesai should have a different path from Pi/Pi Desktop
+	// Selesai should have a different path from Pi/Pi Desktop.
 	if configs[2].SkillRoot == configs[0].SkillRoot {
 		t.Fatal("Selesai should not share path with vanilla Pi")
 	}
