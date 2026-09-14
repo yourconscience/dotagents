@@ -106,7 +106,7 @@ Agent roles are canonical Markdown files under `~/.agents/agents/` and render to
 - OMP: `~/.omp/agent/agents/<name>.md`
 - Qwen Code: `~/.qwen/agents/<name>.md`
 
-Pi always has managed skills. With `pi-subagents` installed, dotagents renders canonical roles into Pi's user agent directory. With `pi-mcp-adapter` installed, it patches canonical and Agent Plugin MCP entries into `~/.pi/agent/mcp.json`. The files remain inert when those packages are absent. OMP is a separate target.
+Pi always has managed skills. With `pi-subagents` installed, dotagents renders canonical roles into Pi's user agent directory. With `pi-mcp-adapter` installed, it patches canonical and Agent Plugin MCP entries into `~/.pi/agent/mcp.json`. Put pinned package sources under the Pi target's `packages` list to make `sync` reconcile `~/.pi/agent/settings.json`; Pi installs missing declared packages at startup. Dotagents does not install the Pi executable. The role and MCP files remain inert when their packages are absent. OMP is a separate target.
 
 For MCP servers, sync patches only named canonical entries and preserves unrelated native servers. Import redacts literal environment values to `${KEY}` references; list output never prints values.
 

@@ -48,7 +48,19 @@ Five surfaces, each rendered into the harness's own format — dotagents does no
 | OMP (pi fork) | yes | yes | yes | --‡ | -- |
 | Pi* | yes | yes* | yes* | -- | skills + MCP* |
 
-\* Vanilla [pi](https://github.com/earendil-works/pi) gains managed roles through `pi-subagents` and managed MCP/Agent Plugin projection through `pi-mcp-adapter`. Install those Pi packages before using the corresponding surfaces. The OMP fork remains a separate target.
+\* Vanilla [pi](https://github.com/earendil-works/pi) gains managed roles through `pi-subagents` and managed MCP/Agent Plugin projection through `pi-mcp-adapter`. A Pi target can also declare a pinned `packages` list; `sync` writes that list to `~/.pi/agent/settings.json`, and Pi installs missing packages on its next startup. Dotagents does not install the Pi executable itself. The OMP fork remains a separate target.
+
+```yaml
+agents:
+  - name: pi
+    enabled: true
+    detect: pi
+    skill_root: ~/.pi/agent/skills
+    agent_root: ~/.pi/agent/agents
+    packages:
+      - npm:pi-mcp-adapter@2.33.0
+      - npm:pi-subagents@0.67.0
+```
 † OpenCode reads `~/.agents/skills/` natively; its only hook surface is a JS plugin API.
 ‡ OMP has no managed hook surface yet; register memory hooks manually if needed.
 § Qwen Code natively loads Agent Plugins v1 skills and MCP servers; dotagents manages those same surfaces without rewriting the plugin.
