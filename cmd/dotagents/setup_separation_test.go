@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -656,7 +657,7 @@ func TestPromptYesNoEOFAnnouncesSkip(t *testing.T) {
 	}
 }
 
-func TestValidateConfigLegacyPiMCPTargetDegrades(t *testing.T) {
+func TestValidateConfigPiMCPTargetIsPreserved(t *testing.T) {
 	cfg := config{
 		Agents: []agentConfig{
 			{Name: "pi", Enabled: true, SkillRoot: "~/.pi/agent/skills"},
@@ -667,10 +668,10 @@ func TestValidateConfigLegacyPiMCPTargetDegrades(t *testing.T) {
 		},
 	}
 	if err := validateConfig(&cfg, "/home/u", false); err != nil {
-		t.Fatalf("legacy pi MCP target must degrade, not fail: %v", err)
+		t.Fatalf("Pi MCP target rejected: %v", err)
 	}
-	if len(cfg.MCPServers[0].Agents) != 1 || cfg.MCPServers[0].Agents[0] != "claude-code" {
-		t.Fatalf("pi target must be dropped, keeping supported targets: %#v", cfg.MCPServers[0].Agents)
+	if !reflect.DeepEqual(cfg.MCPServers[0].Agents, []string{"pi", "claude-code"}) {
+		t.Fatalf("Pi MCP target changed: %#v", cfg.MCPServers[0].Agents)
 	}
 }
 

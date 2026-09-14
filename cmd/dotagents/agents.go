@@ -37,6 +37,7 @@ type agentRole struct {
 	Claude       claudeRoleOptions   `yaml:"claude"`
 	Codex        codexRoleOptions    `yaml:"codex"`
 	OMP          ompRoleOptions      `yaml:"omp"`
+	Pi           piRoleOptions       `yaml:"pi"`
 	Droid        droidRoleOptions    `yaml:"droid"`
 	Opencode     opencodeRoleOptions `yaml:"opencode"`
 	Qwen         qwenRoleOptions     `yaml:"qwen"`
@@ -80,6 +81,10 @@ func (role *agentRole) UnmarshalYAML(value *yaml.Node) error {
 			}
 		case "omp":
 			if err := node.Decode(&role.OMP); err != nil {
+				return err
+			}
+		case "pi":
+			if err := node.Decode(&role.Pi); err != nil {
 				return err
 			}
 		case "droid":
@@ -138,6 +143,11 @@ type codexRoleOptions struct {
 type ompRoleOptions struct {
 	Model         string `yaml:"model"`
 	ThinkingLevel string `yaml:"thinking-level"`
+}
+
+type piRoleOptions struct {
+	Model    string `yaml:"model"`
+	Thinking string `yaml:"thinking"`
 }
 
 type droidRoleOptions struct {

@@ -340,6 +340,9 @@ func TestInjectPluginMCPServersWithOptIn(t *testing.T) {
 	if cfg.MCPServers[0].Name != "test-server" {
 		t.Errorf("server name = %q", cfg.MCPServers[0].Name)
 	}
+	if got := desiredMCPServersForAgent(cfg, agentPi); len(got) != 1 || got[0].Name != "test-server" {
+		t.Fatalf("Pi Agent Plugin projection = %#v, want test-server", got)
+	}
 }
 
 func TestInjectPluginMCPServersUserWins(t *testing.T) {

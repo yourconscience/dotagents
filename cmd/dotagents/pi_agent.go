@@ -1,0 +1,66 @@
+package main
+
+import "strings"
+
+var piToolMapping = map[string]string{
+	"bash":      "bash",
+	"edit":      "edit",
+	"glob":      "find",
+	"grep":      "grep",
+	"read":      "read",
+	"webfetch":  "fetch_content",
+	"websearch": "web_search",
+	"write":     "write",
+}
+
+// renderPiAgentRole emits the user-agent format consumed by pi-subagents.
+// Vanilla Pi itself ignores this directory when the extension is absent.
+func renderPiAgentRole(role agentRole) string {
+	model := strings.TrimSpace(role.Pi.Model)
+	if model == "" && !canonicalModelTier(role.Model) {
+		model = strings.TrimSpace(role.Model)
+	}
+	thinking := strings.TrimSpace(role.Pi.Thinking)
+	if thinking == "" {
+		thinking = strings.TrimSpace(role.Effort)
+	}
+
+	var b strings.Builder
+	b.WriteString("---\n")
+	writeYAMLScalar(&b, "name", role.Name)
+	writeYAMLScalar(&b, "description", role.Description)
+	writeYAMLScalar(&b, "model", model)
+	writeYAMLScalar(&b, "thinking", thinking)
+	if tools := piToolsFor(role.Tools); len(tools) > 0 {
+		b.WriteString("tools:\n")
+		for _, tool := range tools {
+			writeYAMLListItem(&b, tool)
+		}
+	}
+	b.WriteString("---\n\n")
+	b.WriteString("<!-- ")
+	b.WriteString(generatedAgentMarker)
+	b.WriteString(" from ")
+	b.WriteString(agentRoleSourceLabel(role))
+	b.WriteString("; do not edit directly. -->\n\n")
+	b.WriteString(role.Instructions)
+	b.WriteString("\n")
+	return b.String()
+}
+
+func piToolsFor(tools []string) []string {
+	out := make([]string, 0, len(tools))
+	seen := make(map[string]struct{}, len(tools))
+	for _, tool := range tools {
+		mapped := piToolMapping[strings.ToLower(strings.TrimSpace(tool))]
+		if mapped == "" {
+			continue
+		}
+		if _, ok := seen[mapped]; ok {
+			continue
+		}
+		seen[mapped] = struct{}{}
+		out = append(out, mapped)
+	}
+	return out
+}

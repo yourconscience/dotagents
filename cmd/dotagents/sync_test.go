@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -49,6 +51,54 @@ agents:
 
 	if _, err := os.Lstat(filepath.Join(home, ".hermes", "skills", "sample")); !os.IsNotExist(err) {
 		t.Fatalf("runSync mirrored Hermes skill instead of repairing config, stat err = %v", err)
+	}
+}
+
+func TestRunSyncProjectsPiSkillsRolesMCPAndInstructions(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("DOTAGENTS_HOME", repoRoot)
+
+	writeSyncTestFile(t, filepath.Join(repoRoot, "dotagents.yaml"), []byte(`version: 1
+agents:
+  - name: pi
+    enabled: true
+    skill_root: ~/.pi/agent/skills
+    agent_root: ~/.pi/agent/agents
+mcp_servers:
+  - name: local
+    enabled: true
+    command: local-mcp
+    agents: [pi]
+`))
+	writeSyncTestFile(t, filepath.Join(repoRoot, "AGENTS.md"), []byte("# Shared instructions\n"))
+	writeSyncTestFile(t, filepath.Join(repoRoot, "skills", "sample", "SKILL.md"), []byte("---\nname: sample\ndescription: sample\n---\n"))
+	writeSyncTestFile(t, filepath.Join(repoRoot, "agents", "reviewer.md"), []byte("---\nname: reviewer\ndescription: Review changes\neffort: high\ntools: [Read, Grep]\n---\n\nReview carefully.\n"))
+
+	if err := runSync(runOptions{Agents: agentPi}); err != nil {
+		t.Fatal(err)
+	}
+
+	piRoot := filepath.Join(home, ".pi", "agent")
+	if target, err := os.Readlink(filepath.Join(piRoot, "skills", "sample")); err != nil || target != filepath.Join(repoRoot, "skills", "sample") {
+		t.Fatalf("Pi skill link target=%q err=%v", target, err)
+	}
+	role, err := os.ReadFile(filepath.Join(piRoot, "agents", "reviewer.md"))
+	if err != nil || !strings.Contains(string(role), `thinking: "high"`) || !strings.Contains(string(role), `- "grep"`) {
+		t.Fatalf("Pi subagent role err=%v:\n%s", err, role)
+	}
+	var mcp map[string]interface{}
+	data, err := os.ReadFile(filepath.Join(piRoot, "mcp.json"))
+	if err != nil || json.Unmarshal(data, &mcp) != nil {
+		t.Fatalf("Pi MCP adapter config err=%v: %s", err, data)
+	}
+	servers, _ := mcp["mcpServers"].(map[string]interface{})
+	if _, ok := servers["local"]; !ok {
+		t.Fatalf("Pi MCP server missing: %#v", mcp)
+	}
+	if target, err := os.Readlink(filepath.Join(piRoot, "AGENTS.md")); err != nil || target != filepath.Join(repoRoot, "AGENTS.md") {
+		t.Fatalf("Pi instructions target=%q err=%v", target, err)
 	}
 }
 

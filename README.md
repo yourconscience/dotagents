@@ -46,9 +46,9 @@ Five surfaces, each rendered into the harness's own format — dotagents does no
 | OpenCode | yes† | yes | yes | -- | -- |
 | Qwen Code | yes, config-driven | yes | yes | yes | skills + MCP§ |
 | OMP (pi fork) | yes | yes | yes | --‡ | -- |
-| Pi* | yes | --* | --* | -- | -- |
+| Pi* | yes | yes* | yes* | -- | skills + MCP* |
 
-\* Vanilla [pi](https://github.com/earendil-works/pi) is skills-only by design; the OMP fork is detected as its own target.
+\* Vanilla [pi](https://github.com/earendil-works/pi) gains managed roles through `pi-subagents` and managed MCP/Agent Plugin projection through `pi-mcp-adapter`. Install those Pi packages before using the corresponding surfaces. The OMP fork remains a separate target.
 † OpenCode reads `~/.agents/skills/` natively; its only hook surface is a JS plugin API.
 ‡ OMP has no managed hook surface yet; register memory hooks manually if needed.
 § Qwen Code natively loads Agent Plugins v1 skills and MCP servers; dotagents manages those same surfaces without rewriting the plugin.
