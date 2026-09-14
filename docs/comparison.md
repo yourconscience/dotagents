@@ -25,7 +25,7 @@ dotagents' own harness coverage is listed below; competitor breadth is described
 | Root instructions | symlinked per harness | generated files | generated files | no |
 | Memory tooling | built in (`rem`) | no | no | no |
 | Pinned + audited externals | lock file + audit | no pinning | no pinning | tracks source, no pin |
-| Harness coverage | 8 deep | broad | broad | narrow |
+| Harness coverage | 9 deep | broad | broad | narrow |
 
 ## Positioning
 

@@ -112,6 +112,10 @@ func initHarnesses() {
 				read:       readJSONMCPServer,
 				rootKey:    "amp.mcpServers",
 			}),
+			RootInstructions: &RootInstructionsCapability{
+				Path:     func(home string) string { return filepath.Join(home, ".config", "amp", "AGENTS.md") },
+				Expected: func(repoRoot string) string { return filepath.Join(repoRoot, "AGENTS.md") },
+			},
 			IntegrationNote: "config-driven via Amp settings -> amp.skills.path",
 			TrailerExample:  "Co-authored-by: amp[bot] <amp[bot]@users.noreply.github.com>",
 		},

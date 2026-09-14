@@ -127,6 +127,14 @@ func codexRootInstructions() *RootInstructionsCapability {
 	return h.RootInstructions
 }
 
+func ampRootInstructions() *RootInstructionsCapability {
+	h := harnessFor("amp")
+	if h == nil || h.RootInstructions == nil {
+		panic("amp harness missing RootInstructions")
+	}
+	return h.RootInstructions
+}
+
 func TestRootInstructionsNativePaths(t *testing.T) {
 	home := t.TempDir()
 	repoRoot := filepath.Join(home, ".agents")
@@ -135,6 +143,7 @@ func TestRootInstructionsNativePaths(t *testing.T) {
 		cap      *RootInstructionsCapability
 		wantLink string
 	}{
+		{"amp", ampRootInstructions(), filepath.Join(home, ".config", "amp", "AGENTS.md")},
 		{agentClaudeCode, claudeCodeRootInstructions(), filepath.Join(home, ".claude", "CLAUDE.md")},
 		{agentCodex, codexRootInstructions(), filepath.Join(home, ".codex", "AGENTS.md")},
 	} {
@@ -154,6 +163,7 @@ func TestInspectClaudeAndCodexRootInstructions(t *testing.T) {
 		dir   string
 		file  string
 	}{
+		{"amp", ampRootInstructions, ".config/amp", "AGENTS.md"},
 		{agentClaudeCode, claudeCodeRootInstructions, ".claude", "CLAUDE.md"},
 		{agentCodex, codexRootInstructions, ".codex", "AGENTS.md"},
 	} {
@@ -214,11 +224,54 @@ func TestInspectClaudeAndCodexRootInstructions(t *testing.T) {
 	}
 }
 
+func TestInspectAmpAgentWiresRootInstructions(t *testing.T) {
+	home := t.TempDir()
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "AGENTS.md"), []byte("# Shared\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	agent := agentConfig{
+		Name:      "amp",
+		Enabled:   true,
+		SkillRoot: filepath.Join(home, ".agents", "skills"),
+	}
+	agentsSkillRoot := filepath.Join(repoRoot, "skills")
+
+	report, err := inspectAmpAgent(agent, map[string]string{}, agentsSkillRoot, config{}, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantLink := filepath.Join(home, ".config", "amp", "AGENTS.md")
+	wantTarget := filepath.Join(repoRoot, "AGENTS.md")
+	if report.RootPath != wantLink {
+		t.Fatalf("RootPath = %q, want %q", report.RootPath, wantLink)
+	}
+	if report.RootExpected != wantTarget {
+		t.Fatalf("RootExpected = %q, want %q", report.RootExpected, wantTarget)
+	}
+	if report.RootState != stateMissing {
+		t.Fatalf("RootState = %q, want %q", report.RootState, stateMissing)
+	}
+
+	if err := applyAgentRootInstructionSync([]agentReport{report}); err != nil {
+		t.Fatal(err)
+	}
+	rawTarget, err := os.Readlink(wantLink)
+	if err != nil {
+		t.Fatalf("root instructions symlink not created: %v", err)
+	}
+	if rawTarget != wantTarget {
+		t.Fatalf("link target = %q, want %q", rawTarget, wantTarget)
+	}
+}
+
 func TestApplyAgentRootInstructionSyncClaudeAndCodex(t *testing.T) {
 	for _, tc := range []struct {
 		agent    string
 		linkPath string
 	}{
+		{"amp", ".config/amp/AGENTS.md"},
 		{agentClaudeCode, ".claude/CLAUDE.md"},
 		{agentCodex, ".codex/AGENTS.md"},
 	} {

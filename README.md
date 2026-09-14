@@ -38,6 +38,7 @@ Five surfaces, each rendered into the harness's own format — dotagents does no
 
 | Harness | Skills | Roles | MCP | Hooks | Plugins |
 |---|---|---|---|---|---|
+| Amp | yes, config-driven | --⁑ | yes | --⁑ | -- |
 | Claude Code | yes | yes | yes | yes | -- |
 | Codex | yes | yes | yes | yes | planned |
 | Factory Droid | yes | yes | yes | yes | -- |
@@ -51,8 +52,9 @@ Five surfaces, each rendered into the harness's own format — dotagents does no
 † OpenCode reads `~/.agents/skills/` natively; its only hook surface is a JS plugin API.
 ‡ OMP has no managed hook surface yet; register memory hooks manually if needed.
 § Qwen Code natively loads Agent Plugins v1 skills and MCP servers; dotagents manages those same surfaces without rewriting the plugin.
+⁑ Amp's hook and role surfaces use plugin-based models incompatible with dotagents' script-based hooks and per-agent role files.
 
-Amp and OpenClaw read the repo's skills via standard conventions but are not managed. A "yes" above only appears after end-to-end verification.
+OpenClaw is not currently supported. Native skill discovery from `~/.agents/skills` may work due to OpenClaw's multi-tier skill precedence, but this is unverified and unmanaged. A managed harness entry is planned for a future release. A "yes" above only appears after end-to-end verification.
 
 ## Skills
 
@@ -153,7 +155,7 @@ scripts/release.sh v0.7.0    # verify + tag; CI publishes binaries, brew tap, np
 - [docs/comparison.md](docs/comparison.md) — how dotagents differs from rulesync, ruler, openskills
 - [Troubleshooting](docs/troubleshooting.md)
 
-Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level — one private repo, eight targets deep, pinned externals, review-first memory. Full table in [docs/comparison.md](docs/comparison.md).
+Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level — one private repo, nine targets deep, pinned externals, review-first memory. Full table in [docs/comparison.md](docs/comparison.md).
 
 ## License
 
