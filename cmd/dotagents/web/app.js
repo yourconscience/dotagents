@@ -1,8 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 let layer = 'shared';
 let state = null;
-let plan = null;
-const pendingOperations = new Map();
 const baseURL = new URL(window.location.pathname.endsWith('/') ? window.location.pathname : `${window.location.pathname}/`, window.location.origin);
 
 function csrf() {
@@ -23,6 +21,7 @@ async function api(path, options = {}) {
   return body;
 }
 function pick(object, ...keys) { for (const key of keys) if (object && object[key] !== undefined) return object[key]; return undefined; }
+function labelFromPath(path) { return path.split('/')[2] || path; }
 function renderLinks(ui) {
   const links = pick(ui, 'Links','links') || [];
   $('#links').replaceChildren(...links.map((link) => {
@@ -100,17 +99,27 @@ function renderStructured(config) {
   }
   const ledger = $('#structured');
   ledger.replaceChildren(...rows);
-  ledger.querySelectorAll('[data-edit-path]').forEach((input) => input.addEventListener('change', () => stageStructuredEdit(input)));
+  ledger.querySelectorAll('[data-edit-path]').forEach((input) => input.addEventListener('change', () => applyToggle(input)));
 }
-async function stageStructuredEdit(input) {
-  pendingOperations.set(input.dataset.editPath, {op:'set', path:input.dataset.editPath, value:input.checked});
+async function applyToggle(input) {
+  const path = input.dataset.editPath;
+  const value = input.checked;
+  input.disabled = true;
   try {
-    const result = await api('/api/config/validate', {method:'POST', body:JSON.stringify({layer, operations:[...pendingOperations.values()]})});
-    $('#diff').textContent = result.diff || '(no changes)';
-    setStatus('Change staged. Review the diff, then save.', 'ok');
+    const result = await api('/api/config', {method:'PATCH', body:JSON.stringify({layer, expected_revision:state.revision, operations:[{op:'set', path, value}]})});
+    state.revision = result.revision;
+    $('#revision').textContent = result.revision ? result.revision.slice(0, 12) : '';
+    setStatus(`${value ? 'Enabled' : 'Disabled'} ${labelFromPath(path)}. Sync to apply it to your agents.`, 'ok');
   } catch (error) {
-    pendingOperations.delete(input.dataset.editPath);
+    if (error.code === 'stale_revision') {
+      await load(layer);
+      setStatus('Config changed on disk; reloaded to the latest. Flip again.', 'error');
+      return;
+    }
+    input.checked = !value;
     setStatus(error.message, 'error');
+  } finally {
+    input.disabled = state.read_only;
   }
 }
 function render() {
@@ -120,59 +129,29 @@ function render() {
   renderLinks(state.effective_ui);
   $('#source-meta').textContent = state.paths[layer === 'effective' ? 'shared' : layer] || '';
   $('#revision').textContent = state.revision ? state.revision.slice(0, 12) : '';
-  $('#save').disabled = state.read_only;
-  $('#msave').disabled = state.read_only;
 }
 async function load(nextLayer = layer) {
   layer = nextLayer;
-  pendingOperations.clear();
   document.querySelectorAll('.source').forEach((node) => node.classList.toggle('active', node.dataset.layer === layer));
-  try { state = await api(`/api/state?layer=${encodeURIComponent(layer)}`); render(); setStatus(state.read_only ? 'Effective merge is read-only.' : 'Loaded canonical YAML.'); }
+  try { state = await api(`/api/state?layer=${encodeURIComponent(layer)}`); render(); setStatus(state.read_only ? 'Effective merge is read-only.' : 'Flip a toggle to apply it immediately.'); }
   catch (error) { setStatus(error.message, 'error'); }
 }
-async function validate() {
+async function syncNow() {
+  setStatus('Previewing sync...');
   try {
-    const result = await api('/api/config/validate', {method:'POST', body:JSON.stringify({layer, operations:[...pendingOperations.values()]})});
-    $('#diff').textContent = result.diff || '(no changes)';
-    setStatus('Selected settings are valid.', 'ok');
-  } catch (error) { setStatus(error.message, 'error'); }
-}
-async function review() {
-  await validate();
-}
-async function save() {
-  if (!pendingOperations.size) { setStatus('No changes to save.'); return; }
-  const staged = [...pendingOperations.values()];
-  try {
-    const result = await api('/api/config', {method:'PATCH', body:JSON.stringify({layer, expected_revision:state.revision, operations:staged})});
-    $('#diff').textContent = result.diff || '(no changes)';
-    await load(layer);
-    setStatus('Saved canonical configuration. Sync remains separate.', 'ok');
-  } catch (error) {
-    if (error.code === 'stale_revision') {
-      // The file changed on disk under us. Reload to the current revision so the
-      // user can reapply, instead of wedging on 409 until the server restarts.
-      await load(layer);
-      staged.forEach((op) => pendingOperations.set(op.path, op));
-      setStatus('Config changed on disk; reloaded to the latest. Review the diff and save again.', 'error');
+    const preview = await api('/api/sync/preview', {method:'POST', body:'{}'});
+    const destructive = preview.plan?.destructive || [];
+    $('#plan').textContent = JSON.stringify(preview.plan, null, 2);
+    if (destructive.length && !confirm(`Sync includes ${destructive.length} destructive change(s):\n\n${destructive.join('\n')}\n\nApply anyway?`)) {
+      setStatus('Sync canceled.');
       return;
     }
-    setStatus(error.message, 'error');
-  }
-}
-async function previewSync() {
-  try { const result = await api('/api/sync/preview', {method:'POST', body:'{}'}); plan = result; $('#plan').textContent = JSON.stringify(result.plan, null, 2); $('#apply').disabled = false; setStatus(`Sync preview ready: ${result.digest.slice(0,12)}.`, 'ok'); }
-  catch (error) { setStatus(error.message, 'error'); }
-}
-async function applySync() {
-  if (!plan || !confirm('Apply this sync plan to native harnesses?')) return;
-  try { await api('/api/sync/apply', {method:'POST', body:JSON.stringify({expected_revision:plan.revision, plan_digest:plan.digest, confirmed_destructive:plan.plan.destructive || []})}); setStatus('Sync applied.', 'ok'); $('#apply').disabled = true; }
-  catch (error) { setStatus(error.message, 'error'); }
+    await api('/api/sync/apply', {method:'POST', body:JSON.stringify({expected_revision:preview.revision, plan_digest:preview.digest, confirmed_destructive:destructive})});
+    setStatus('Synced to your agents.', 'ok');
+    await load(layer);
+  } catch (error) { setStatus(error.message, 'error'); }
 }
 document.querySelectorAll('.source').forEach((node) => node.addEventListener('click', () => load(node.dataset.layer)));
-$('#validate').addEventListener('click', validate); $('#mvalidate').addEventListener('click', validate);
-$('#review').addEventListener('click', review); $('#mreview').addEventListener('click', review);
-$('#save').addEventListener('click', save); $('#msave').addEventListener('click', save);
-$('#preview').addEventListener('click', previewSync); $('#apply').addEventListener('click', applySync);
-$('#settings').addEventListener('click', () => { layer = 'local'; load('local'); });
+$('#sync').addEventListener('click', syncNow);
+$('#msync').addEventListener('click', syncNow);
 load();

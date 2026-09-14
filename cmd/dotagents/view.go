@@ -80,6 +80,7 @@ func parseViewFlags(args []string) (configServeOptions, error) {
 	fs.BoolVar(&opts.NoOpen, "no-open", false, "Do not open the browser")
 	fs.BoolVar(&opts.SecureCookie, "secure-cookie", false, "Mark the session cookie Secure for HTTPS loopback access")
 	fs.StringVar(&opts.SSHHost, "ssh-host", "", "Print an ssh -L tunnel command for this host (user@host)")
+	fs.StringVar(&opts.TokenFile, "token-file", "", "Stable session token file (created on first use); keeps the URL fixed across restarts")
 	if err := fs.Parse(args); err != nil {
 		return configServeOptions{}, err
 	}

@@ -24,7 +24,6 @@ button:disabled { cursor:not-allowed; opacity:.45; }
 .topbar nav { display:flex; gap:14px; flex:1; }
 a { color:var(--accent); text-decoration:none; }
 a:hover { text-decoration:underline; }
-.quiet { margin-left:auto; }
 .shell { display:grid; grid-template-columns:180px minmax(0,1fr) 300px; min-height:calc(100vh - 60px); }
 .sources,.rail { padding:24px 16px; background:var(--surface); }
 .sources { border-right:1px solid var(--line); }
@@ -52,14 +51,12 @@ h1 { margin:3px 0 0; font-size:24px; letter-spacing:-.03em; }
 .status { min-height:44px; margin:6px 0 18px; color:var(--muted); }
 .status.ok { color:var(--success); }
 .status.error { color:var(--danger); }
-.diff { min-height:100px; max-height:300px; overflow:auto; padding:10px; white-space:pre-wrap; color:var(--muted); background:var(--base); border:1px solid var(--line); border-radius:8px; }
-.actions,.sync { display:grid; gap:8px; margin-top:16px; }
-.sync { padding-top:18px; border-top:1px solid var(--line); }
+.diff { min-height:100px; max-height:300px; overflow:auto; margin-top:16px; padding:10px; white-space:pre-wrap; color:var(--muted); background:var(--base); border:1px solid var(--line); border-radius:8px; }
+.rail button.primary { width:100%; }
 .mobile-actions { display:none; }
 @media (max-width:900px) {
   .shell { grid-template-columns:150px minmax(0,1fr); }
   .rail { grid-column:1/-1; border-top:1px solid var(--line); border-left:0; }
-  .actions { display:flex; flex-wrap:wrap; }
   .workspace { padding-bottom:30px; }
 }
 @media (max-width:600px) {
@@ -72,8 +69,7 @@ h1 { margin:3px 0 0; font-size:24px; letter-spacing:-.03em; }
   .workspace { padding:18px 14px 82px; }
   .rail { padding:18px 14px 92px; }
   .ledger-row { grid-template-columns:minmax(0,1fr) auto; gap:10px; }
-  .mobile-actions { position:fixed; right:0; bottom:0; left:0; z-index:2; display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; padding:8px max(8px,env(safe-area-inset-left)) max(8px,env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:rgba(24,24,37,.96); }
+  .mobile-actions { position:fixed; right:0; bottom:0; left:0; z-index:2; display:grid; grid-template-columns:1fr; gap:6px; padding:8px max(8px,env(safe-area-inset-left)) max(8px,env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:rgba(24,24,37,.96); }
   .mobile-actions button { min-width:0; padding:8px 4px; font-size:12px; }
-  .actions { display:none; }
 }
 @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; } }

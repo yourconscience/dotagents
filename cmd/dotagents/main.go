@@ -563,7 +563,7 @@ func printAllUsage() {
 	fmt.Println("  dotagents sync [--pull] [--agents ...]")
 	fmt.Println("  dotagents doctor [--e2e] [--agents ...]")
 	fmt.Println("  dotagents config [validate|print] [--config PATH]")
-	fmt.Println("  dotagents view [--addr 127.0.0.1:8765] [--no-open] [--secure-cookie] [--ssh-host user@host]")
+	fmt.Println("  dotagents view [--addr 127.0.0.1:8765] [--no-open] [--secure-cookie] [--ssh-host user@host] [--token-file PATH]")
 	fmt.Println("  dotagents inspect [--no-open] [--ssh-host user@host] [hk serve flags: --port N, --host ADDR, --no-token]")
 	fmt.Println("  dotagents skill new <name> [--description ...]")
 	fmt.Println("  dotagents skill list [--agents ...]")
