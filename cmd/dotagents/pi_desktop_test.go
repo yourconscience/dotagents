@@ -10,17 +10,20 @@ func TestPiDesktopHarnessCapabilities(t *testing.T) {
 	if piDesktop == nil {
 		t.Fatal("Pi Desktop harness is not registered")
 	}
-	if piDesktop.Skills != SkillsSymlink {
-		t.Fatalf("Pi Desktop skills capability = %v, want symlink", piDesktop.Skills)
+	if piDesktop.Skills != SkillsConfigDriven {
+		t.Fatalf("Pi Desktop skills capability = %v, want config-driven (plugin-based)", piDesktop.Skills)
+	}
+	if piDesktop.InspectSkills == nil {
+		t.Fatal("Pi Desktop should have custom InspectSkills for plugin")
 	}
 	if piDesktop.MCP != nil {
 		t.Fatal("Pi Desktop unexpectedly exposes MCP support (should be GUI-configured)")
 	}
 	if piDesktop.Roles != nil {
-		t.Fatal("Pi Desktop unexpectedly exposes agent-role support")
+		t.Fatal("Pi Desktop unexpectedly exposes agent-role support (roles are in plugin)")
 	}
 	if piDesktop.IntegrationNote == "" {
-		t.Fatal("Pi Desktop should have integration note about GUI configuration")
+		t.Fatal("Pi Desktop should have integration note about plugin loading")
 	}
 }
 
@@ -44,8 +47,8 @@ func TestPiDesktopDefaultConfig(t *testing.T) {
 	for _, cfg := range configs {
 		if cfg.Name == agentPiDesktop {
 			found = true
-			if cfg.SkillRoot != "~/.pi/agent/skills" {
-				t.Fatalf("Pi Desktop skill root = %q, want ~/.pi/agent/skills", cfg.SkillRoot)
+			if cfg.SkillRoot != "~/.agents" {
+				t.Fatalf("Pi Desktop skill root = %q, want ~/.agents (plugin-based)", cfg.SkillRoot)
 			}
 			if cfg.Detect != "" {
 				t.Fatalf("Pi Desktop detect = %q, want empty (GUI app, no CLI)", cfg.Detect)
@@ -62,12 +65,11 @@ func TestPiDesktopSharesPathWithVanillaPi(t *testing.T) {
 	home := t.TempDir()
 	configs := []agentConfig{
 		{Name: agentPi, Enabled: true, SkillRoot: filepath.Join(home, ".pi", "agent", "skills")},
-		{Name: agentPiDesktop, Enabled: true, SkillRoot: filepath.Join(home, ".pi", "agent", "skills")},
+		{Name: agentPiDesktop, Enabled: true, SkillRoot: filepath.Join(home, ".agents")},
 	}
 
-	// Both should have the same skill root
-	if configs[0].SkillRoot != configs[1].SkillRoot {
-		t.Fatalf("Pi and Pi Desktop should share skill root, got %q and %q",
-			configs[0].SkillRoot, configs[1].SkillRoot)
+	// Pi Desktop should use plugin-based approach, not Pi's skill root
+	if configs[0].SkillRoot == configs[1].SkillRoot {
+		t.Fatal("Pi Desktop should use plugin-based approach (~/.agents), not share Pi's skill root")
 	}
 }
