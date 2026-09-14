@@ -38,8 +38,8 @@ dotagents mcp <list|add|import|remove> [options]
 
 `config` (terminal TUI) and `view` (browser web UI) are the canonical authoring
 surfaces. Both edit shared YAML or the machine-local overlay; effective
-configuration is read-only. Saves validate and show a YAML diff, but never run
-`sync` implicitly. `view` binds only to loopback and uses a session cookie plus
+configuration is read-only. In `view`, each toggle applies immediately; neither
+surface runs `sync` implicitly. `view` binds only to loopback and uses a session cookie plus
 CSRF and origin protection. `inspect` is a separate read-mostly HarnessKit
 launcher, not an authoring surface (before v0.9.0 that launcher was `view`).
 

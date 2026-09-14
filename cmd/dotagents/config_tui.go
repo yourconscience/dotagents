@@ -27,6 +27,9 @@ type configServeOptions struct {
 	// reaching the loopback-bound UI from this host instead of auto-opening a
 	// browser on a remote box.
 	SSHHost string
+	// TokenFile, when set, holds a stable session token (created on first use)
+	// so a restarted persistent `view` service keeps the same access URL.
+	TokenFile string
 }
 
 func runConfigCommand(args []string) error {

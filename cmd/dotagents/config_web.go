@@ -49,7 +49,7 @@ func runConfigServe(opts configServeOptions) error {
 		return fmt.Errorf("listen %s: %w", opts.Addr, err)
 	}
 	defer listener.Close()
-	token, err := randomToken(32)
+	token, err := resolveServerToken(opts.TokenFile)
 	if err != nil {
 		return err
 	}
@@ -99,6 +99,32 @@ func randomToken(size int) (string, error) {
 		return "", fmt.Errorf("generate session token: %w", err)
 	}
 	return hex.EncodeToString(buf), nil
+}
+
+// resolveServerToken returns a stable session token from tokenFile when set,
+// minting and persisting one (0600) on first use so a restarted persistent
+// `view` service keeps the same access URL. Without a token file it falls back
+// to a fresh per-process token.
+func resolveServerToken(tokenFile string) (string, error) {
+	if tokenFile == "" {
+		return randomToken(32)
+	}
+	switch data, err := os.ReadFile(tokenFile); {
+	case err == nil:
+		if tok := strings.TrimSpace(string(data)); tok != "" {
+			return tok, nil
+		}
+	case !errors.Is(err, os.ErrNotExist):
+		return "", fmt.Errorf("read token file %s: %w", tokenFile, err)
+	}
+	tok, err := randomToken(32)
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(tokenFile, []byte(tok+"\n"), 0o600); err != nil {
+		return "", fmt.Errorf("write token file %s: %w", tokenFile, err)
+	}
+	return tok, nil
 }
 
 func (s *configWebServer) handler() http.Handler {
