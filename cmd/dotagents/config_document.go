@@ -286,7 +286,6 @@ func (d *configDocument) bytesLocked(layer configLayer) []byte {
 	}
 }
 
-
 func (d *configDocument) typedLocked(layer configLayer) config {
 	switch layer {
 	case configLayerLocal:
