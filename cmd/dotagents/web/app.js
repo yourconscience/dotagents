@@ -40,7 +40,8 @@ function toggle(path, value, labelText) {
   input.checked = !!value;
   input.dataset.editPath = path;
   input.disabled = state.read_only;
-  label.append(input, document.createTextNode(labelText));
+  input.setAttribute('aria-label', labelText);
+  label.append(input);
   return label;
 }
 function row(keyLabel, description, controls) {
