@@ -85,6 +85,9 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		if len(report.ManagedHook)+len(report.MissingHook)+len(report.DriftedHook)+len(report.UnsupportedHook) > 0 {
 			fmt.Printf("  hook managed (%d): %s\n", len(report.ManagedHook), displayList(report.ManagedHook))
 		}
+		if len(report.ManagedPackage)+len(report.DriftedPackage) > 0 {
+			fmt.Printf("  package managed (%d): %s\n", len(report.ManagedPackage), displayList(report.ManagedPackage))
+		}
 		if len(report.Missing) > 0 {
 			fmt.Printf("  missing (%d): %s\n", len(report.Missing), displayList(report.Missing))
 		}
@@ -109,6 +112,9 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 		if len(report.DriftedHook) > 0 {
 			fmt.Printf("  hook drifted (%d): %s\n", len(report.DriftedHook), displayList(report.DriftedHook))
 		}
+		if len(report.DriftedPackage) > 0 {
+			fmt.Printf("  package drifted (%d): %s\n", len(report.DriftedPackage), displayList(report.DriftedPackage))
+		}
 		if len(report.UnsupportedHook) > 0 {
 			fmt.Printf("  hook unsupported (%d): %s\n", len(report.UnsupportedHook), displayList(report.UnsupportedHook))
 		}
@@ -119,7 +125,7 @@ func printReport(mode string, repoRoot string, repoReport repoLinkReport, report
 			fmt.Printf("  conflicts (%d): %s\n", len(report.Conflicts), displayList(report.Conflicts))
 		}
 		if mode == "sync" {
-			fmt.Printf("  sync actions: add=%d update=%d remove=%d agent-add=%d agent-update=%d agent-remove=%d mcp-add=%d mcp-update=%d hook-add=%d hook-update=%d\n", len(report.Adds), len(report.Updates), len(report.Removes), len(report.AddsAgent), len(report.UpdatesAgent), len(report.RemovesAgent), len(report.AddsMCP), len(report.UpdatesMCP), len(report.AddsHook), len(report.UpdatesHook))
+			fmt.Printf("  sync actions: add=%d update=%d remove=%d agent-add=%d agent-update=%d agent-remove=%d mcp-add=%d mcp-update=%d hook-add=%d hook-update=%d package-update=%d package-remove=%d\n", len(report.Adds), len(report.Updates), len(report.Removes), len(report.AddsAgent), len(report.UpdatesAgent), len(report.RemovesAgent), len(report.AddsMCP), len(report.UpdatesMCP), len(report.AddsHook), len(report.UpdatesHook), len(report.UpdatesPackage), len(report.RemovesPackage))
 		}
 		fmt.Println()
 	}
@@ -137,15 +143,19 @@ func sortReportLists(report *agentReport) {
 	sort.Strings(report.ManagedAgent)
 	sort.Strings(report.ManagedMCP)
 	sort.Strings(report.ManagedHook)
+	sort.Strings(report.ManagedPackage)
 	sort.Strings(report.Drifted)
 	sort.Strings(report.DriftedAgent)
 	sort.Strings(report.DriftedMCP)
 	sort.Strings(report.DriftedHook)
+	sort.Strings(report.DriftedPackage)
 	sort.Strings(report.Missing)
 	sort.Strings(report.MissingAgent)
 	sort.Strings(report.MissingMCP)
 	sort.Strings(report.MissingHook)
 	sort.Strings(report.UnsupportedHook)
+	sort.Strings(report.UpdatesPackage)
+	sort.Strings(report.RemovesPackage)
 	sort.Strings(report.Conflicts)
 	sort.Strings(report.StaleManaged)
 	sort.Strings(report.External)
@@ -183,6 +193,8 @@ func restoreSyncActions(current []agentReport, preflight []agentReport) {
 			current[i].RemovesAgent = append([]string{}, original.RemovesAgent...)
 			current[i].UpdatesMCP = append([]string{}, original.UpdatesMCP...)
 			current[i].UpdatesHook = append([]string{}, original.UpdatesHook...)
+			current[i].UpdatesPackage = append([]string{}, original.UpdatesPackage...)
+			current[i].RemovesPackage = append([]string{}, original.RemovesPackage...)
 			current[i].Removes = append([]string{}, original.Removes...)
 		}
 	}
@@ -395,6 +407,9 @@ func surfaceCounts(r agentReport) string {
 	if n := len(r.ManagedHook); n > 0 {
 		parts = append(parts, fmt.Sprintf("%d hooks", n))
 	}
+	if n := len(r.ManagedPackage); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d packages", n))
+	}
 	out := strings.Join(parts, " · ")
 	if n := len(r.External); n > 0 {
 		out += fmt.Sprintf("  (+%d external)", n)
@@ -421,6 +436,8 @@ func driftBuckets(r agentReport) []driftBucket {
 		{"hooks drifted", r.DriftedHook},
 		{"hooks missing", r.MissingHook},
 		{"hooks unsupported", r.UnsupportedHook},
+		{"packages drifted", r.DriftedPackage},
+		{"packages removed", r.RemovesPackage},
 		{"conflicts", r.Conflicts},
 	}
 }
@@ -437,6 +454,9 @@ func printVerboseSurfaceLists(report agentReport) {
 	}
 	if len(report.ManagedHook) > 0 {
 		fmt.Printf("  hooks (%d):   %s\n", len(report.ManagedHook), displayList(report.ManagedHook))
+	}
+	if len(report.ManagedPackage) > 0 {
+		fmt.Printf("  packages (%d): %s\n", len(report.ManagedPackage), displayList(report.ManagedPackage))
 	}
 	if len(report.External) > 0 {
 		fmt.Printf("  external (%d): %s\n", len(report.External), displayList(report.External))

@@ -301,6 +301,9 @@ func inspectAgent(agent agentConfig, expected map[string]string, repoRoot string
 			return agentReport{}, err
 		}
 	}
+	if err := augmentPiPackageReport(&report, agent, home); err != nil {
+		return agentReport{}, err
+	}
 
 	sortReportLists(&report)
 	report.Synced = isReportSynced(report)
@@ -389,7 +392,7 @@ func isReportSynced(report agentReport) bool {
 	if len(report.MissingMCP) > 0 || len(report.DriftedMCP) > 0 || len(report.MissingAgent) > 0 || len(report.DriftedAgent) > 0 {
 		return false
 	}
-	if len(report.MissingHook) > 0 || len(report.DriftedHook) > 0 {
+	if len(report.MissingHook) > 0 || len(report.DriftedHook) > 0 || len(report.DriftedPackage) > 0 {
 		return false
 	}
 	return report.RootState == "" || report.RootState == stateSynced

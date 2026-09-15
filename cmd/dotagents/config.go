@@ -113,6 +113,26 @@ func validateConfig(cfg *config, home string, expand bool) error {
 			return fmt.Errorf("config agent %s is duplicated", cfg.Agents[i].Name)
 		}
 		seen[cfg.Agents[i].Name] = struct{}{}
+
+		if cfg.Agents[i].Packages != nil {
+			packages := *cfg.Agents[i].Packages
+			seenPackages := make(map[string]struct{}, len(packages))
+			for j, pkg := range packages {
+				pkg = strings.TrimSpace(pkg)
+				if pkg == "" {
+					return fmt.Errorf("config agent %s has an empty package", cfg.Agents[i].Name)
+				}
+				if _, ok := seenPackages[pkg]; ok {
+					return fmt.Errorf("config agent %s has duplicate package %q", cfg.Agents[i].Name, pkg)
+				}
+				seenPackages[pkg] = struct{}{}
+				packages[j] = pkg
+			}
+			cfg.Agents[i].Packages = &packages
+			if cfg.Agents[i].Name != agentPi {
+				return fmt.Errorf("config agent %s does not support packages", cfg.Agents[i].Name)
+			}
+		}
 	}
 
 	seenExt := make(map[string]struct{})

@@ -620,6 +620,21 @@ func TestConfirmDestructiveSyncActionsDeclineClearsPlan(t *testing.T) {
 	}
 }
 
+func TestConfirmDestructiveSyncActionsDeclinePackageRemoval(t *testing.T) {
+	reports := []agentReport{{
+		Name: "pi", Detected: true,
+		RemovesPackage: []string{"npm:old@1.0.0"}, UpdatesPackage: []string{"settings.json packages"},
+	}}
+	var out bytes.Buffer
+	confirmDestructiveSyncActions(reports, setupIO{in: strings.NewReader("n\n"), out: &out})
+	if len(reports[0].RemovesPackage) != 0 || len(reports[0].UpdatesPackage) != 0 {
+		t.Fatalf("declined package removal kept replacement plan: %#v", reports[0])
+	}
+	if !strings.Contains(out.String(), "remove 1 Pi package declaration(s): npm:old@1.0.0") {
+		t.Fatalf("missing package removal preview:\n%s", out.String())
+	}
+}
+
 func TestConfirmDestructiveSyncActionsAcceptKeepsPlan(t *testing.T) {
 	reports := []agentReport{{
 		Name: "codex", Detected: true, SkillRoot: "/tmp/skills",

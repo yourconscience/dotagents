@@ -116,6 +116,9 @@ func runSync(opts runOptions) error {
 	if err := applyAgentRootInstructionSync(reports); err != nil {
 		return err
 	}
+	if err := applyAgentPackageSync(reports, selected, home); err != nil {
+		return err
+	}
 
 	repoReport, err = inspectRepoLink(repoRoot, home)
 	if err != nil {
