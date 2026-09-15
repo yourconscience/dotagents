@@ -79,19 +79,19 @@ function renderStructured(config) {
   for (const agent of agents) {
     const name = pick(agent,'Name','name');
     const roots = [pick(agent,'SkillRoot','skill_root'), pick(agent,'AgentRoot','agent_root')].filter(Boolean).join(' · ');
-    rows.push(row(name, roots, [toggle(`/agents/${name}/enabled`, pick(agent,'Enabled','enabled'), 'Enabled')]));
+    rows.push(row(name, roots, [toggle(`/agents/${name}/enabled`, pick(agent,'Enabled','enabled'), `${name} enabled`)]));
   }
   if (servers.length) rows.push(section('MCP servers'));
   for (const server of servers) {
     const name = pick(server,'Name','name');
     const targets = pick(server,'Agents','agents') || [];
-    rows.push(row(name, targets.length ? `Targets: ${targets.join(', ')}` : 'No targets', [toggle(`/mcp_servers/${name}/enabled`, pick(server,'Enabled','enabled'), 'Enabled')]));
+    rows.push(row(name, targets.length ? `Targets: ${targets.join(', ')}` : 'No targets', [toggle(`/mcp_servers/${name}/enabled`, pick(server,'Enabled','enabled'), `${name} enabled`)]));
   }
   if (hooks.length) rows.push(section('Hooks'));
   for (const hook of hooks) {
     const name = pick(hook,'Name','name');
     const event = pick(hook,'Event','event');
-    rows.push(row(name, event ? `Event: ${event}` : 'No event', [toggle(`/hooks/${name}/enabled`, pick(hook,'Enabled','enabled'), 'Enabled')]));
+    rows.push(row(name, event ? `Event: ${event}` : 'No event', [toggle(`/hooks/${name}/enabled`, pick(hook,'Enabled','enabled'), `${name} enabled`)]));
   }
   if (links.length) rows.push(section('Navigation'));
   links.forEach((link) => rows.push(row(pick(link,'Name','name'), pick(link,'URL','url'), [])));
