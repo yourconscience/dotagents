@@ -64,12 +64,17 @@ h1 { margin:4px 0 0; font-size:25px; letter-spacing:-.03em; }
 .ledger-row small { display:block; color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
 .choices { display:flex; align-items:center; gap:12px; }
 
-.toggle { display:inline-flex; align-items:center; cursor:pointer; }
-.toggle input { appearance:none; -webkit-appearance:none; position:relative; width:44px; height:26px; flex:none; margin:0; border-radius:999px; background:var(--line); cursor:pointer; transition:background .16s ease; }
-.toggle input::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--muted); transition:transform .16s ease,background .16s ease; }
-.toggle input:checked { background:var(--accent); }
-.toggle input:checked::after { transform:translateX(18px); background:var(--base); }
-.toggle input:disabled { opacity:.45; cursor:not-allowed; }
+/* Switch = a real <span> track/knob (pseudo-elements on <input> don't render in
+   Safari/Firefox); the checkbox overlays it, invisible but focusable/clickable. */
+.toggle { position:relative; display:inline-flex; align-items:center; width:44px; height:26px; flex:none; cursor:pointer; }
+.toggle input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+.toggle .slider { position:relative; width:44px; height:26px; border-radius:999px; background:var(--line); transition:background .16s ease; }
+.toggle .slider::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--muted); transition:transform .16s ease,background .16s ease; }
+.toggle input:checked + .slider { background:var(--accent); }
+.toggle input:checked + .slider::after { transform:translateX(18px); background:var(--base); }
+.toggle input:disabled { cursor:not-allowed; }
+.toggle input:disabled + .slider { opacity:.45; }
+.toggle input:focus-visible + .slider { outline:2px solid var(--accent); outline-offset:2px; }
 
 .status { min-height:42px; margin:2px 0 18px; padding:10px 12px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--muted); font-size:13px; }
 .status.ok { color:var(--success); border-color:color-mix(in srgb,var(--success) 40%,var(--line)); }

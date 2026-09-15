@@ -41,7 +41,10 @@ function toggle(path, value, labelText) {
   input.dataset.editPath = path;
   input.disabled = state.read_only;
   input.setAttribute('aria-label', labelText);
-  label.append(input);
+  const slider = document.createElement('span');
+  slider.className = 'slider';
+  slider.setAttribute('aria-hidden', 'true');
+  label.append(input, slider);
   return label;
 }
 function row(keyLabel, description, controls) {
