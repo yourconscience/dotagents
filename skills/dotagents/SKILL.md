@@ -27,6 +27,7 @@ dotagents config validate
 dotagents config print
 dotagents view [--addr 127.0.0.1:8765] [--no-open] [--secure-cookie] [--ssh-host user@host]
 dotagents inspect [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]
+dotagents sessions [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]
 dotagents skill new <name> [--description ...]
 dotagents skill list [--agents ...]
 dotagents skill info <name>
@@ -39,9 +40,11 @@ dotagents mcp <list|add|import|remove> [options]
 `config` (terminal TUI) and `view` (browser web UI) are the canonical authoring
 surfaces. Both edit shared YAML or the machine-local overlay; effective
 configuration is read-only. In `view`, each toggle applies immediately; neither
-surface runs `sync` implicitly. `view` binds only to loopback and uses a session cookie plus
-CSRF and origin protection. `inspect` is a separate read-mostly HarnessKit
-launcher, not an authoring surface (before v0.9.0 that launcher was `view`).
+surface runs `sync` implicitly. `view` binds only to loopback and uses a session
+cookie plus CSRF and origin protection. `inspect` is a separate read-mostly
+HarnessKit launcher. `sessions` is a separate AgentsView launcher for transcript
+search, replay, telemetry, and usage. Both integrations are optional external
+tools, not dotagents dependencies.
 
 Run `dotagents help --all` for maintenance commands and compatibility aliases. Do not use hidden aliases in new scripts or documentation.
 
@@ -187,6 +190,18 @@ It prints the tokenized URL on its own line and, when running locally, opens it 
 dotagents inspect                                 # open the inspector locally
 dotagents inspect --no-open --port 7070           # print the URL, do not open a browser
 dotagents inspect --ssh-host me@box --host 0.0.0.0 # remote: print an ssh -L tunnel command
+```
+
+## sessions
+
+Launches [AgentsView](https://github.com/kenn-io/agentsview) (`agentsview serve`) as an optional local session search, replay, telemetry, and usage dashboard. AgentsView owns its index and configuration; dotagents does not sync or mutate either. Requires `agentsview` on `PATH`, installed separately.
+
+`--no-open` maps to AgentsView's `--no-browser`. On a remote host, pass `--ssh-host user@host` (or run inside an SSH session) to suppress remote browser launch and print a loopback `ssh -L` tunnel command. Other flags are forwarded to `agentsview serve`.
+
+```bash
+dotagents sessions                              # open AgentsView locally
+dotagents sessions --no-open --port 8080        # serve without opening a browser
+dotagents sessions --ssh-host me@box --port 8080 # remote: print a tunnel command
 ```
 
 ## Capability matrix
