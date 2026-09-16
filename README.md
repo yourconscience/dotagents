@@ -100,16 +100,26 @@ dotagents config                  # Bubble Tea canonical YAML editor (terminal)
 dotagents config validate|print
 dotagents view     [--addr 127.0.0.1:8765] [--no-open] [--secure-cookie] [--ssh-host user@host]  # loopback web config UI
 dotagents inspect  [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]  # launch HarnessKit (cross-harness inspector)
+dotagents sessions [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]  # launch AgentsView (sessions and usage)
 dotagents skill    new|list|info|update|promote
 dotagents publish  [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]  # push skills to a remote registry
 dotagents mcp      list|add|import|remove
 ```
 
-## Inspecting your skill roots
+## Supported integrations
 
-`dotagents skill list` shows, per detected harness, every entry in its skill root with provenance: managed links (with the external source and pinned commit when applicable), foreign symlinks (other tools' plugins), unmanaged directories, drifted and broken links — plus the estimated context cost of each harness's skill listing. `dotagents skill info <name>` answers "where does this skill come from and who sees it".
+dotagents can launch two optional external tools. Neither is installed, vendored, or required by dotagents:
 
-`dotagents inspect` shells out to [HarnessKit](https://github.com/RealZST/HarnessKit) (`hk serve`) for a read-mostly inspection UI over every detected harness — skills, MCP servers, hooks, and configs in one place. It prints the tokenized URL on its own line and opens it in your default browser locally; use `--no-open` to skip the launch, or `--ssh-host user@host` on a remote box to print an `ssh -L` tunnel command instead (inside an SSH session the host is derived from `SSH_CONNECTION`). Other flags (`--port`, `--host`, `--no-token`) are forwarded to `hk serve`. HarnessKit does its own harness discovery and can also enable/disable/deploy; those writes bypass dotagents, so use `inspect` to look and reconcile any changes with `dotagents sync`. Install HarnessKit separately. (`dotagents inspect` was `dotagents view` before v0.9.0, when `view` became the config UI.)
+| Integration | Purpose | Connector |
+|---|---|---|
+| [HarnessKit](https://github.com/RealZST/HarnessKit) | Inspect and audit skills, MCP servers, hooks, and native harness configuration | `dotagents inspect` |
+| [AgentsView](https://github.com/kenn-io/agentsview) | Search and replay sessions; inspect tool telemetry, token usage, and estimated cost | `dotagents sessions` |
+
+`dotagents skill list` remains the built-in provenance view for each harness skill root. It reports managed links, foreign symlinks, unmanaged directories, drift, broken links, and estimated context cost.
+
+`dotagents inspect` shells out to HarnessKit (`hk serve`). Treat it as read-mostly: HarnessKit's enable/disable/deploy actions bypass dotagents, so reconcile any changes with `dotagents sync`. Install HarnessKit separately.
+
+`dotagents sessions` shells out to AgentsView (`agentsview serve`). AgentsView owns its local transcript index and configuration; dotagents does not sync or mutate either. `--no-open` maps to AgentsView's `--no-browser`; `--ssh-host user@host` prints a loopback tunnel command on a remote machine. Other flags are forwarded to `agentsview serve`. Install AgentsView separately.
 
 ## Installing skills without dotagents
 

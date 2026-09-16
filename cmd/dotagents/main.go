@@ -187,6 +187,8 @@ func run(args []string) error {
 		return runView(args[1:])
 	case "inspect":
 		return runInspect(args[1:])
+	case "sessions":
+		return runSessions(args[1:])
 	case "skill":
 		return runSkillCommand(args[1:])
 	case "publish":
@@ -551,6 +553,10 @@ func printUsage() {
 	fmt.Println("  config   Author the canonical YAML in an interactive TUI")
 	fmt.Println("  view     Author the canonical YAML in a loopback web UI (browser)")
 	fmt.Println()
+	fmt.Println("Supported integrations:")
+	fmt.Println("  inspect  Launch HarnessKit for cross-harness configuration inspection")
+	fmt.Println("  sessions Launch AgentsView for session search, telemetry, and usage")
+	fmt.Println()
 	fmt.Println("Command groups:")
 	fmt.Println("  skill    Inspect, create, update, and promote skills")
 	fmt.Println("  publish  Push canonical skills to a remote skill registry")
@@ -570,6 +576,7 @@ func printAllUsage() {
 	fmt.Println("  dotagents config [validate|print] [--config PATH]")
 	fmt.Println("  dotagents view [--addr 127.0.0.1:8765] [--no-open] [--secure-cookie] [--ssh-host user@host] [--token-file PATH]")
 	fmt.Println("  dotagents inspect [--no-open] [--ssh-host user@host] [hk serve flags: --port N, --host ADDR, --no-token]")
+	fmt.Println("  dotagents sessions [--no-open] [--ssh-host user@host] [agentsview serve flags: --port N, --host ADDR, --no-sync]")
 	fmt.Println("  dotagents skill new <name> [--description ...]")
 	fmt.Println("  dotagents skill list [--agents ...]")
 	fmt.Println("  dotagents skill info <name>")
