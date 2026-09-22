@@ -43,12 +43,6 @@ jobs:
 
   build-and-lint:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - .
-          - memory/tools/knowledge-sync
     steps:
       - uses: actions/checkout@v4
 
@@ -58,22 +52,38 @@ jobs:
           cache: false
 
       - name: Test
-        working-directory: ${{ matrix.module }}
         run: go test ./...
 
       - name: Build
-        working-directory: ${{ matrix.module }}
         run: go build ./...
 
       - name: Vet
-        working-directory: ${{ matrix.module }}
         run: go vet ./...
 
       - name: Lint
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.2
-          working-directory: ${{ matrix.module }}
+
+  memory-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test memory hooks and lib
+        run: python3 -m unittest discover -s memory/tests
+
+  release-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test release script validation
+        run: sh scripts/release_test.sh
 
   npm-wrapper:
     runs-on: ubuntu-latest

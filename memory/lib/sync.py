@@ -9,8 +9,6 @@ Direction 2 (vault->memory): import vault profile facts into Hermes memory
   - vault profile/USER.md -> Hermes USER.md (compact, deduplicated)
   - vault recent sessions/ facts -> Hermes MEMORY.md (compact, deduplicated)
 
-After either direction, reindexes memsearch.
-
 Usage:
   python sync.py memory-to-vault   # export Hermes -> vault
   python sync.py vault-to-memory   # import vault -> Hermes
@@ -37,12 +35,6 @@ def resolve():
         "hermes_user": home / ".hermes" / "memories" / "USER.md",
         "vault_profile": profile_dir / "USER.md",
         "vault_knowledge": sessions_dir / "knowledge.md",
-        "vault_dir": vault_dir,
-        "vault_sessions_dir": sessions_dir,
-        "vault_notes_dir": notes_dir,
-        "vault_profile_dir": profile_dir,
-        "memsearch_home": Path(os.path.expanduser(os.environ.get("MEMSEARCH_HOME", "~/.memsearch"))),
-        "collection": os.environ.get("MEMSEARCH_COLLECTION", "ai"),
     }
 
 
@@ -239,54 +231,6 @@ def vault_to_memory(paths: dict):
     return changed
 
 
-# -- Reindex ---------------------------------------------------------------
-def reindex_memsearch(paths: dict):
-    """Refresh the derived memsearch index over the canonical vault.
-
-    Indexes the whole vault into collection ``ai`` -- the same scope the
-    knowledge-sync reindex-after-sync trigger uses -- so markdown stays the
-    single source of truth and the index is a disposable per-machine derivative.
-    Best-effort and guarded by the shared reindex lock so it never overlaps a
-    concurrent refresh (reindex-after-sync / reindex-after-capture).
-    """
-    import fcntl
-    import shutil
-    import subprocess
-
-    if not shutil.which("memsearch"):
-        print("memsearch reindex: memsearch not installed, skipped")
-        return
-
-    state_dir = paths["memsearch_home"]
-    # Best-effort: a failure to create the state dir or open the lock must never
-    # raise out of a reindex trigger, only skip and warn.
-    try:
-        state_dir.mkdir(parents=True, exist_ok=True)
-        lock = open(state_dir / "reindex.lock", "w")
-    except OSError as exc:
-        print(f"memsearch reindex: cannot open lock dir ({exc}), skipped")
-        return
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        print("memsearch reindex: another reindex running, skipped")
-        lock.close()
-        return
-
-    try:
-        # Always refresh the canonical "ai" collection; ignore MEMSEARCH_COLLECTION
-        # drift so the canonical collection cannot go silently stale.
-        cmd = ["memsearch", "index", str(paths["vault_dir"]), "--collection", "ai"]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            print("memsearch reindex: done")
-        else:
-            print(f"memsearch reindex: warning - {result.stderr.strip()}")
-    finally:
-        fcntl.flock(lock, fcntl.LOCK_UN)
-        lock.close()
-
-
 # -- Main ------------------------------------------------------------------
 def main():
     if len(sys.argv) < 2:
@@ -295,16 +239,11 @@ def main():
 
     paths = resolve()
     direction = sys.argv[1]
-    any_change = False
-
     if direction in ("memory-to-vault", "both"):
-        any_change |= memory_to_vault(paths)
+        memory_to_vault(paths)
 
     if direction in ("vault-to-memory", "both"):
-        any_change |= vault_to_memory(paths)
-
-    if any_change:
-        reindex_memsearch(paths)
+        vault_to_memory(paths)
 
 
 if __name__ == "__main__":

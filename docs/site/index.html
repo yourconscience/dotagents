@@ -396,11 +396,34 @@
           <tr><th scope="row">Agent roles</th><td class="y">rendered native</td><td class="y">yes</td><td style="color:var(--gold)">experimental</td><td class="n">no</td></tr>
           <tr><th scope="row">Pinned + audited externals</th><td class="y">lock file + audit</td><td class="n">no pinning</td><td class="n">no pinning</td><td style="color:var(--gold)">tracks source, no pin</td></tr>
           <tr><th scope="row">Harness coverage</th><td class="y">9 deep</td><td style="color:var(--gold)">broad</td><td style="color:var(--gold)">broad</td><td style="color:var(--gold)">narrow</td></tr>
-          <tr><th scope="row">Install</th><td style="color:var(--gold)">curl / mise / go</td><td style="color:var(--gold)">npm / brew</td><td style="color:var(--gold)">npm</td><td style="color:var(--gold)">npm</td></tr>
+          <tr><th scope="row">Install</th><td style="color:var(--gold)">brew / npm / curl / go</td><td style="color:var(--gold)">npm / brew</td><td style="color:var(--gold)">npm</td><td style="color:var(--gold)">npm</td></tr>
         </tbody>
       </table>
       </div>
       <p class="section-sub" style="margin-top:10px; margin-bottom:8px; padding: 0 24px 12px; font-size: 13px">dotagents' own harness coverage is shown above; competitor breadth is described qualitatively, since their exact tool counts drift over time. Different tools for different jobs: rulesync and ruler generate per-project config for many tools; dotagents carries one personal setup deeply into the harnesses you live in.</p>
+    </div>
+  </section>
+
+  <!-- Docs -->
+  <section>
+    <h2>Documentation</h2>
+    <p class="section-sub">Operational detail lives in the repository, next to the code it describes.</p>
+
+    <div class="panel">
+      <h3>Guides</h3>
+      <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><th scope="row"><a href="https://github.com/yourconscience/dotagents#readme">README</a></th><td>Install channels, the five synced surfaces, and the command index</td></tr>
+          <tr><th scope="row"><a href="https://github.com/yourconscience/dotagents/blob/main/docs/setup.md">Setup</a></th><td>First-run walkthrough, review screen, multi-machine setup</td></tr>
+          <tr><th scope="row"><a href="https://github.com/yourconscience/dotagents/blob/main/docs/skills.md">Skills</a></th><td>Authoring skills, external pins, plugin discovery</td></tr>
+          <tr><th scope="row"><a href="https://github.com/yourconscience/dotagents/blob/main/docs/roles.md">Roles</a></th><td>Role format, model tiers, per-harness overrides</td></tr>
+          <tr><th scope="row"><a href="https://github.com/yourconscience/dotagents/blob/main/docs/memory.md">Memory</a></th><td>Tiers, the <code>rem</code> workflow, vault layout</td></tr>
+          <tr><th scope="row"><a href="https://github.com/yourconscience/dotagents/blob/main/docs/comparison.md">Comparison</a></th><td>How dotagents differs from rulesync, ruler, and openskills</td></tr>
+          <tr><th scope="row"><a href="https://github.com/yourconscience/dotagents/blob/main/docs/troubleshooting.md">Troubleshooting</a></th><td>Doctor first, plus the common failure modes</td></tr>
+        </tbody>
+      </table>
+      </div>
     </div>
   </section>
 

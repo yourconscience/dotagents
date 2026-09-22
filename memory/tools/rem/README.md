@@ -1,40 +1,29 @@
 # rem
 
-Memory workflow CLI for the knowledge vault. Shipped as a dotagents memory tool:
-`dotagents sync` builds it and installs it to `$GOBIN` or `~/.local/bin`.
+The sole supported capture/consolidation CLI for the knowledge vault. A fresh
+`dotagents setup` copies this Go package source, materializes the embedded
+`go.mod.template` as `go.mod`, and `dotagents sync` builds and installs it to
+`$GOBIN` or `~/.local/bin`. In this repository the package remains part of the
+root module, so `go test ./...` covers it without a nested module boundary.
 
-```
-rem add [-src harness] "<fact>"   capture a candidate fact to $KNOWLEDGE_DIR/ai/YYYY-MM-DD.md
+```text
+rem add [-src harness] "<fact>"   capture an inert candidate in ai/YYYY-MM-DD.md
 rem search "<query>"              semantic search via memsearch (collection ai)
-rem dream [--apply]               consolidation report; --apply collapses exact-duplicate
-                                  sync sections in sessions/knowledge.md (backup + commit)
-rem sync                          commit+merge+push the vault via knowledge-sync
+rem dream [--apply]               report candidates; optionally collapse exact
+                                  duplicate sync sections with backup + commit
+rem sync                          run the guarded knowledge-sync binary
 ```
 
-`rem search` targets collection `ai` (the canonical vault collection) unless you
-pass your own `-c`/`--collection`.
+`rem dream` is the only consolidation command. Its normal mode writes a review
+report and does not promote facts. `--apply` performs only its documented,
+unattended-safe exact-duplicate cleanup; it does not infer or promote facts.
+Session digests written by memory hooks remain context records, not durable
+profile claims.
 
 Environment:
 
-- `KNOWLEDGE_DIR` - vault root (default `~/Workspace/knowledge`)
-- `REM_SYNC_BIN` - alternate knowledge-sync binary for `rem sync` (default `~/.local/bin/knowledge-sync`)
-- `REM_COLLECTION` - collection for `rem search` (default `ai`)
+- `KNOWLEDGE_DIR` — vault root (default `~/Workspace/knowledge`)
+- `REM_SYNC_BIN` — alternate `knowledge-sync` binary
+- `REM_COLLECTION` — collection for `rem search` (default `ai`)
 
-## Consolidation: one owner per input (R4)
-
-There are two `dream` passes; they consume **different inputs** and neither
-feeds the other, so ownership is split deliberately to avoid duplication:
-
-| Pass | Owner | Input | Output |
-|---|---|---|---|
-| `rem dream` (this tool) | Go | `ai/` candidate captures | promotion report in `reviews/`; `--apply` collapses exact-duplicate sync sections in `sessions/knowledge.md` |
-| `basic_memory dream` | Python (`lib/basic_memory.py`) | `sessions/` session digests | review-only JSON in `reviews/` |
-
-`rem dream` owns the explicit `rem add` candidate loop (promotion into
-`profile/USER.md` or `AGENTS.md`); `basic_memory dream` owns automatic session
-digests. Keep them on separate inputs -- do not point either at the other's
-source.
-
-Design and rationale: `plans/rem-plan-2026-08.md` in the knowledge vault.
-
-Tests: `go test ./...`
+Tests are included in the root module and run with `go test ./...`.

@@ -21,7 +21,7 @@ cat >"$payload"
 kind="$(classify_payload "$payload")"
 case "$kind" in
   codex|omp)
-    dispatch_basic_digest "$payload"
+    dispatch_basic_digest "$payload" "$kind"
     exit 0
     ;;
 esac

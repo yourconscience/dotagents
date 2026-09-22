@@ -19,17 +19,16 @@ kind="$(classify_payload "$payload")"
 
 case "$kind" in
   amp-json)
-    python3 "$MEMORY_DIR/lib/amp_digest.py" <"$payload"
+    dispatch_basic_digest "$payload" amp
     ;;
   factory-jsonl)
-    python3 "$MEMORY_DIR/lib/factory_digest.py" <"$payload"
+    dispatch_basic_digest "$payload" droid
     ;;
   hermes-json)
-    python3 "$MEMORY_DIR/lib/hermes_digest.py" <"$payload"
+    dispatch_basic_digest "$payload" hermes
     ;;
   codex|omp)
-    # Codex/OMP capture always uses the local basic_memory digest.
-    dispatch_basic_digest "$payload"
+    dispatch_basic_digest "$payload" "$kind"
     ;;
   *)
     plugin_dir="$(resolve_claude_memory_plugin || true)"
