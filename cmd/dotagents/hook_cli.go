@@ -460,12 +460,9 @@ func missingHookTarget(command string, home string) string {
 			continue
 		}
 		seen[path] = true
-		if _, err := os.Stat(path); err == nil || !os.IsNotExist(err) {
-			return ""
+		if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
+			return path
 		}
-	}
-	for path := range seen {
-		return path
 	}
 	return ""
 }

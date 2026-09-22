@@ -59,6 +59,16 @@ func TestMissingHookTarget(t *testing.T) {
 	if got := missingHookTarget(command, home); got != "" {
 		t.Fatalf("existing target reported missing: %q", got)
 	}
+
+	// A command that chains an existing script with a missing one is still
+	// stale: report the missing target rather than clearing on the first hit.
+	present := filepath.Join(home, ".agents", "hooks", "present.sh")
+	writeSyncTestFile(t, present, []byte("#!/bin/sh\n"))
+	gone := filepath.Join(home, ".agents", "hooks", "gone.py")
+	chained := "'" + present + "' && python3 '" + gone + "'"
+	if got := missingHookTarget(chained, home); got != gone {
+		t.Fatalf("chained missing target = %q, want %q", got, gone)
+	}
 }
 
 func TestRemoveNativeHookEntriesScopesRemovalToMatchedEvent(t *testing.T) {
