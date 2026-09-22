@@ -132,14 +132,14 @@ else:
 PY
 }
 
-# Write a local basic_memory digest for the payload, then fire a bounded,
-# non-overlapping reindex only when a new digest was actually appended. Used by
-# the Claude fallback and by Codex/OMP capture so the logic lives in one place.
+# Write a digest through the shared basic_memory implementation, then fire a
+# bounded, non-overlapping reindex only when a new digest was actually appended.
 dispatch_basic_digest() {
-  if digest_output="$(python3 "$MEMORY_DIR/hooks/basic-session-end.py" <"$1")"; then
+  digest_source="${2:-}"
+  if digest_output="$(DOTAGENTS_MEMORY_SOURCE="$digest_source" python3 "$MEMORY_DIR/hooks/basic-session-end.py" <"$1")"; then
     printf '%s\n' "$digest_output"
     case "$digest_output" in
-      *'"systemMessage":"basic memory appended'*) refresh_index_async ;;
+      *'"systemMessage":"basic memory appended'*|*'"message": "memsearch updated from'*|*'"systemMessage":"memsearch updated from'*) refresh_index_async ;;
     esac
   else
     printf '{"continue":true,"suppressOutput":true}\n'

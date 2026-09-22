@@ -1,12 +1,17 @@
-import importlib.util
+import json
 import os
 import stat
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
+import importlib.util
 from pathlib import Path
 
 
-SYNC_PATH = Path(__file__).parents[1] / "lib" / "sync.py"
+MEMORY_DIR = Path(__file__).parents[1]
+SYNC_PATH = MEMORY_DIR / "lib" / "sync.py"
 SPEC = importlib.util.spec_from_file_location("dotagents_memory_sync", SYNC_PATH)
 assert SPEC is not None
 SYNC = importlib.util.module_from_spec(SPEC)
@@ -40,103 +45,64 @@ class VaultToMemoryTests(unittest.TestCase):
             self.assertEqual(hermes_user.stat().st_mtime_ns, before_mtime)
 
 
-class ReindexTests(unittest.TestCase):
-    def _paths(self, root: Path) -> dict:
-        return {
-            "vault_dir": root / "vault",
-            "memsearch_home": root / "memsearch_home",
-            "collection": "ai",
-        }
+class HermesSyncHookTests(unittest.TestCase):
+    def wait_for(self, predicate, timeout: float = 5.0) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return True
+            time.sleep(0.05)
+        return predicate()
 
-    def test_reindex_skips_cleanly_without_memsearch(self):
+    def test_both_successful_wrappers_use_shared_refresh_helper(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            empty_bin = root / "emptybin"
-            empty_bin.mkdir()
-            old_path = os.environ.get("PATH", "")
-            os.environ["PATH"] = str(empty_bin)
-            try:
-                SYNC.reindex_memsearch(self._paths(root))  # must not raise
-            finally:
-                os.environ["PATH"] = old_path
+            home = root / "home"
+            knowledge = root / "knowledge"
+            (home / ".hermes" / "memories").mkdir(parents=True)
+            (knowledge / "profile").mkdir(parents=True)
+            (knowledge / "sessions").mkdir(parents=True)
+            (knowledge / "notes").mkdir(parents=True)
+            (knowledge / "profile" / "USER.md").write_text("# Profile\n", encoding="utf-8")
 
-    def test_reindex_indexes_whole_vault_into_collection_ai(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
             fake_bin = root / "bin"
             fake_bin.mkdir()
-            argv_log = root / "argv.txt"
+            log = root / "memsearch.log"
             fake = fake_bin / "memsearch"
-            fake.write_text(
-                "#!/usr/bin/env bash\n"
-                f'printf "%s\\n" "$@" > "{argv_log}"\n'
-                "exit 0\n",
-                encoding="utf-8",
+            fake.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{log}"\n', encoding="utf-8")
+            fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "HOME": str(home),
+                    "KNOWLEDGE_DIR": str(knowledge),
+                    "MEMSEARCH_STATE_DIR": str(root / "state"),
+                    "PATH": str(fake_bin) + os.pathsep + env.get("PATH", ""),
+                }
             )
-            fake.chmod(fake.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+            for index, name in enumerate(("sync-memory-to-vault.sh", "sync-vault-to-memory.sh"), start=1):
+                result = subprocess.run(
+                    ["/bin/bash", str(MEMORY_DIR / "hooks" / name)],
+                    text=True,
+                    capture_output=True,
+                    env=env,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)["action"], "continue")
+                self.assertTrue(
+                    self.wait_for(lambda: log.exists() and len(log.read_text(encoding="utf-8").splitlines()) >= index),
+                    f"{name} did not trigger the shared refresh helper",
+                )
+                self.assertTrue(
+                    self.wait_for(lambda: not (root / "state" / "reindex.lock").exists()),
+                    f"{name} refresh did not release its lock",
+                )
 
-            paths = self._paths(root)
-            old_path = os.environ.get("PATH", "")
-            os.environ["PATH"] = str(fake_bin) + os.pathsep + old_path
-            try:
-                SYNC.reindex_memsearch(paths)
-            finally:
-                os.environ["PATH"] = old_path
-
-            argv = argv_log.read_text(encoding="utf-8").splitlines()
-            self.assertEqual(argv[0], "index")
-            self.assertEqual(argv[1], str(paths["vault_dir"]))
-            self.assertIn("--collection", argv)
-            self.assertEqual(argv[argv.index("--collection") + 1], "ai")
-            # shared reindex lock was created under the engine home
-            self.assertTrue((paths["memsearch_home"] / "reindex.lock").exists())
-
-    def _fake_memsearch(self, root: Path) -> tuple[Path, Path]:
-        fake_bin = root / "bin"
-        fake_bin.mkdir()
-        argv_log = root / "argv.txt"
-        fake = fake_bin / "memsearch"
-        fake.write_text(
-            "#!/usr/bin/env bash\n"
-            f'printf "%s\\n" "$@" > "{argv_log}"\n'
-            "exit 0\n",
-            encoding="utf-8",
-        )
-        fake.chmod(fake.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-        return fake_bin, argv_log
-
-    def test_reindex_ignores_collection_drift_and_pins_ai(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            fake_bin, argv_log = self._fake_memsearch(root)
-            paths = self._paths(root)
-            paths["collection"] = "some-other-collection"  # drift must be ignored
-            old_path = os.environ.get("PATH", "")
-            os.environ["PATH"] = str(fake_bin) + os.pathsep + old_path
-            try:
-                SYNC.reindex_memsearch(paths)
-            finally:
-                os.environ["PATH"] = old_path
-            argv = argv_log.read_text(encoding="utf-8").splitlines()
-            self.assertEqual(argv[argv.index("--collection") + 1], "ai")
-
-    def test_reindex_stays_best_effort_when_state_dir_unusable(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            fake_bin, argv_log = self._fake_memsearch(root)
-            # A regular file where a directory is expected makes mkdir raise.
-            blocker = root / "blocker"
-            blocker.write_text("not a dir\n", encoding="utf-8")
-            paths = self._paths(root)
-            paths["memsearch_home"] = blocker / "nested"
-            old_path = os.environ.get("PATH", "")
-            os.environ["PATH"] = str(fake_bin) + os.pathsep + old_path
-            try:
-                SYNC.reindex_memsearch(paths)  # must not raise
-            finally:
-                os.environ["PATH"] = old_path
-            # skipped before running memsearch
-            self.assertFalse(argv_log.exists())
+            for line in log.read_text(encoding="utf-8").splitlines():
+                self.assertIn("index", line)
+                self.assertIn("--collection ai", line)
 
 
 if __name__ == "__main__":

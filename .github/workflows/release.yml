@@ -1,36 +1,82 @@
 name: Release
 
+# Publishing happens from a v* tag, but only after the tag has been verified
+# against main and a green ci.yml run, and after the protected `release`
+# environment approves. Configure that environment in repository settings with
+# required reviewers, and keep HOMEBREW_TAP_TOKEN scoped to it.
+
 on:
   push:
     tags:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  goreleaser:
+  verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - name: Verify tag, ancestry, and CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          tag="${GITHUB_REF_NAME}"
+          if ! printf '%s' "$tag" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+            echo "::error::not a stable semver tag: $tag"
+            exit 1
+          fi
+          git fetch --no-tags --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_SHA is not on origin/main; releases are cut from main only"
+            exit 1
+          fi
+          successes=$(gh run list --workflow=ci.yml --commit "$GITHUB_SHA" --status completed --limit 20 \
+            --json headSha,conclusion \
+            --jq "[.[] | select(.headSha == \"$GITHUB_SHA\" and .conclusion == \"success\")] | length")
+          if [ "$successes" -lt 1 ]; then
+            echo "::error::no successful ci.yml run found for $GITHUB_SHA"
+            exit 1
+          fi
+          echo "verified $tag at $GITHUB_SHA (on main, ci.yml green)"
+
+      - name: Release script checks
+        run: sh scripts/release_test.sh
+
+  goreleaser:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.24"
 
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           distribution: goreleaser
-          version: "~> v2"
+          version: "v2.18.2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
   npm-publish:
-    needs: goreleaser
+    needs: [verify, goreleaser]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,9 +85,9 @@ jobs:
       run:
         working-directory: npm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org

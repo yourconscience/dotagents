@@ -13,6 +13,9 @@ rm -f "$TMP"
 if [ -n "$OUTPUT" ]; then
   printf '%s\n' "$OUTPUT" >&2
 fi
+if [ "$STATUS" -eq 0 ]; then
+  refresh_index_async
+fi
 
 python3 - "$STATUS" "$OUTPUT" <<'PY'
 import json

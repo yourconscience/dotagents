@@ -14,10 +14,6 @@ from pathlib import Path
 MEMORY_DIR = Path(__file__).resolve().parents[1]
 END_HOOK = MEMORY_DIR / "hooks" / "basic-session-end.py"
 START_HOOK = MEMORY_DIR / "hooks" / "basic-session-start.py"
-DREAM_SCRIPT = MEMORY_DIR / "lib" / "basic_memory.py"
-AMP_DIGEST = MEMORY_DIR / "lib" / "amp_digest.py"
-FACTORY_DIGEST = MEMORY_DIR / "lib" / "factory_digest.py"
-HERMES_DIGEST = MEMORY_DIR / "lib" / "hermes_digest.py"
 SESSION_END_HOOK = MEMORY_DIR / "hooks" / "session-end.sh"
 SESSION_START_HOOK = MEMORY_DIR / "hooks" / "session-start.sh"
 STOP_HOOK = MEMORY_DIR / "hooks" / "stop.sh"
@@ -182,57 +178,50 @@ class BasicMemoryHookTests(unittest.TestCase):
             self.assertEqual(malformed.stdout, "")
             self.assertIn("invalid hook JSON", malformed.stderr)
 
-    def test_amp_and_hermes_digests_redact_secrets_before_persisting(self):
+    def test_amp_and_hermes_payloads_use_shared_digest_and_redact(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             knowledge = tmp_path / "knowledge"
-            fake_bin = tmp_path / "bin"
-            fake_bin.mkdir()
-            fake_memsearch = fake_bin / "memsearch"
-            fake_memsearch.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-            fake_memsearch.chmod(fake_memsearch.stat().st_mode | stat.S_IXUSR)
-            env = self.env_with_knowledge(knowledge, {"PATH": str(fake_bin)})
+            env = self.env_with_knowledge(knowledge, {"MEMSEARCH_PLUGIN_DIR": str(tmp_path / "missing")})
+            secret = "providersecret123456789"
 
-            amp_secret = "ampsecret123456789"
-            path_secret = "pathsecret123456789"
             amp_payload = {
+                "platform": "amp",
                 "session_id": "amp-redact",
                 "session_start": "2026-07-16T03:04:05Z",
-                "model": f"model token={amp_secret}",
                 "messages": [
-                    {"role": "user", "content": f"Use api_key={amp_secret} in /Users/example/project?token={path_secret}"},
-                    {"role": "assistant", "content": f"Done with Authorization: Bearer {amp_secret}"},
+                    {"role": "user", "content": f"Use api_key={secret} in ./amp"},
+                    {"role": "assistant", "content": f"Authorization: Bearer {secret}"},
                 ],
             }
-            amp = self.run_hook(AMP_DIGEST, amp_payload, env=env)
+            amp = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps(amp_payload), text=True,
+                capture_output=True, env=env, check=False,
+            )
             self.assertEqual(amp.returncode, 0, amp.stderr)
+            self.assertEqual(json.loads(amp.stdout)["action"], "continue")
 
             hermes_home = tmp_path / "hermes"
             hermes_sessions = hermes_home / "sessions"
             hermes_sessions.mkdir(parents=True)
-            hermes_secret = "hermessecret123456789"
             hermes_data = {
                 "session_id": "hermes-redact",
-                "session_start": "2026-07-16T04:05:06",
-                "platform": f"hermes token={hermes_secret}",
-                "model": f"model password={hermes_secret}",
-                "messages": [
-                    {"role": "user", "content": f"Open /Users/example/hermes?secret={hermes_secret}"},
-                    {"role": "assistant", "content": f"Used Authorization: Bearer {hermes_secret}"},
-                ],
+                "session_start": "2026-07-16T04:05:06Z",
+                "model": f"model password={secret}",
+                "messages": [{"role": "user", "content": f"Open ./hermes?secret={secret}"}],
             }
             (hermes_sessions / "session_hermes-redact.json").write_text(json.dumps(hermes_data), encoding="utf-8")
-            hermes = self.run_hook(
-                HERMES_DIGEST,
-                {"session_id": "hermes-redact"},
-                env={**env, "HERMES_HOME": str(hermes_home)},
+            hermes = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps({"session_id": "hermes-redact"}),
+                text=True, capture_output=True, env={**env, "HERMES_HOME": str(hermes_home)}, check=False,
             )
             self.assertEqual(hermes.returncode, 0, hermes.stderr)
+            self.assertEqual(json.loads(hermes.stdout)["action"], "continue")
 
             content = (knowledge / "sessions" / "2026-07-16.md").read_text(encoding="utf-8")
-            self.assertNotIn(amp_secret, content)
-            self.assertNotIn(path_secret, content)
-            self.assertNotIn(hermes_secret, content)
+            self.assertIn("- source: amp", content)
+            self.assertIn("- source: hermes", content)
+            self.assertNotIn(secret, content)
             self.assertIn("[REDACTED]", content)
 
     def test_basic_digest_redacts_unlabelled_provider_tokens(self):
@@ -259,57 +248,100 @@ class BasicMemoryHookTests(unittest.TestCase):
                 self.assertNotIn(secret, content)
             self.assertIn("[REDACTED]", content)
 
-    def test_provider_digests_persist_when_memsearch_binary_disappears(self):
+    def test_droid_factory_jsonl_uses_shared_digest_without_memsearch(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             knowledge = tmp_path / "knowledge"
-            env = self.env_with_knowledge(knowledge, {"PATH": ""})
-
-            factory_transcript = tmp_path / "factory-session.jsonl"
-            factory_transcript.write_text(
-                "\n".join(
-                    [
-                        json.dumps({"type": "session_start", "id": "factory-no-memsearch", "timestamp": "2026-07-16T05:06:07Z"}),
-                        json.dumps(
-                            {
-                                "type": "message",
-                                "timestamp": "2026-07-16T05:07:08Z",
-                                "message": {"role": "user", "content": "Persist the Factory digest."},
-                            }
-                        ),
-                    ]
-                )
-                + "\n",
+            transcript = tmp_path / ".factory" / "sessions" / "factory-session.jsonl"
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(
+                "\n".join([
+                    json.dumps({"type": "session_start", "id": "factory-no-memsearch", "timestamp": "2026-07-16T05:06:07Z", "cwd": "./factory"}),
+                    json.dumps({"type": "message", "timestamp": "2026-07-16T05:07:08Z", "message": {"role": "user", "content": "Persist the Factory digest."}}),
+                    json.dumps({"type": "message", "message": {"role": "assistant", "content": "hidden", "visibility": "llm_only"}}),
+                ]) + "\n",
                 encoding="utf-8",
             )
-            factory = self.run_hook(
-                FACTORY_DIGEST,
-                {"session_id": "factory-no-memsearch", "transcript_path": str(factory_transcript)},
-                env=env,
+            payload = {"session_id": "factory-no-memsearch", "transcript_path": str(transcript)}
+            result = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps(payload), text=True,
+                capture_output=True,
+                env=self.env_with_knowledge(knowledge, {"PATH": "/usr/bin:/bin", "MEMSEARCH_PLUGIN_DIR": str(tmp_path / "missing")}),
+                check=False,
             )
-            self.assertEqual(factory.returncode, 0, factory.stderr)
-            self.assertTrue(json.loads(factory.stdout)["continue"])
-
-            hermes_home = tmp_path / "hermes"
-            hermes_sessions = hermes_home / "sessions"
-            hermes_sessions.mkdir(parents=True)
-            hermes_data = {
-                "session_id": "hermes-no-memsearch",
-                "session_start": "2026-07-16T06:07:08",
-                "messages": [{"role": "user", "content": "Persist the Hermes digest."}],
-            }
-            (hermes_sessions / "session_hermes-no-memsearch.json").write_text(json.dumps(hermes_data), encoding="utf-8")
-            hermes = self.run_hook(
-                HERMES_DIGEST,
-                {"session_id": "hermes-no-memsearch"},
-                env={**env, "HERMES_HOME": str(hermes_home)},
-            )
-            self.assertEqual(hermes.returncode, 0, hermes.stderr)
-            self.assertEqual(json.loads(hermes.stdout)["action"], "continue")
-
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(json.loads(result.stdout)["continue"])
             content = (knowledge / "sessions" / "2026-07-16.md").read_text(encoding="utf-8")
+            self.assertIn("- source: droid", content)
             self.assertIn("Persist the Factory digest.", content)
-            self.assertIn("Persist the Hermes digest.", content)
+            self.assertNotIn("hidden", content)
+            self.assertIn("source transcript", content)
+
+    def test_droid_factory_jsonl_tolerates_partially_written_trailing_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            transcript = tmp_path / ".factory" / "sessions" / "factory-partial.jsonl"
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(
+                "\n".join([
+                    json.dumps({"type": "session_start", "id": "factory-partial", "timestamp": "2026-07-16T06:07:08Z", "cwd": "./factory"}),
+                    json.dumps({"type": "message", "timestamp": "2026-07-16T06:08:09Z", "message": {"role": "user", "content": "Keep the partial Factory session."}}),
+                    '{"type": "message", "message": {"role": "assist',
+                ]) + "\n",
+                encoding="utf-8",
+            )
+            payload = {"session_id": "factory-partial", "transcript_path": str(transcript)}
+            result = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps(payload), text=True,
+                capture_output=True,
+                env=self.env_with_knowledge(knowledge, {"PATH": "/usr/bin:/bin", "MEMSEARCH_PLUGIN_DIR": str(tmp_path / "missing")}),
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            content = (knowledge / "sessions" / "2026-07-16.md").read_text(encoding="utf-8")
+            self.assertIn("Keep the partial Factory session.", content)
+
+    def test_hermes_missing_session_log_defers_capture_instead_of_recording_a_stub(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            hermes_home = tmp_path / "hermes"
+            (hermes_home / "sessions").mkdir(parents=True)
+            env = self.env_with_knowledge(
+                knowledge,
+                {"HERMES_HOME": str(hermes_home), "PATH": "/usr/bin:/bin", "MEMSEARCH_PLUGIN_DIR": str(tmp_path / "missing")},
+            )
+            payload = {"session_id": "hermes-deferred", "session_start": "2026-07-16T07:08:09Z"}
+
+            first = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps(payload), text=True,
+                capture_output=True, env=env, check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertIn("session log not found", first.stdout)
+            self.assertFalse((knowledge / "sessions" / "2026-07-16.md").exists())
+
+            # The provider file appears later: the real transcript must still capture.
+            (hermes_home / "sessions" / "session_hermes-deferred.json").write_text(
+                json.dumps({
+                    "session_id": "hermes-deferred",
+                    "session_start": "2026-07-16T07:08:09Z",
+                    "messages": [
+                        {"role": "user", "content": "Capture the deferred Hermes session."},
+                        {"role": "assistant", "content": "Captured."},
+                    ],
+                }),
+                encoding="utf-8",
+            )
+            second = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps(payload), text=True,
+                capture_output=True, env=env, check=False,
+            )
+            self.assertEqual(second.returncode, 0, second.stderr)
+            content = (knowledge / "sessions" / "2026-07-16.md").read_text(encoding="utf-8")
+            self.assertIn("Capture the deferred Hermes session.", content)
+            self.assertIn("- source: hermes", content)
 
     def test_session_end_dispatch_cleans_temporary_payload(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -417,181 +449,6 @@ class BasicMemoryHookTests(unittest.TestCase):
             self.assertEqual(start.returncode, 0, start.stderr)
             self.assertFalse(marker.exists(), "basic hooks invoked memsearch")
 
-
-class DreamMemoryReviewTests(unittest.TestCase):
-    def env_with_knowledge(self, knowledge_dir: Path) -> dict[str, str]:
-        env = os.environ.copy()
-        env["KNOWLEDGE_DIR"] = str(knowledge_dir)
-        return env
-
-    def digest(self, session_id: str, captured: str, request: str, *, assistant: str = "Done.") -> str:
-        return "\n".join(
-            [
-                f"<!-- basic-memory-session:{session_id}:start -->",
-                f"## Session {captured} UTC - {session_id}",
-                "",
-                "- source: claude-code",
-                f"- first request: {request}",
-                f"- final assistant output: {assistant}",
-                "",
-                f"<!-- basic-memory-session:{session_id}:end -->",
-                "",
-            ]
-        )
-
-    def run_dream(self, knowledge: Path, output: Path) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            [sys.executable, str(DREAM_SCRIPT), "dream", "--output", str(output)],
-            text=True,
-            capture_output=True,
-            env=self.env_with_knowledge(knowledge),
-            check=False,
-        )
-
-    def test_dream_reports_exact_repeated_preferences_deterministically(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            knowledge = Path(tmp) / "knowledge"
-            sessions = knowledge / "sessions"
-            reviews = knowledge / "reviews"
-            sessions.mkdir(parents=True)
-            (sessions / "2026-07-01.md").write_text(
-                self.digest("one", "2026-07-01 10:00", "I prefer concise reports."),
-                encoding="utf-8",
-            )
-            (sessions / "2026-07-02.md").write_text(
-                self.digest("two", "2026-07-02 10:00", "I prefer concise reports!"),
-                encoding="utf-8",
-            )
-
-            first_path = reviews / "first.json"
-            second_path = reviews / "second.json"
-            first = self.run_dream(knowledge, first_path)
-            second = self.run_dream(knowledge, second_path)
-            self.assertEqual(first.returncode, 0, first.stderr)
-            self.assertEqual(second.returncode, 0, second.stderr)
-            self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
-
-            report = json.loads(first_path.read_text(encoding="utf-8"))
-            self.assertEqual(report["mode"], "review-only")
-            self.assertEqual(report["summary"]["repeated_preferences"], 1)
-            candidate = report["candidates"][0]
-            self.assertEqual(candidate["kind"], "repeated_preference")
-            self.assertEqual([item["session_id"] for item in candidate["evidence"]], ["one", "two"])
-
-    def test_dream_ignores_non_user_incomplete_and_non_exact_evidence(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            knowledge = Path(tmp) / "knowledge"
-            sessions = knowledge / "sessions"
-            sessions.mkdir(parents=True)
-            (sessions / "2026-07-01.md").write_text(
-                "\n".join(
-                    [
-                        self.digest("one", "2026-07-01 10:00", "I prefer concise replies."),
-                        self.digest("two", "2026-07-01 11:00", "I prefer short replies."),
-                        self.digest("three", "2026-07-01 12:00", "I prefer concise replies…"),
-                        "- first request: I prefer concise replies.",
-                        "<!-- basic-memory-session:incomplete:start -->",
-                        "## Session 2026-07-01 13:00 UTC - incomplete",
-                        "- first request: I prefer concise replies.",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-
-            output = knowledge / "reviews" / "review.json"
-            result = self.run_dream(knowledge, output)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            report = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(report["summary"]["repeated_preferences"], 0)
-            self.assertEqual(report["candidates"], [])
-
-    def test_dream_finds_objective_duplicates_and_never_mutates_canonical_files(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            knowledge = Path(tmp) / "knowledge"
-            sessions = knowledge / "sessions"
-            profile = knowledge / "profile"
-            sessions.mkdir(parents=True)
-            profile.mkdir()
-            block = self.digest("duplicate", "2026-07-01 10:00", "Keep this record.")
-            canonical = sessions / "2026-07-01.md"
-            stale = sessions / "2026-07-02.md"
-            canonical.write_text(block, encoding="utf-8")
-            stale.write_text(block, encoding="utf-8")
-            user = profile / "USER.md"
-            user.write_text("- I prefer profile text to remain untouched.\n", encoding="utf-8")
-            before = {path: path.read_bytes() for path in (canonical, stale, user)}
-
-            output = knowledge / "reviews" / "review.json"
-            result = self.run_dream(knowledge, output)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            report = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(report["summary"]["stale_records"], 1)
-            self.assertEqual(report["candidates"][0]["kind"], "stale_duplicate_record")
-            self.assertEqual({path: path.read_bytes() for path in before}, before)
-
-            replay = self.run_dream(knowledge, output)
-            self.assertNotEqual(replay.returncode, 0)
-            self.assertIn("already exists", replay.stderr)
-            outside = self.run_dream(knowledge, Path(tmp) / "outside.json")
-            self.assertNotEqual(outside.returncode, 0)
-            self.assertIn("must be under", outside.stderr)
-
-
-    def test_dream_reports_exact_legacy_sync_duplicates_without_guessing(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            knowledge = Path(tmp) / "knowledge"
-            sessions = knowledge / "sessions"
-            sessions.mkdir(parents=True)
-            (sessions / "knowledge.md").write_text(
-                "\n".join(
-                    [
-                        "# Legacy export",
-                        "",
-                        "## Sync 2026-05-01 10:00 UTC",
-                        "",
-                        "- User prefers pnpm for Node work.",
-                        "- Similar but distinct fact.",
-                        "",
-                        "## Sync 2026-05-02 10:00 UTC",
-                        "",
-                        "- User prefers pnpm for Node work.",
-                        "- Similar but different fact.",
-                        "",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-
-            output = knowledge / "reviews" / "review.json"
-            result = self.run_dream(knowledge, output)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            report = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(report["summary"]["stale_records"], 1)
-            candidate = report["candidates"][0]
-            self.assertEqual(candidate["kind"], "stale_duplicate_record")
-            self.assertEqual(candidate["occurrence_count"], 2)
-            self.assertEqual(len(candidate["evidence"]), 2)
-
-    def test_dream_truncates_legacy_evidence_beyond_twenty_occurrences(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            knowledge = Path(tmp) / "knowledge"
-            sessions = knowledge / "sessions"
-            sessions.mkdir(parents=True)
-            fact = "- User prefers pnpm for Node work."
-            body = []
-            for day in range(1, 22):  # 21 distinct sync sections repeat the same fact
-                body += [f"## Sync 2026-05-{day:02d} 10:00 UTC", "", fact, ""]
-            (sessions / "knowledge.md").write_text("\n".join(body) + "\n", encoding="utf-8")
-
-            output = knowledge / "reviews" / "review.json"
-            result = self.run_dream(knowledge, output)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            report = json.loads(output.read_text(encoding="utf-8"))
-            candidate = report["candidates"][0]
-            self.assertEqual(candidate["kind"], "stale_duplicate_record")
-            self.assertEqual(candidate["occurrence_count"], 21)
-            self.assertEqual(len(candidate["evidence"]), 20)
-            self.assertEqual(candidate["evidence_omitted"], 1)
 
 class ClaudeFallbackAndDispatchTests(unittest.TestCase):
     """R1 fallback, R7 Codex/OMP capture, and R2 bounded reindex."""

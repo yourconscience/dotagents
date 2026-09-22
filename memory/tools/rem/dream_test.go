@@ -91,26 +91,32 @@ func TestDreamApplyCollapsesWithBackupAndGuards(t *testing.T) {
 		out, err := c.CombinedOutput()
 		return string(out), err
 	}
+	mustRun := func(args ...string) string {
+		t.Helper()
+		out, err := run(args...)
+		if err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+		return out
+	}
 	if out, err := run("init"); err != nil {
 		t.Fatalf("git init: %v %s", err, out)
 	}
-	run("config", "user.email", "t@t")
-	run("config", "user.name", "t")
+	mustRun("config", "user.email", "t@t")
+	mustRun("config", "user.name", "t")
 	write(t, filepath.Join(root, "sessions", "other.md"), "- clean\n")
 	kb := "# H\n\n## Sync 2026-05-01 00:00 UTC\n\n- fact A\n\n## Sync 2026-05-02 00:00 UTC\n\n- fact A\n"
 	write(t, filepath.Join(root, "sessions", "knowledge.md"), kb)
-	run("add", "-A")
-	run("commit", "-m", "init")
-	if _, err := run("branch", "-M", "main"); err != nil {
-		t.Fatalf("branch: %v", err)
-	}
+	mustRun("add", "-A")
+	mustRun("commit", "-m", "init")
+	mustRun("branch", "-M", "main")
 
 	// Guard: uncommitted change blocks apply.
 	appendLine(t, filepath.Join(root, "sessions", "other.md"), "- dirty\n")
 	if err := dreamApply(nil); err == nil {
 		t.Error("apply should refuse on dirty tree")
 	}
-	run("reset", "--hard")
+	mustRun("reset", "--hard")
 
 	if err := dreamApply(nil); err != nil {
 		t.Fatalf("apply: %v", err)
@@ -123,7 +129,7 @@ func TestDreamApplyCollapsesWithBackupAndGuards(t *testing.T) {
 	if len(matches) != 1 {
 		t.Errorf("expected one backup, got %v", matches)
 	}
-	out, _ := run("log", "--oneline")
+	out := mustRun("log", "--oneline")
 	if !strings.Contains(out, "rem dream: collapse 1 duplicate") {
 		t.Errorf("commit message missing: %s", out)
 	}
@@ -139,6 +145,11 @@ func appendLine(t *testing.T, path, line string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString(line + "\n")
-	f.Close()
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 }

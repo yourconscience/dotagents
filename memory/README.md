@@ -1,63 +1,72 @@
 # memory
 
-Agent-agnostic session memory and private data sync for dotagents.
+Agent-agnostic session memory and private Hermes-vault synchronization for
+dotagents. Session capture writes bounded, redacted digests; it never promotes
+facts into durable profile or agent instructions automatically.
 
-This directory is the **canonical upstream** of the memory layer: hook
-entrypoints capture compact session digests, `rem` captures explicit facts,
-consolidation is report-first, and `knowledge-sync` keeps the knowledge vault
-git-synced. User repos deployed via `dotagents setup` carry their own copy of
-`memory/lib`, `memory/hooks`, and `memory/tools`; `dotagents sync` builds the
-tools and this repo carries the tested reference implementations.
-
-## The rem workflow
-
-```bash
-rem add -src claude "prefers pnpm for Node work"   # capture a candidate fact anywhere
-rem dream                                          # consolidation report (report-only)
-rem dream --apply                                  # collapse exact-duplicate records
-rem search "quota preferences"                     # semantic search via memsearch
-rem sync                                           # flush the vault via knowledge-sync
-```
-
-Candidates are inert until promoted into durable instructions — consolidation
-is report-first by design. See [tools/rem/README.md](tools/rem/README.md).
-
-## Setup
-
-Choose a tier through the CLI:
+## Setup and shipped tools
 
 ```bash
 dotagents setup --memory basic      # default; Python 3 only
 dotagents setup --memory off        # no managed memory hooks
-dotagents setup --memory memsearch  # indexed search; requires memsearch on PATH
+dotagents setup --memory memsearch  # derived search index; requires memsearch
 ```
+
+A fresh setup scaffolds `memory/hooks`, `memory/lib`, and the Go sources for
+`memory/tools/rem` and `memory/tools/knowledge-sync`. `dotagents sync` builds
+those source packages and installs `rem` and `knowledge-sync` into `$GOBIN` or
+`~/.local/bin`; no prebuilt binaries are shipped. The repository tests both
+packages in its root module, while setup materializes each embedded
+`go.mod.template` as `go.mod` so a user-owned config root builds independently.
 
 | Tier | Behavior | Dependency |
 |---|---|---|
 | `off` | no managed memory hooks | none |
-| `basic` | bounded session digests into the knowledge vault | Python 3 |
-| `memsearch` | adds a derived search index over the vault | `memsearch` |
+| `basic` | session start context plus bounded session-end digests | Python 3 |
+| `memsearch` | the same canonical vault plus a disposable search index | Python 3, `memsearch` |
 
-For the `memsearch` tier, bring any machine to full parity (install, config,
-index, verify) with `tools/memsearch/install-parity.sh`. The per-machine index
-is derived and disposable; only the vault markdown is canonical. Freshness is
-kept by two idempotent triggers (reindex-after-sync in `knowledge-sync`,
-reindex-after-capture in the capture path), not a cron -- see
-[tools/memsearch/README.md](tools/memsearch/README.md) for the parity steps and
-the shared reindex contract.
+## One capture and consolidation pipeline
+
+All locally captured Amp, Droid/Factory, Hermes, Codex, OMP-compatible, and
+Claude fallback payloads are normalized by `lib/basic_memory.py` and written as
+the same digest format under `$KNOWLEDGE_DIR/sessions`. Provider-specific code
+only classifies payloads or loads a provider-owned session file. The shared
+shell helper performs the one bounded, non-overlapping refresh after a new
+digest or a successful Hermes bridge sync.
+
+`rem dream` is the only supported consolidation workflow:
+
+```bash
+rem add -src claude "prefers pnpm for Node work"
+rem dream                  # report-only candidate consolidation
+rem dream --apply          # guarded exact-duplicate cleanup
+rem search "preferences"  # memsearch collection ai
+rem sync                   # guarded knowledge-sync
+```
+
+Captured candidates and digests remain inert until a person reviews and
+promotes them.
+
+## Managed hook boundary
+
+The CLI only manages hooks exposed by the harness registry:
+
+- Claude Code, Codex, and Droid/Factory: verified start/stop/end events as
+  available for the selected tier.
+- Hermes: verified native session events, including the existing Hermes vault
+  bridge wrappers.
+- Amp, OMP, and Pi: no managed hook installation. The dispatcher retains cheap
+  compatibility for legacy Amp/OMP payloads, but users should not treat that as
+  a managed native integration.
+
+`hooks/sync.sh` remains solely for legacy path migration.
 
 ## Layout
 
-- `hooks/` — lifecycle entrypoints (session start/end/stop) registered per harness
-- `lib/` — Python implementation: `basic_memory.py` (digests, dream-pass parsing),
-  `sync.py` (Hermes memory ↔ vault), `safety.py`
-- `tools/` — `rem` and `knowledge-sync` (Go binaries built by `dotagents sync`),
-  and `memsearch/` (parity installer + reindex contract)
-- `tests/` — reference test suite
-
-## Relationship to user repos
-
-`dotagents` (this repo) is upstream: changes land here first, with tests. Your
-`~/.agents` repository (created by `setup`) carries the deployed copy; `sync`
-rebuilds the binaries whenever the sources change. Keep the two in sync by
-porting changes here, then pulling in the user repo.
+- `hooks/` — managed lifecycle wrappers and the shared refresh helper
+- `lib/basic_memory.py` — payload normalization, digest capture, and start context
+- `lib/sync.py` — Hermes memory ↔ vault bridge (no index implementation)
+- `lib/safety.py` — locking, redaction, and safe filesystem helpers
+- `tools/rem/`, `tools/knowledge-sync/` — shipped Go package sources
+- `tools/memsearch/` — optional memsearch parity guidance
+- `tests/` — dependency-free Python behavior tests

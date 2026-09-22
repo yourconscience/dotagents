@@ -173,18 +173,24 @@ tailscale serve --bg --set-path /dotagents http://127.0.0.1:8765
 
 ## Releases
 
+Releases are cut from `main` after the release PR is reviewed and merged, and only with explicit approval:
+
 ```bash
-scripts/release.sh v0.7.0    # verify + tag; CI publishes binaries, brew tap, npm
+scripts/release.sh vX.Y.Z    # verify + tag; CI publishes binaries, brew tap, npm
 ```
+
+The script refuses to run unless the tree is clean, `HEAD` matches `origin/main`, the tag is strict `vMAJOR.MINOR.PATCH`, and every check passes. Pushing the tag starts `.github/workflows/release.yml`, which re-verifies the tag against `main` and a green `ci.yml` run, waits on the protected `release` environment, then publishes binaries, the Homebrew tap, and the npm wrapper.
 
 ## Documentation
 
+- [Overview & comparison](https://yourconscience.github.io/dotagents/) — landing page, sync matrix, positioning
 - [docs/setup.md](docs/setup.md) — first-run walkthrough, review screen, multi-machine setup
 - [docs/skills.md](docs/skills.md) — authoring skills, external pins and audits
 - [docs/roles.md](docs/roles.md) — role format, model tiers, per-harness overrides
 - [docs/memory.md](docs/memory.md) — memory tiers, rem workflow, vault layout
 - [docs/comparison.md](docs/comparison.md) — how dotagents differs from rulesync, ruler, openskills
 - [Troubleshooting](docs/troubleshooting.md)
+- [memory/README.md](memory/README.md) — memory layer layout, hooks, and tools
 
 Project-level generators (rulesync, ruler) win on tool breadth; dotagents is user-level — one private repo, nine targets deep, pinned externals, review-first memory. Full table in [docs/comparison.md](docs/comparison.md).
 
