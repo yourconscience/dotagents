@@ -70,6 +70,13 @@ func runSync(opts runOptions) error {
 		return err
 	}
 
+	streams := setupStreams(opts)
+	starterChanges, err := reconcileStarterFiles(repoRoot, streams, opts.ConfirmRemovals)
+	if err != nil {
+		return err
+	}
+	starterChanges.report(streams.out)
+
 	toolInstalls, err := installMemoryTools(repoRoot)
 	if err != nil {
 		return err

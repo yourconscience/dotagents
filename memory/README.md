@@ -70,3 +70,8 @@ The CLI only manages hooks exposed by the harness registry:
 - `tools/rem/`, `tools/knowledge-sync/` — shipped Go package sources
 - `tools/memsearch/` — optional memsearch parity guidance
 - `tests/` — dependency-free Python behavior tests
+
+`memory/hooks/` and `memory/lib/` are managed in a deployed config root:
+`dotagents sync` refreshes them while they are unmodified, removes files a
+release stopped shipping, and reports (without touching) anything you edited.
+Ownership is recorded in `.dotagents-starter.json` at the config root.

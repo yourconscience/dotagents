@@ -55,6 +55,19 @@ dotagents view --no-open --secure-cookie --addr 127.0.0.1:8765
 tailscale serve --bg --set-path /dotagents http://127.0.0.1:8765
 ```
 
+## Managed starter files
+
+`setup` copies the starter content into the config root once. The memory code layer under `memory/hooks/` and `memory/lib/` stays managed afterwards: on every `sync`, dotagents
+
+- scaffolds files that are missing,
+- refreshes files it wrote that you have not modified, so an upgraded CLI does not leave an old hook layer behind,
+- removes files a release stopped shipping,
+- and reports, without touching, anything you edited yourself.
+
+Ownership is tracked in `.dotagents-starter.json` at the config root (commit it alongside `dotagents.yaml`). Only content dotagents wrote is ever refreshed or removed, so a customized layer is safe.
+
+Everything else in the starter set — `AGENTS.md`, `dotagents.yaml`, `agents/*.md`, `skills/` — is your content: dotagents only creates those when they are missing.
+
 ## Memory tier
 
 Choose during setup or reconfigure later:
