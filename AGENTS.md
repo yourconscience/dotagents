@@ -38,7 +38,7 @@ New starter content requires an explicit product decision and an inventory test 
 
 # Development
 
-- Go version and module layout are declared by `go.mod` and `go.work`.
+- Go version and module layout are declared by `go.mod`. The memory tools under `memory/tools/` are packages of that root module; `setup` scaffolds a standalone `go.mod` beside each copied tool so a user-owned config root can build them without the source checkout.
 - Install the development CLI with `go install ./cmd/dotagents`.
 - Use focused package tests while iterating; run `go test ./...` before submission.
 - Use Python 3's standard library for the dependency-free basic memory tier.

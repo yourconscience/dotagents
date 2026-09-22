@@ -182,7 +182,13 @@ def inline_messages(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return parsed
 
 
-def read_transcript(path: Path) -> tuple[list[dict[str, Any]], datetime | None, str | None]:
+def read_transcript(path: Path, tolerant: bool = False) -> tuple[list[dict[str, Any]], datetime | None, str | None]:
+    """Read a JSONL transcript.
+
+    tolerant skips undecodable lines instead of failing. Factory/Droid writes its
+    transcript while the hook may read it, so a partially written trailing record
+    must not discard the whole session.
+    """
     if not path.exists():
         return [], None, None
     if not path.is_file():
@@ -200,6 +206,8 @@ def read_transcript(path: Path) -> tuple[list[dict[str, Any]], datetime | None, 
                 try:
                     record = json.loads(raw)
                 except json.JSONDecodeError as exc:
+                    if tolerant:
+                        continue
                     raise HookError(f"invalid JSONL transcript at {path}:{line_number}: {exc.msg}") from exc
                 if not isinstance(record, dict):
                     continue
@@ -237,22 +245,28 @@ def provider_source(payload: dict[str, Any]) -> str:
     return "basic"
 
 
-def normalize_provider_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str]:
-    """Load provider-owned session data while keeping digest rendering shared."""
+def normalize_provider_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str, bool]:
+    """Load provider-owned session data while keeping digest rendering shared.
+
+    The third value reports whether capture may proceed. Hermes content lives in
+    a provider-owned session file that can lag the hook, and recording a stub
+    digest for that session id would make the real transcript look like a replay
+    later, so capture is skipped until the file is readable.
+    """
     source = provider_source(payload)
     if source != "hermes":
-        return payload, source
+        return payload, source, True
 
     session_id = payload.get("session_id") or payload.get("sessionId")
     if not session_id:
-        return payload, source
+        return payload, source, True
     raw_id = str(session_id)
     if raw_id != Path(raw_id).name:
         raise HookError("Hermes session_id must not contain path separators")
     hermes_home = Path(os.path.expanduser(os.environ.get("HERMES_HOME", "~/.hermes")))
     session_path = hermes_home / "sessions" / f"session_{raw_id}.json"
     if not session_path.is_file():
-        return payload, source
+        return payload, source, False
     try:
         session_data = json.loads(session_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -263,7 +277,7 @@ def normalize_provider_payload(payload: dict[str, Any]) -> tuple[dict[str, Any],
     normalized.update(session_data)
     normalized.setdefault("session_id", raw_id)
     normalized["source_transcript"] = str(session_path)
-    return normalized, source
+    return normalized, source, True
 
 
 def collect_messages(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], datetime | None, str | None]:
@@ -273,7 +287,8 @@ def collect_messages(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], dat
     transcript = payload.get("transcript_path")
     if isinstance(transcript, str) and transcript.strip():
         transcript_path = Path(os.path.expanduser(transcript)).resolve()
-        transcript_messages, transcript_started, transcript_session_id = read_transcript(transcript_path)
+        tolerant = payload.get("dotagents_memory_source") == "droid"
+        transcript_messages, transcript_started, transcript_session_id = read_transcript(transcript_path, tolerant=tolerant)
         if transcript_messages:
             messages = transcript_messages
     return messages, transcript_started, transcript_session_id
@@ -465,7 +480,14 @@ def context_json(context: str) -> str:
 
 def session_end(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> int:
     try:
-        payload, source = normalize_provider_payload(parse_payload(stdin))
+        payload, source, provider_ready = normalize_provider_payload(parse_payload(stdin))
+        if not provider_ready:
+            session_id = payload.get("session_id") or payload.get("sessionId")
+            print(
+                json.dumps({"action": "continue", "message": f"Hermes session log not found for {session_id}; capture skipped"}),
+                file=stdout,
+            )
+            return 0
         if source != "basic":
             payload["dotagents_memory_source"] = source
         knowledge_dir = knowledge_dir_from_env()

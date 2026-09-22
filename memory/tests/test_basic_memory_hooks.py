@@ -277,6 +277,72 @@ class BasicMemoryHookTests(unittest.TestCase):
             self.assertNotIn("hidden", content)
             self.assertIn("source transcript", content)
 
+    def test_droid_factory_jsonl_tolerates_partially_written_trailing_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            transcript = tmp_path / ".factory" / "sessions" / "factory-partial.jsonl"
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(
+                "\n".join([
+                    json.dumps({"type": "session_start", "id": "factory-partial", "timestamp": "2026-07-16T06:07:08Z", "cwd": "./factory"}),
+                    json.dumps({"type": "message", "timestamp": "2026-07-16T06:08:09Z", "message": {"role": "user", "content": "Keep the partial Factory session."}}),
+                    '{"type": "message", "message": {"role": "assist',
+                ]) + "\n",
+                encoding="utf-8",
+            )
+            payload = {"session_id": "factory-partial", "transcript_path": str(transcript)}
+            result = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps(payload), text=True,
+                capture_output=True,
+                env=self.env_with_knowledge(knowledge, {"PATH": "/usr/bin:/bin", "MEMSEARCH_PLUGIN_DIR": str(tmp_path / "missing")}),
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            content = (knowledge / "sessions" / "2026-07-16.md").read_text(encoding="utf-8")
+            self.assertIn("Keep the partial Factory session.", content)
+
+    def test_hermes_missing_session_log_defers_capture_instead_of_recording_a_stub(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            knowledge = tmp_path / "knowledge"
+            hermes_home = tmp_path / "hermes"
+            (hermes_home / "sessions").mkdir(parents=True)
+            env = self.env_with_knowledge(
+                knowledge,
+                {"HERMES_HOME": str(hermes_home), "PATH": "/usr/bin:/bin", "MEMSEARCH_PLUGIN_DIR": str(tmp_path / "missing")},
+            )
+            payload = {"session_id": "hermes-deferred", "session_start": "2026-07-16T07:08:09Z"}
+
+            first = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps(payload), text=True,
+                capture_output=True, env=env, check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertIn("session log not found", first.stdout)
+            self.assertFalse((knowledge / "sessions" / "2026-07-16.md").exists())
+
+            # The provider file appears later: the real transcript must still capture.
+            (hermes_home / "sessions" / "session_hermes-deferred.json").write_text(
+                json.dumps({
+                    "session_id": "hermes-deferred",
+                    "session_start": "2026-07-16T07:08:09Z",
+                    "messages": [
+                        {"role": "user", "content": "Capture the deferred Hermes session."},
+                        {"role": "assistant", "content": "Captured."},
+                    ],
+                }),
+                encoding="utf-8",
+            )
+            second = subprocess.run(
+                ["/bin/bash", str(SESSION_END_HOOK)], input=json.dumps(payload), text=True,
+                capture_output=True, env=env, check=False,
+            )
+            self.assertEqual(second.returncode, 0, second.stderr)
+            content = (knowledge / "sessions" / "2026-07-16.md").read_text(encoding="utf-8")
+            self.assertIn("Capture the deferred Hermes session.", content)
+            self.assertIn("- source: hermes", content)
+
     def test_session_end_dispatch_cleans_temporary_payload(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
