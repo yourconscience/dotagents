@@ -83,7 +83,7 @@ rem dream --apply                                  # collapse exact-duplicate re
 rem search "quota preferences"                     # semantic search over captured memory
 ```
 
-Candidates are inert until you promote them into durable instructions — consolidation is report-first by design, because automatically rewriting memory is how agents quietly corrupt their own instructions. Design notes in [docs/memory.md](docs/memory.md).
+Candidates are inert until you promote them into durable instructions — consolidation is report-first by design, because automatically rewriting memory is how agents quietly corrupt their own instructions. `sync` keeps the managed memory code layer current and removes files a release no longer ships; anything you edited yourself is reported and left alone. Design notes in [docs/memory.md](docs/memory.md).
 
 ## Roles
 
