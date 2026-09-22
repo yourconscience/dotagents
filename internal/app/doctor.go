@@ -64,6 +64,7 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkAgentsMDSize(repoRoot))
 	results = append(results, checkREADMESkillInventory(repoRoot))
 	results = append(results, checkMemsearchIndex(home))
+	results = append(results, checkHerdrPluginHealth())
 	results = append(results, checkExternalPackageAge(repoRoot, cfg, opts.SkipPackageAge, timeNow()))
 	results = append(results, checkExternalSkillSources(cfg, home))
 	results = append(results, checkMaterializedExternalSkills(repoRoot, cfg, home))
