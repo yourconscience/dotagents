@@ -105,6 +105,22 @@ func isManagedStarterPath(path string) bool {
 	return false
 }
 
+// isSafeStarterManifestPath reports whether a manifest entry is a plain relative
+// path inside the managed layer. Entries that are absolute, contain a `.` or
+// `..` segment, or name user content are rejected, so a hand-edited manifest
+// cannot make dotagents read or remove a file outside the config root.
+func isSafeStarterManifestPath(path string) bool {
+	if path == "" || filepath.IsAbs(path) || strings.ContainsRune(path, '\\') {
+		return false
+	}
+	for _, segment := range strings.Split(path, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return isManagedStarterPath(path)
+}
+
 func hashIn(hashes []string, want string) bool {
 	for _, hash := range hashes {
 		if hash == want {
@@ -129,6 +145,14 @@ func loadStarterManifest(root string) (starterManifest, bool, error) {
 	var manifest starterManifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return starterManifest{}, false, fmt.Errorf("parse %s: %w", starterManifestPath(root), err)
+	}
+	// The manifest is a committed file, so it can be edited or corrupted by
+	// hand: drop anything that is not a plain managed path before it is used
+	// for reads, writes, or removals.
+	for path := range manifest.Files {
+		if !isSafeStarterManifestPath(path) {
+			delete(manifest.Files, path)
+		}
 	}
 	if manifest.Files == nil {
 		manifest.Files = map[string]string{}

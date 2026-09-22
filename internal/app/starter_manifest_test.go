@@ -315,3 +315,51 @@ agents:
 		t.Fatal("manifest claimed a file dotagents never wrote")
 	}
 }
+
+func TestReconcileStarterSetIgnoresUnsafeManifestEntries(t *testing.T) {
+	root := t.TempDir()
+	shipped, legacy := testStarterSet()
+
+	// A hand-edited manifest must not be able to reach outside the config root.
+	outside := filepath.Join(filepath.Dir(root), "outside.txt")
+	if err := os.WriteFile(outside, []byte("victim\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveStarterManifest(root, starterManifest{
+		Version: starterManifestVersion,
+		Files: map[string]string{
+			"../outside.txt":               fileHash([]byte("victim\n")),
+			"memory/lib/../../outside.txt": fileHash([]byte("victim\n")),
+			"/etc/hosts":                   fileHash([]byte("victim\n")),
+			"AGENTS.md":                    fileHash([]byte("victim\n")),
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	changes, err := reconcileStarterSet(root, shipped, legacy, setupIO{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes.Removed) != 0 {
+		t.Fatalf("removed = %#v, want nothing removed from an unsafe manifest", changes.Removed)
+	}
+	if _, err := os.Stat(outside); err != nil {
+		t.Fatalf("file outside the config root was removed: %v", err)
+	}
+
+	manifest, _, err := loadStarterManifest(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path := range manifest.Files {
+		if !isSafeStarterManifestPath(path) {
+			t.Fatalf("unsafe entry survived: %s", path)
+		}
+	}
+	for _, unsafe := range []string{"../outside.txt", "memory/lib/../../outside.txt", "/etc/hosts", "AGENTS.md"} {
+		if _, ok := manifest.Files[unsafe]; ok {
+			t.Fatalf("unsafe entry %q was kept", unsafe)
+		}
+	}
+}
