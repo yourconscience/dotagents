@@ -122,3 +122,16 @@ func TestAssessHerdrPluginHealthReportsMissingHookFile(t *testing.T) {
 		}
 	}
 }
+
+func TestMissingHerdrCommandPathRecognizesWindowsStyleSeparators(t *testing.T) {
+	root := t.TempDir()
+	if got := missingHerdrCommandPath(root, []string{"node", "bin/missing-hook.js"}); got == "" {
+		t.Fatal("forward-slash relative path was not recognized as a path")
+	}
+	if got := missingHerdrCommandPath(root, []string{`C:/plugin/bin/missing-hook.exe`}); got == "" {
+		t.Fatal("windows-style absolute path was not recognized as a path")
+	}
+	if got := missingHerdrCommandPath(root, []string{"node", "-e", "console.log(1)"}); got != "" {
+		t.Fatalf("inline program reported a missing path: %q", got)
+	}
+}

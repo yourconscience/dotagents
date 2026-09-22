@@ -161,10 +161,10 @@ func herdrCommandKey(pluginID string, command []string) string {
 
 func missingHerdrCommandPath(pluginRoot string, command []string) string {
 	for i, token := range command {
-		if i == 0 && !strings.ContainsRune(token, filepath.Separator) {
+		if i == 0 && !hasHerdrPathSeparator(token) {
 			continue
 		}
-		if strings.HasPrefix(token, "-") || strings.ContainsAny(token, " \t\n\r$\"'`") || (!strings.HasPrefix(token, ".") && !strings.ContainsRune(token, filepath.Separator)) {
+		if strings.HasPrefix(token, "-") || strings.ContainsAny(token, " \t\n\r$\"'`") || (!strings.HasPrefix(token, ".") && !hasHerdrPathSeparator(token)) {
 			continue
 		}
 		candidate := token
@@ -176,4 +176,11 @@ func missingHerdrCommandPath(pluginRoot string, command []string) string {
 		}
 	}
 	return ""
+}
+
+// hasHerdrPathSeparator accepts both slash forms. A Windows plugin manifest may
+// still write "bin/hook.exe" even though filepath.Separator is a backslash
+// there, and such a command must not be reported as healthy.
+func hasHerdrPathSeparator(token string) bool {
+	return strings.ContainsAny(token, `/\`)
 }
