@@ -466,7 +466,9 @@ func claudeHooksConfigPath(home string) string {
 }
 
 func inspectClaudeHookMap(raw map[string]interface{}, hook hookConfig) string {
-	return inspectGroupedHookMap(raw, hook, false)
+	// Claude Code ignores grouped hook entries that lack "type": "command",
+	// so require it: a type-less entry is drift that must be rewritten.
+	return inspectGroupedHookMap(raw, hook, true)
 }
 
 func inspectNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) string {
@@ -510,7 +512,9 @@ func inspectGroupedHookMap(raw map[string]interface{}, hook hookConfig, requireT
 }
 
 func upsertClaudeHookMap(raw map[string]interface{}, hook hookConfig) error {
-	return upsertGroupedHookMap(raw, hook, renderHookEntry)
+	// Claude Code requires "type": "command" on grouped hook entries; render
+	// the nested form so patched hooks are honored rather than silently ignored.
+	return upsertGroupedHookMap(raw, hook, renderNestedHookEntry)
 }
 
 func upsertNestedJSONHookMap(raw map[string]interface{}, hook hookConfig) error {

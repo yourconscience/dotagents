@@ -68,6 +68,7 @@ func runDoctor(opts runOptions) error {
 	results = append(results, checkMaterializedExternalSkills(repoRoot, cfg, home))
 	results = append(results, checkExternalSkillLock(repoRoot, cfg, home))
 	results = append(results, checkExternalSkillAudit(cfg, home))
+	results = append(results, checkNativeHookHealth(home, cfg, selected))
 
 	fmt.Println("checks:")
 	labelWidth := 0
@@ -98,6 +99,32 @@ func runDoctor(opts runOptions) error {
 	printContextNotes(cfg, repoRoot, home, selected)
 
 	return doctorExitError(failed, warned)
+}
+
+func checkNativeHookHealth(home string, cfg config, selected []agentConfig) checkResult {
+	entries, unsupported, err := collectNativeHooks(home, cfg, selected)
+	if err != nil {
+		return checkResult{"native hooks", checkStatusFail, err.Error()}
+	}
+	managed := 0
+	var stale []string
+	for _, entry := range entries {
+		if entry.Managed {
+			managed++
+		}
+		if entry.MissingTarget != "" {
+			stale = append(stale, fmt.Sprintf("%s/%s -> %s", entry.Agent, entry.Event, entry.MissingTarget))
+		}
+	}
+	if len(stale) > 0 {
+		sort.Strings(stale)
+		return checkResult{"native hooks", checkStatusWarn, fmt.Sprintf("%d stale registration(s); first: %s; review with: dotagents hook list", len(stale), stale[0])}
+	}
+	detail := fmt.Sprintf("%d registrations, %d managed, %d unmanaged", len(entries), managed, len(entries)-managed)
+	if len(unsupported) > 0 {
+		detail += fmt.Sprintf("; unsupported: %s", strings.Join(unsupported, ", "))
+	}
+	return checkResult{"native hooks", checkStatusPass, detail}
 }
 
 // doctorExitError derives the doctor exit result from check outcomes only. It

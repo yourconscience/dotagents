@@ -84,6 +84,44 @@ func TestClaudeHookPatchPreservesUnrelatedHooks(t *testing.T) {
 	}
 }
 
+func TestClaudeHookPatchRendersTypeCommand(t *testing.T) {
+	// Regression: Claude Code ignores grouped hook entries that lack
+	// "type": "command". A type-less entry (even with a matching timeout) must
+	// read as drift so a resync heals it, and the patch must write the type.
+	raw := map[string]interface{}{
+		"hooks": map[string]interface{}{
+			"Stop": []interface{}{
+				map[string]interface{}{
+					"hooks": []interface{}{
+						map[string]interface{}{"command": "~/.agents/memory/hooks/stop.sh", "timeout": 15},
+					},
+				},
+			},
+		},
+	}
+
+	if state := inspectClaudeHookMap(raw, testHook()); state != stateDrifted {
+		t.Fatalf("type-less entry inspected as %q, want drifted", state)
+	}
+
+	if err := upsertClaudeHookMap(raw, testHook()); err != nil {
+		t.Fatal(err)
+	}
+
+	groups := raw["hooks"].(map[string]interface{})["Stop"].([]interface{})
+	items := groups[0].(map[string]interface{})["hooks"].([]interface{})
+	if len(items) != 1 {
+		t.Fatalf("managed hook duplicated instead of updated in place: %#v", items)
+	}
+	if item := items[0].(map[string]interface{}); item["type"] != "command" {
+		t.Fatalf("patched hook missing type: %#v", item)
+	}
+
+	if state := inspectClaudeHookMap(raw, testHook()); state != stateSynced {
+		t.Fatalf("after patch inspected as %q, want synced", state)
+	}
+}
+
 func TestClaudeHookPatchUpdatesExistingHookInLaterGroup(t *testing.T) {
 	raw := map[string]interface{}{
 		"hooks": map[string]interface{}{

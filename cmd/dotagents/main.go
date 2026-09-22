@@ -195,6 +195,8 @@ func run(args []string) error {
 		return runPublishCommand(args[1:])
 	case "mcp":
 		return runMCP(args[1:])
+	case "hook":
+		return runHookCommand(args[1:])
 	case "cron":
 		opts, err := parseCronFlags(args[1:])
 		if err != nil {
@@ -561,6 +563,7 @@ func printUsage() {
 	fmt.Println("  skill    Inspect, create, update, and promote skills")
 	fmt.Println("  publish  Push canonical skills to a remote skill registry")
 	fmt.Println("  mcp      Manage MCP servers")
+	fmt.Println("  hook     Review and remove native hook registrations")
 	fmt.Println()
 	fmt.Println("Run \"dotagents help --all\" for flags, maintenance commands, and compatibility aliases.")
 }
@@ -584,6 +587,9 @@ func printAllUsage() {
 	fmt.Println("  dotagents skill promote <name-or-path> [--dry-run]")
 	fmt.Println("  dotagents publish [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]")
 	fmt.Println("  dotagents mcp <list|add|import|remove> [options]")
+	fmt.Println("  dotagents hook list [--agents ...] [query]")
+	fmt.Println("  dotagents hook remove [--dry-run] [--agents ...] <query>")
+	fmt.Println()
 	fmt.Println("Maintenance and compatibility aliases:")
 	fmt.Println("  dotagents cron [--interval 30m|--deps|--remove]")
 	fmt.Println("  dotagents deps <check|update> [options]")
