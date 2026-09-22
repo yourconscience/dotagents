@@ -104,6 +104,7 @@ dotagents sessions [--no-open] [--ssh-host user@host] [--port N] [--host ADDR]  
 dotagents skill    new|list|info|update|promote
 dotagents publish  [--target NAME] [--skills a,b] [--dry-run] [--json] [--yes]  # push skills to a remote registry
 dotagents mcp      list|add|import|remove
+dotagents hook     list [query] | remove [--dry-run] <query>
 ```
 
 ## Supported integrations
@@ -116,6 +117,8 @@ dotagents can launch two optional external tools. Neither is installed, vendored
 | [AgentsView](https://github.com/kenn-io/agentsview) | Search and replay sessions; inspect tool telemetry, token usage, and estimated cost | `dotagents sessions` |
 
 `dotagents skill list` remains the built-in provenance view for each harness skill root. It reports managed links, foreign symlinks, unmanaged directories, drift, broken links, and estimated context cost.
+
+`dotagents hook list [query]` inventories native hook registrations and marks canonical entries as managed and missing script targets as stale. To clean up a hook installed outside dotagents, preview with `dotagents hook remove --dry-run <query>`, then rerun without `--dry-run`; unrelated hook entries are preserved. `dotagents doctor` reports stale native hooks, and `dotagents sync` reconciles the remaining canonical hooks afterward.
 
 `dotagents inspect` shells out to HarnessKit (`hk serve`). Treat it as read-mostly: HarnessKit's enable/disable/deploy actions bypass dotagents, so reconcile any changes with `dotagents sync`. Install HarnessKit separately.
 

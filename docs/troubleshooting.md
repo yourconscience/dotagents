@@ -1,6 +1,7 @@
 # Troubleshooting
 
 - **`dotagents doctor`** is the first stop: it validates skill frontmatter, role definitions, lock pins, materialized copies, hook registration, and audits external sources.
+- **A removed tool left stale native hooks:** review them with `dotagents hook list <tool-name>`, preview a surgical cleanup with `dotagents hook remove --dry-run <tool-name>`, remove them by dropping `--dry-run`, then run `dotagents sync` and `dotagents doctor`.
 - **Pi MCP entries do not appear:** install `pi-mcp-adapter` or declare its pinned source under the Pi target's `packages`, keep the canonical server targeted at `pi`, run `dotagents sync`, then restart Pi or run `/reload`. Dotagents writes only its named entries under `~/.pi/agent/mcp.json` and preserves adapter-specific settings.
 - **Pi packages are listed but not installed:** dotagents manages the `packages` declaration in `~/.pi/agent/settings.json`, not the Pi executable or npm runtime. Install Pi first, run `dotagents sync`, then start Pi once so its package manager installs missing declarations.
 - **A sync proposed removals you didn't expect:** setup-driven syncs always preview removals per harness and default to keeping your files; answer `n` and inspect with `dotagents status`.
