@@ -652,6 +652,21 @@ func TestCodexSessionEndHookClampsTimeoutToNativeMaximum(t *testing.T) {
 	if got := items[0].(map[string]interface{})["timeout"]; got != float64(codexSessionEndMaxTimeout) {
 		t.Fatalf("Codex SessionEnd timeout = %#v, want %d", got, codexSessionEndMaxTimeout)
 	}
+	if got, want := items[0].(map[string]interface{})["command"], "DOTAGENTS_MEMORY_SOURCE=codex ~/.agents/memory/hooks/basic-session-end.py"; got != want {
+		t.Fatalf("Codex SessionEnd command = %#v, want %q", got, want)
+	}
+}
+
+func TestCodexMemorySessionStartSetsSourceHint(t *testing.T) {
+	hook := nativeCodexHook(hookConfig{
+		Name:    "memory-session-start",
+		Event:   "SessionStart",
+		Command: "~/.agents/memory/hooks/session-start.sh",
+		Timeout: 15,
+	})
+	if got, want := hook.Command, "DOTAGENTS_MEMORY_SOURCE=codex ~/.agents/memory/hooks/session-start.sh"; got != want {
+		t.Fatalf("Codex SessionStart command = %q, want %q", got, want)
+	}
 }
 
 func TestDroidHookPatchWritesNestedHooks(t *testing.T) {
