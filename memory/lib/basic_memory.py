@@ -410,8 +410,14 @@ def session_end(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> int:
     try:
         payload = parse_payload(stdin)
         knowledge_dir = knowledge_dir_from_env()
-        sessions_dir = ensure_sessions_dir(knowledge_dir)
         messages, transcript_started, transcript_session_id = collect_messages(payload)
+        if not collect_user_turns(messages) and not last_assistant_text(messages):
+            print(
+                continuation_json(systemMessage="basic memory skipped session without supported transcript messages"),
+                file=stdout,
+            )
+            return 0
+        sessions_dir = ensure_sessions_dir(knowledge_dir)
         session_id = stable_identifier(payload, transcript_session_id)
         started = digest_started(payload, messages, transcript_started)
         digest = build_digest(payload, messages, started, session_id)

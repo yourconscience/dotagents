@@ -230,6 +230,9 @@ func patchCodexHook(hook hookConfig, home string) error {
 }
 
 func nativeCodexHook(hook hookConfig) hookConfig {
+	if hook.Name == "memory-session-end" && !strings.Contains(hook.Command, "DOTAGENTS_MEMORY_SOURCE=") {
+		hook.Command = "DOTAGENTS_MEMORY_SOURCE=codex " + hook.Command
+	}
 	// Codex gives SessionEnd hooks at most three seconds, even when a larger
 	// timeout is configured. Render the effective value so status does not
 	// report permanent drift from an impossible desired timeout.

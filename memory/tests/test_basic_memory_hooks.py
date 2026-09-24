@@ -125,6 +125,24 @@ class BasicMemoryHookTests(unittest.TestCase):
             self.assertIn("skipped replayed session session-1", replay_stdout["systemMessage"])
             self.assertEqual(sorted(path.name for path in sessions.glob("*.md")), ["2026-07-14.md"])
 
+    def test_session_end_skips_payload_without_supported_transcript_messages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            knowledge = Path(tmp) / "knowledge"
+            payload = {
+                "hook_event_name": "SessionEnd",
+                "session_id": "empty-session",
+                "session_start": "2026-07-14T10:11:12Z",
+                "cwd": "/Users/example/project",
+            }
+
+            result = self.run_hook(END_HOOK, payload, env=self.env_with_knowledge(knowledge))
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = json.loads(result.stdout)
+            self.assertNotIn("output_file", output)
+            self.assertIn("skipped session without supported transcript messages", output["systemMessage"])
+            self.assertFalse((knowledge / "sessions" / "2026-07-14.md").exists())
+
     def test_session_end_reads_jsonl_transcript_and_uses_dated_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
