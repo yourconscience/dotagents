@@ -147,6 +147,13 @@ def first_timestamp(*items: Any) -> datetime:
 
 
 def message_from_record(record: dict[str, Any]) -> dict[str, Any] | None:
+    if record.get("type") == "response_item":
+        item = record.get("payload")
+        if not isinstance(item, dict) or item.get("type") != "message":
+            return None
+        if item.get("role") not in {"user", "assistant"} or item.get("channel") == "analysis":
+            return None
+        record = {**item, "timestamp": record.get("timestamp")}
     role = record.get("role")
     content = record.get("content")
     timestamp = record.get("timestamp") or record.get("created_at")
@@ -215,6 +222,8 @@ def read_transcript(path: Path, tolerant: bool = False) -> tuple[list[dict[str, 
                     started = parse_timestamp(record.get("timestamp") or record.get("created_at"))
                 if transcript_session_id is None:
                     candidate = record.get("session_id") or record.get("sessionId") or record.get("id")
+                    if record.get("type") == "session_meta" and isinstance(record.get("payload"), dict):
+                        candidate = record["payload"].get("id") or candidate
                     if candidate:
                         transcript_session_id = str(candidate)
                 message = message_from_record(record)
@@ -282,6 +291,11 @@ def normalize_provider_payload(payload: dict[str, Any]) -> tuple[dict[str, Any],
 
 def collect_messages(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], datetime | None, str | None]:
     messages = inline_messages(payload)
+    if not messages and provider_source(payload) == "codex":
+        for key, role in (("prompt", "user"), ("last_assistant_message", "assistant")):
+            text = content_text(payload.get(key)).strip()
+            if text:
+                messages.append({"role": role, "content": text})
     transcript_started = None
     transcript_session_id = None
     transcript = payload.get("transcript_path")

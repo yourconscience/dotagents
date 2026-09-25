@@ -139,6 +139,35 @@ class BasicMemoryHookTests(unittest.TestCase):
             self.assertIn("skipped session without supported transcript messages", output["systemMessage"])
             self.assertFalse((knowledge / "sessions" / "2026-07-14.md").exists())
 
+    def test_native_codex_rollout_and_hook_fields_capture_real_messages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transcript = root / "rollout.jsonl"
+            records = [
+                {"type": "session_meta", "timestamp": "2026-09-25T10:00:00Z", "payload": {"id": "native-codex"}},
+                {"type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "User request from rollout"}]}},
+                {"type": "response_item", "payload": {"type": "message", "role": "assistant", "channel": "final", "content": [{"type": "output_text", "text": "Final answer from rollout"}]}},
+                {"type": "response_item", "payload": {"type": "message", "role": "assistant", "channel": "analysis", "content": [{"type": "output_text", "text": "Private reasoning excluded"}]}},
+            ]
+            transcript.write_text("\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8")
+            for mode in ("rollout", "inline"):
+                knowledge = root / mode
+                payload = {"agent": "codex", "session_start": "2026-09-25T10:00:00Z", "prompt": "Inline request", "last_assistant_message": "Inline answer"}
+                if mode == "rollout":
+                    payload["transcript_path"] = str(transcript)
+                result = self.run_hook(END_HOOK, payload, env=self.env_with_knowledge(knowledge))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                content = (knowledge / "sessions" / "2026-09-25.md").read_text(encoding="utf-8")
+                if mode == "rollout":
+                    self.assertIn("User request from rollout", content)
+                    self.assertIn("Final answer from rollout", content)
+                    self.assertIn("basic-memory-session:native-codex:start", content)
+                    self.assertNotIn("Inline request", content)
+                    self.assertNotIn("Private reasoning excluded", content)
+                else:
+                    self.assertIn("Inline request", content)
+                    self.assertIn("Inline answer", content)
+
     def test_session_end_reads_jsonl_transcript_and_uses_dated_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
